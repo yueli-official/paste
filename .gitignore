@@ -1,0 +1,15 @@
+.doctor/
+.data/
+.env
+*.exe
+*.out
+coverage/
+node_modules/
+.nuxt/
+.output/
+dist/
+playwright-report/
+test-results/
+web/.env
+manifest/config/config.yaml
+

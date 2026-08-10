@@ -1,0 +1,6 @@
+github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
+github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
+github.com/yueli-official/foundation/go v0.2.1 h1:TAGL6xHmutOu03Tm+KUC0VQ1BoXUnrsVtl6HLUHetz4=
+github.com/yueli-official/foundation/go v0.2.1/go.mod h1:1kRJ7ZOLhgKIuT5vC7sdygJzkbQqeoqtPh4ofU/xCNk=
+golang.org/x/crypto v0.53.0 h1:QZ4Muo8THX6CizN2vPPd5fBGHyogrdK9fG4wLPFUsto=
+golang.org/x/crypto v0.53.0/go.mod h1:DNLU434OwVakk9PzuwV8w62mAJpRJL3vsgcfp4Qnsio=

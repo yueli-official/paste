@@ -1,0 +1,273 @@
+package paste
+
+import (
+	"context"
+	"errors"
+	"path"
+	"sort"
+	"strings"
+	"time"
+	"unicode/utf8"
+
+	"github.com/yueli-official/foundation/go/identifier"
+	"golang.org/x/crypto/bcrypt"
+)
+
+type Options struct {
+	Now func() time.Time
+}
+
+type Service struct {
+	store Store
+	now   func() time.Time
+}
+
+func New(store Store, options Options) (*Service, error) {
+	if store == nil {
+		return nil, errors.New("paste: Store is required")
+	}
+	now := options.Now
+	if now == nil {
+		now = time.Now
+	}
+	return &Service{store: store, now: now}, nil
+}
+
+func (service *Service) Create(ctx context.Context, input CreateInput) (Paste, error) {
+	now := service.now().UTC()
+	normalized, err := normalizeCreate(input, now)
+	if err != nil {
+		return Paste{}, err
+	}
+
+	id, err := identifier.New()
+	if err != nil {
+		return Paste{}, err
+	}
+	var passwordHash []byte
+	if normalized.Password != "" {
+		passwordHash, err = bcrypt.GenerateFromPassword([]byte(normalized.Password), bcrypt.DefaultCost)
+		if err != nil {
+			return Paste{}, err
+		}
+	}
+
+	base := Paste{
+		ID:            id.String(),
+		OwnerUserKey:  normalized.OwnerUserKey,
+		Title:         normalized.Title,
+		Description:   normalized.Description,
+		Tags:          normalized.Tags,
+		Files:         normalized.Files,
+		Visibility:    normalized.Visibility,
+		PasswordHash:  passwordHash,
+		PasswordGuard: len(passwordHash) > 0,
+		State:         StateActive,
+		Revision:      1,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+		ExpiresAt:     normalized.ExpiresAt,
+	}
+
+	var created Paste
+	code, err := identifier.Allocate(ctx, identifier.CompactURLV1, func(ctx context.Context, candidate identifier.Key) (identifier.ClaimResult, error) {
+		value := clonePaste(base)
+		value.Code = candidate.String()
+		stored, insertErr := service.store.Insert(ctx, value)
+		if errors.Is(insertErr, ErrCodeCollision) {
+			return identifier.Collision, nil
+		}
+		if insertErr != nil {
+			return 0, insertErr
+		}
+		created = stored
+		return identifier.Claimed, nil
+	})
+	if err != nil {
+		return Paste{}, err
+	}
+	created.Code = code.String()
+	return publicPaste(created), nil
+}
+
+func (service *Service) Open(ctx context.Context, code string, access Access) (Paste, error) {
+	parsed, err := identifier.CompactURLV1.Parse(code)
+	if err != nil {
+		return Paste{}, ErrNotFound
+	}
+	value, err := service.store.GetByCode(ctx, parsed.String())
+	if err != nil {
+		return Paste{}, err
+	}
+	if value.State == StateDeleted {
+		return Paste{}, ErrDeleted
+	}
+	if value.ExpiresAt != nil && !service.now().UTC().Before(*value.ExpiresAt) {
+		return Paste{}, ErrExpired
+	}
+	if value.Visibility == VisibilityPrivate && (access.UserKey == "" || access.UserKey != value.OwnerUserKey) {
+		return Paste{}, ErrForbidden
+	}
+	if len(value.PasswordHash) > 0 {
+		if access.Password == "" {
+			return Paste{}, ErrPasswordNeeded
+		}
+		if bcrypt.CompareHashAndPassword(value.PasswordHash, []byte(access.Password)) != nil {
+			return Paste{}, ErrPasswordInvalid
+		}
+	}
+	return publicPaste(value), nil
+}
+
+func (service *Service) ListMine(ctx context.Context, userKey string) ([]Paste, error) {
+	userKey = strings.TrimSpace(userKey)
+	if userKey == "" {
+		return nil, ErrForbidden
+	}
+	values, err := service.store.ListByOwner(ctx, userKey)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]Paste, 0, len(values))
+	for _, value := range values {
+		result = append(result, publicPaste(value))
+	}
+	sort.Slice(result, func(left, right int) bool { return result[left].CreatedAt.After(result[right].CreatedAt) })
+	return result, nil
+}
+
+func normalizeCreate(input CreateInput, now time.Time) (CreateInput, error) {
+	input.OwnerUserKey = strings.TrimSpace(input.OwnerUserKey)
+	input.Title = strings.TrimSpace(input.Title)
+	if input.Title == "" {
+		input.Title = "未命名 Paste"
+	}
+	if utf8.RuneCountInString(input.Title) > MaxTitleRunes {
+		return CreateInput{}, ValidationError{Field: "title", Message: "is too long"}
+	}
+	input.Description = strings.TrimSpace(input.Description)
+	if utf8.RuneCountInString(input.Description) > MaxDescription {
+		return CreateInput{}, ValidationError{Field: "description", Message: "is too long"}
+	}
+	if input.Visibility == "" {
+		input.Visibility = VisibilityUnlisted
+	}
+	if input.Visibility != VisibilityUnlisted && input.Visibility != VisibilityPrivate {
+		return CreateInput{}, ValidationError{Field: "visibility", Message: "is invalid"}
+	}
+	if input.Visibility == VisibilityPrivate && input.OwnerUserKey == "" {
+		return CreateInput{}, ValidationError{Field: "visibility", Message: "private Paste requires an authenticated owner"}
+	}
+	if input.Password != "" && (utf8.RuneCountInString(input.Password) < 8 || utf8.RuneCountInString(input.Password) > 128) {
+		return CreateInput{}, ValidationError{Field: "password", Message: "must contain 8 to 128 characters"}
+	}
+	if input.ExpiresAt != nil {
+		value := input.ExpiresAt.UTC()
+		if !value.After(now) {
+			return CreateInput{}, ValidationError{Field: "expiresAt", Message: "must be in the future"}
+		}
+		input.ExpiresAt = &value
+	}
+
+	tags, err := normalizeTags(input.Tags)
+	if err != nil {
+		return CreateInput{}, err
+	}
+	files, err := normalizeFiles(input.Files)
+	if err != nil {
+		return CreateInput{}, err
+	}
+	input.Tags = tags
+	input.Files = files
+	return input, nil
+}
+
+func normalizeTags(values []string) ([]string, error) {
+	if len(values) > MaxTags {
+		return nil, ValidationError{Field: "tags", Message: "contains too many values"}
+	}
+	result := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, raw := range values {
+		value := strings.TrimSpace(raw)
+		if value == "" {
+			continue
+		}
+		if utf8.RuneCountInString(value) > MaxTagRunes {
+			return nil, ValidationError{Field: "tags", Message: "contains a value that is too long"}
+		}
+		key := strings.ToLower(value)
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		result = append(result, value)
+	}
+	return result, nil
+}
+
+func normalizeFiles(values []File) ([]File, error) {
+	if len(values) == 0 || len(values) > MaxFiles {
+		return nil, ValidationError{Field: "files", Message: "must contain 1 to 20 files"}
+	}
+	result := make([]File, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	total := 0
+	meaningful := false
+	for index, raw := range values {
+		filePath := strings.ReplaceAll(strings.TrimSpace(raw.Path), "\\", "/")
+		filePath = path.Clean(filePath)
+		if filePath == "." || filePath == ".." || strings.HasPrefix(filePath, "../") || strings.HasPrefix(filePath, "/") {
+			return nil, ValidationError{Field: "files.path", Message: "must be a relative display path"}
+		}
+		if utf8.RuneCountInString(filePath) > MaxPathRunes {
+			return nil, ValidationError{Field: "files.path", Message: "is too long"}
+		}
+		key := strings.ToLower(filePath)
+		if _, exists := seen[key]; exists {
+			return nil, ValidationError{Field: "files.path", Message: "must be unique"}
+		}
+		seen[key] = struct{}{}
+		if len(raw.Content) > MaxFileBytes {
+			return nil, ValidationError{Field: "files.content", Message: "exceeds the per-file limit"}
+		}
+		total += len(raw.Content)
+		if total > MaxContentBytes {
+			return nil, ValidationError{Field: "files.content", Message: "exceeds the Paste limit"}
+		}
+		if strings.TrimSpace(raw.Content) != "" {
+			meaningful = true
+		}
+		language := strings.ToLower(strings.TrimSpace(raw.Language))
+		if language == "" {
+			language = "text"
+		}
+		result = append(result, File{Path: filePath, Language: language, Content: raw.Content, Order: index})
+	}
+	if !meaningful {
+		return nil, ValidationError{Field: "files.content", Message: "must contain text"}
+	}
+	return result, nil
+}
+
+func publicPaste(value Paste) Paste {
+	value = clonePaste(value)
+	value.PasswordGuard = len(value.PasswordHash) > 0
+	value.PasswordHash = nil
+	return value
+}
+
+func clonePaste(value Paste) Paste {
+	value.Tags = append([]string(nil), value.Tags...)
+	value.Files = append([]File(nil), value.Files...)
+	value.PasswordHash = append([]byte(nil), value.PasswordHash...)
+	if value.ExpiresAt != nil {
+		expires := *value.ExpiresAt
+		value.ExpiresAt = &expires
+	}
+	if value.DeletedAt != nil {
+		deleted := *value.DeletedAt
+		value.DeletedAt = &deleted
+	}
+	return value
+}
