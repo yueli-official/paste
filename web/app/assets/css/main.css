@@ -1,0 +1,245 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+@import "@yueli/ui/tailwind.css";
+@import "@yueli/ui/theme.css";
+
+:root {
+  color-scheme: light;
+  --paste-page: #f8f7f3;
+  --paste-surface: #fffefb;
+  --paste-surface-muted: #f1f0eb;
+  --paste-editor: #fcfcf9;
+  --paste-editor-active: #f2f4f6;
+  --paste-ink: #181b21;
+  --paste-ink-soft: #555d68;
+  --paste-ink-dim: #626a74;
+  --paste-line: #dddcd6;
+  --paste-line-strong: #c8c7c0;
+  --paste-blue: #1d5fae;
+  --paste-blue-hover: #174d8d;
+  --paste-blue-soft: #e9f1fb;
+  --paste-selection: #cadef3;
+  --paste-red: #b33a31;
+  --paste-red-soft: #fbecea;
+  --paste-green: #26704f;
+  --paste-green-soft: #e8f4ee;
+  --paste-shadow: 0 14px 34px -25px rgb(32 39 47 / 0.42), 0 3px 10px -8px rgb(32 39 47 / 0.22);
+}
+
+.dark {
+  color-scheme: dark;
+  --paste-page: oklch(16.2% 0.022 257);
+  --paste-surface: oklch(22.8% 0.025 257);
+  --paste-surface-muted: oklch(19.4% 0.024 257);
+  --paste-editor: oklch(18.7% 0.022 257);
+  --paste-editor-active: oklch(23.2% 0.027 257);
+  --paste-ink: oklch(95.8% 0.008 257);
+  --paste-ink-soft: oklch(76.5% 0.022 257);
+  --paste-ink-dim: oklch(60.5% 0.02 257);
+  --paste-line: oklch(31.5% 0.027 257);
+  --paste-line-strong: oklch(42% 0.032 257);
+  --paste-blue: oklch(66% 0.14 243);
+  --paste-blue-hover: oklch(73% 0.12 243);
+  --paste-blue-soft: oklch(27% 0.065 243);
+  --paste-selection: oklch(36% 0.09 243);
+  --paste-red: oklch(72% 0.16 28);
+  --paste-red-soft: oklch(25% 0.055 28);
+  --paste-green: oklch(75% 0.11 155);
+  --paste-green-soft: oklch(25% 0.045 155);
+  --paste-shadow: 0 18px 42px -24px rgb(0 0 0 / 0.7), 0 5px 14px -10px rgb(0 0 0 / 0.56);
+  --ui-bg: var(--paste-surface);
+  --ui-bg-muted: var(--paste-surface-muted);
+  --ui-bg-elevated: oklch(26.6% 0.027 257);
+  --ui-bg-accented: oklch(30.6% 0.029 257);
+  --ui-border-muted: var(--paste-line);
+  --ui-border: var(--paste-line-strong);
+  --yueli-surface-page: var(--paste-page);
+  --yueli-surface-region: var(--paste-surface-muted);
+  --yueli-surface-card: var(--paste-surface);
+}
+
+html {
+  min-width: 320px;
+  background: var(--paste-page);
+}
+
+body {
+  min-width: 320px;
+  margin: 0;
+  background: var(--paste-page);
+  color: var(--paste-ink);
+  font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--paste-selection);
+  color: var(--paste-ink);
+}
+
+:where(a, button):focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--paste-blue) 28%, transparent);
+  outline-offset: 2px;
+}
+
+.paste-container {
+  width: min(1480px, calc(100% - 40px));
+  margin-inline: auto;
+}
+
+.paste-public-header {
+  position: relative;
+  z-index: 30;
+  border-bottom: 1px solid color-mix(in srgb, var(--paste-line) 76%, transparent);
+  background: color-mix(in srgb, var(--paste-page) 94%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.paste-public-nav {
+  display: flex;
+  min-height: 64px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.paste-wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--paste-ink);
+  font-size: 18px;
+  font-weight: 730;
+  letter-spacing: -0.025em;
+  text-decoration: none;
+}
+
+.paste-wordmark-mark {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--paste-blue) 28%, var(--paste-line));
+  border-radius: 8px;
+  background: var(--paste-blue-soft);
+  color: var(--paste-blue);
+}
+
+.paste-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.paste-field-label {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--paste-ink);
+  font-size: 12px;
+  font-weight: 680;
+}
+
+.paste-input,
+.paste-select,
+.paste-textarea {
+  width: 100%;
+  border: 1px solid var(--paste-line-strong);
+  border-radius: 9px;
+  background: var(--paste-surface);
+  color: var(--paste-ink);
+  font: inherit;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+}
+
+.paste-input,
+.paste-select {
+  min-height: 42px;
+  padding: 0 11px;
+}
+
+.paste-textarea {
+  min-height: 76px;
+  padding: 10px 11px;
+  resize: vertical;
+}
+
+.paste-input::placeholder,
+.paste-textarea::placeholder {
+  color: var(--paste-ink-dim);
+}
+
+.paste-input:hover,
+.paste-select:hover,
+.paste-textarea:hover {
+  border-color: var(--paste-ink-soft);
+}
+
+.paste-input:focus,
+.paste-select:focus,
+.paste-textarea:focus {
+  border-color: var(--paste-blue);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--paste-blue) 13%, transparent);
+  outline: none;
+}
+
+.paste-help {
+  margin: 6px 0 0;
+  color: var(--paste-ink-soft);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.paste-error {
+  color: var(--paste-red);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.paste-button-primary {
+  border-color: transparent !important;
+  background: var(--paste-blue) !important;
+  color: white !important;
+}
+
+.paste-button-primary:hover:not(:disabled) {
+  background: var(--paste-blue-hover) !important;
+}
+
+.paste-code-editor {
+  min-height: 0;
+  height: 100%;
+}
+
+.paste-code-editor .cm-editor {
+  height: 100%;
+}
+
+.paste-code-editor .cm-tooltip {
+  border: 1px solid var(--paste-line-strong);
+  background: var(--paste-surface);
+  color: var(--paste-ink);
+}
+
+@media (max-width: 720px) {
+  .paste-container {
+    width: min(100% - 24px, 1480px);
+  }
+
+  .paste-public-nav {
+    min-height: 60px;
+  }
+
+  .paste-public-nav :where(a, button) {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

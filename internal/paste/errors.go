@@ -11,6 +11,7 @@ var (
 	ErrPasswordInvalid = errors.New("paste: password invalid")
 	ErrExpired         = errors.New("paste: expired")
 	ErrDeleted         = errors.New("paste: deleted")
+	ErrConflict        = errors.New("paste: revision conflict")
 )
 
 type ValidationError struct {

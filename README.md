@@ -6,7 +6,7 @@ contracts and Identity for optional authenticated ownership.
 The repository is being rebuilt from the useful product behavior in the legacy CodeShare implementation. Rust, SQLite, local
 password handling and the old visual treatment are not compatibility contracts.
 
-## Planned repository shape
+## Repository shape
 
 ```text
 api/                 Public request and response types
@@ -18,10 +18,47 @@ web/                 Nuxt product app and Playwright acceptance
 flightdeck/          Resumable repository work
 ```
 
-Development commands will be documented when the first runnable slice lands. Local lifecycle is owned by the adjacent Workspace
-CLI rather than ad-hoc background processes.
+Local lifecycle is owned by the adjacent Workspace CLI rather than ad-hoc background processes.
+
+## Development
+
+Use the adjacent Workspace repository for the complete local composition. It provisions PostgreSQL, starts the shared Identity
+provider, applies the Paste schema and launches the API and Web app on loopback:
+
+```powershell
+cd ..\workspace
+.\environments\paste-local\run.ps1 -Mode Shared
+```
+
+The default local entry points are `http://localhost:3010` for Web and `http://127.0.0.1:8091` for the API. Generated runtime
+state belongs to Workspace `.doctor/`; do not launch a second unmanaged copy of either service.
+
+Repository checks can be run independently when the required toolchains are installed:
+
+```powershell
+go test ./...
+go vet ./...
+
+cd web
+pnpm install --frozen-lockfile
+pnpm test
+pnpm typecheck
+pnpm build
+pnpm test:e2e
+```
+
+The Playwright suite expects the real Workspace composition and covers public creation/viewing on desktop and mobile, protected
+access, copy behavior and Identity-backed owner management.
+
+## HTTP surface
+
+- `POST /api/v1/pastes` creates an anonymous or authenticated Paste.
+- `GET /api/v1/pastes/{code}` opens an unprotected Paste.
+- `POST /api/v1/pastes/{code}/access` submits a password without placing it in the URL.
+- `/api/v1/me/pastes` and `/api/v1/me/pastes/{code}` provide authenticated list, read, update and delete operations.
+
+See [PRODUCT.md](PRODUCT.md) for product scope and [DESIGN.md](DESIGN.md) for the interface contract.
 
 ## License
 
 Apache-2.0.
-

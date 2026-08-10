@@ -7,27 +7,27 @@ CodeShare 实现而不继承其技术债和无证据内容。
 
 ## Status
 
-Open
+Finished
 
 ## Current
 
-公开 GitHub 仓库 `yueli-official/paste` 已创建并克隆。产品事实已确认：匿名可创建但不可管理；登录用户拥有历史与
-管理能力；首版支持一个 Paste 内多文件。PRODUCT 已记录真实能力、非目标和无证据限制。
+多文件 Paste 已完整交付：GoFrame API、PostgreSQL schema/store、Foundation Problem/trace/rate-limit/readiness、
+Identity JWT 所有权，以及匿名创建、密码访问、登录用户列表/编辑/删除的生命周期均已落地。Nuxt 端提供 editor-first
+工作台、公开/受保护阅读页和个人管理页，并复用 Foundation UI 与 Identity Account Control。
 
-首个 Go 领域切片已落地：`internal/paste` 用 Foundation `CompactURLV1` 与 UUIDv7 建立公开定位符和内部标识，固定
-1–20 文件、路径/标签去重、1 MiB 总内容上限、unlisted/private、bcrypt 密码、过期和 owner-only private 访问。
-内存 Store 隐藏可变状态并支持 owner 列表；六组测试覆盖匿名多文件、private owner、密码不泄漏、过期、非法文件
-与 owner 过滤，`go test ./...` 和 `git diff --check` 通过。
+Workspace `paste-local` 组合已通过共享 Identity provision，API `127.0.0.1:8091` 与 Web `localhost:3010` ready。Go
+测试与 vet、Web unit/typecheck/build 已通过；CLI Playwright 已真实覆盖桌面/移动匿名创建、密码错误/正确访问、无密码
+URL、OIDC 登录后的创建、列表、编辑和删除，公开页面 axe 扫描无违规。
 
 ## Next
 
-提交并推送初始仓库基线；用该 revision 接入 Workspace Repository Lock。随后补齐更新/删除生命周期和 PostgreSQL
-adapter。
+None.
 
 ## Progress
 
 - 2026-08-11：创建公开仓库，确认匿名/登录与多文件范围，写入 PRODUCT、AGENTS 和 Flightdeck；完成首个带测试的
   Go 领域 module 与内存 Store。
+- 2026-08-11：完成 PostgreSQL、HTTP/Identity、Nuxt workbench、Workspace 组合与真实 Playwright 验收。
 
 ## References
 

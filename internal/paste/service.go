@@ -136,6 +136,139 @@ func (service *Service) ListMine(ctx context.Context, userKey string) ([]Paste, 
 	return result, nil
 }
 
+// GetMine returns an owned Paste for management without requiring its public
+// access password. Ownership is the authorization boundary for this view.
+func (service *Service) GetMine(ctx context.Context, code, userKey string) (Paste, error) {
+	value, err := service.owned(ctx, code, userKey)
+	if err != nil {
+		return Paste{}, err
+	}
+	return publicPaste(value), nil
+}
+
+func (service *Service) Update(ctx context.Context, code string, input UpdateInput) (Paste, error) {
+	value, err := service.owned(ctx, code, input.OwnerUserKey)
+	if err != nil {
+		return Paste{}, err
+	}
+	if input.ExpectedRevision < 1 || input.ExpectedRevision != value.Revision {
+		return Paste{}, ErrConflict
+	}
+
+	now := service.now().UTC()
+	if input.Title != nil {
+		title := strings.TrimSpace(*input.Title)
+		if title == "" {
+			title = "未命名 Paste"
+		}
+		if utf8.RuneCountInString(title) > MaxTitleRunes {
+			return Paste{}, ValidationError{Field: "title", Message: "is too long"}
+		}
+		value.Title = title
+	}
+	if input.Description != nil {
+		description := strings.TrimSpace(*input.Description)
+		if utf8.RuneCountInString(description) > MaxDescription {
+			return Paste{}, ValidationError{Field: "description", Message: "is too long"}
+		}
+		value.Description = description
+	}
+	if input.Tags != nil {
+		value.Tags, err = normalizeTags(*input.Tags)
+		if err != nil {
+			return Paste{}, err
+		}
+	}
+	if input.Files != nil {
+		value.Files, err = normalizeFiles(*input.Files)
+		if err != nil {
+			return Paste{}, err
+		}
+	}
+	if input.Visibility != nil {
+		if *input.Visibility != VisibilityUnlisted && *input.Visibility != VisibilityPrivate {
+			return Paste{}, ValidationError{Field: "visibility", Message: "is invalid"}
+		}
+		value.Visibility = *input.Visibility
+	}
+	if input.Password != nil {
+		password := *input.Password
+		if password != "" && (utf8.RuneCountInString(password) < 8 || utf8.RuneCountInString(password) > 128) {
+			return Paste{}, ValidationError{Field: "password", Message: "must contain 8 to 128 characters"}
+		}
+		if password == "" {
+			value.PasswordHash = nil
+		} else {
+			value.PasswordHash, err = bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+			if err != nil {
+				return Paste{}, err
+			}
+		}
+	}
+	if input.ClearExpiry {
+		value.ExpiresAt = nil
+	} else if input.ExpiresAt != nil {
+		expires := input.ExpiresAt.UTC()
+		if !expires.After(now) {
+			return Paste{}, ValidationError{Field: "expiresAt", Message: "must be in the future"}
+		}
+		value.ExpiresAt = &expires
+	}
+
+	value.Revision++
+	value.UpdatedAt = now
+	value.PasswordGuard = len(value.PasswordHash) > 0
+	updated, err := service.store.Update(ctx, value, input.ExpectedRevision)
+	if err != nil {
+		return Paste{}, err
+	}
+	return publicPaste(updated), nil
+}
+
+func (service *Service) Delete(ctx context.Context, code, ownerUserKey string, expectedRevision int64) error {
+	value, err := service.owned(ctx, code, ownerUserKey)
+	if err != nil {
+		return err
+	}
+	if expectedRevision < 1 || expectedRevision != value.Revision {
+		return ErrConflict
+	}
+	now := service.now().UTC()
+	value.State = StateDeleted
+	value.DeletedAt = &now
+	value.UpdatedAt = now
+	value.Revision++
+	value.Files = nil
+	value.Description = ""
+	value.Tags = []string{}
+	value.PasswordHash = nil
+	value.PasswordGuard = false
+	_, err = service.store.Update(ctx, value, expectedRevision)
+	return err
+}
+
+func (service *Service) owned(ctx context.Context, code, ownerUserKey string) (Paste, error) {
+	ownerUserKey = strings.TrimSpace(ownerUserKey)
+	if ownerUserKey == "" {
+		return Paste{}, ErrForbidden
+	}
+	parsed, err := identifier.CompactURLV1.Parse(code)
+	if err != nil {
+		return Paste{}, ErrNotFound
+	}
+	value, err := service.store.GetByCode(ctx, parsed.String())
+	if err != nil {
+		return Paste{}, err
+	}
+	if value.State == StateDeleted {
+		return Paste{}, ErrDeleted
+	}
+	if value.OwnerUserKey == "" || value.OwnerUserKey != ownerUserKey {
+		return Paste{}, ErrForbidden
+	}
+	return value, nil
+}
+
 func normalizeCreate(input CreateInput, now time.Time) (CreateInput, error) {
 	input.OwnerUserKey = strings.TrimSpace(input.OwnerUserKey)
 	input.Title = strings.TrimSpace(input.Title)
@@ -258,7 +391,7 @@ func publicPaste(value Paste) Paste {
 }
 
 func clonePaste(value Paste) Paste {
-	value.Tags = append([]string(nil), value.Tags...)
+	value.Tags = append([]string{}, value.Tags...)
 	value.Files = append([]File(nil), value.Files...)
 	value.PasswordHash = append([]byte(nil), value.PasswordHash...)
 	if value.ExpiresAt != nil {

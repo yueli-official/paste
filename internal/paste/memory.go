@@ -56,3 +56,20 @@ func (store *MemoryStore) ListByOwner(ctx context.Context, userKey string) ([]Pa
 	sort.Slice(result, func(left, right int) bool { return result[left].CreatedAt.Before(result[right].CreatedAt) })
 	return result, nil
 }
+
+func (store *MemoryStore) Update(ctx context.Context, value Paste, expectedRevision int64) (Paste, error) {
+	if err := ctx.Err(); err != nil {
+		return Paste{}, err
+	}
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	current, exists := store.values[value.Code]
+	if !exists {
+		return Paste{}, ErrNotFound
+	}
+	if current.Revision != expectedRevision {
+		return Paste{}, ErrConflict
+	}
+	store.values[value.Code] = clonePaste(value)
+	return clonePaste(value), nil
+}

@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS paste_files;
+DROP TABLE IF EXISTS pastes;
+

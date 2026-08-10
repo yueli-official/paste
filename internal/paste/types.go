@@ -70,3 +70,16 @@ type Access struct {
 	UserKey  string
 	Password string
 }
+
+type UpdateInput struct {
+	OwnerUserKey     string
+	ExpectedRevision int64
+	Title            *string
+	Description      *string
+	Tags             *[]string
+	Files            *[]File
+	Visibility       *Visibility
+	Password         *string
+	ExpiresAt        *time.Time
+	ClearExpiry      bool
+}
