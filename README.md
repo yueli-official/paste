@@ -27,7 +27,7 @@ provider, applies the Paste schema and launches the API and Web app on loopback:
 
 ```powershell
 cd ..\workspace
-.\environments\paste-local\run.ps1 -Mode Shared
+.\environments\paste-local\run.ps1
 ```
 
 The default local entry points are `http://localhost:3010` for Web and `http://127.0.0.1:8091` for the API. Generated runtime
