@@ -4,7 +4,7 @@ import "time"
 
 const (
 	MaxFiles        = 20
-	MaxFileBytes    = 256 << 10
+	MaxFileBytes    = 1 << 20
 	MaxContentBytes = 1 << 20
 	MaxTitleRunes   = 120
 	MaxDescription  = 2000

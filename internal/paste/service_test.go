@@ -141,12 +141,17 @@ func TestCreateRejectsDuplicateOrEmptyFiles(t *testing.T) {
 
 func TestListMineRequiresAndFiltersOwner(t *testing.T) {
 	service, _ := newTestService(t)
+	var owned []Paste
 	for _, owner := range []string{"usr_A", "usr_B", "usr_A"} {
-		if _, err := service.Create(context.Background(), CreateInput{
+		created, err := service.Create(context.Background(), CreateInput{
 			OwnerUserKey: owner,
 			Files:        []File{{Path: "main.go", Content: "package main"}},
-		}); err != nil {
+		})
+		if err != nil {
 			t.Fatal(err)
+		}
+		if owner == "usr_A" {
+			owned = append(owned, created)
 		}
 	}
 	if _, err := service.ListMine(context.Background(), ""); !errors.Is(err, ErrForbidden) {
@@ -158,6 +163,16 @@ func TestListMineRequiresAndFiltersOwner(t *testing.T) {
 	}
 	if len(values) != 2 {
 		t.Fatalf("expected two Pastes, got %d", len(values))
+	}
+	if err := service.Delete(context.Background(), owned[0].Code, "usr_A", owned[0].Revision); err != nil {
+		t.Fatal(err)
+	}
+	values, err = service.ListMine(context.Background(), "usr_A")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(values) != 1 || values[0].Code == owned[0].Code {
+		t.Fatalf("deleted Paste must not reappear in management: %#v", values)
 	}
 }
 

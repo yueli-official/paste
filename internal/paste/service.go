@@ -130,6 +130,9 @@ func (service *Service) ListMine(ctx context.Context, userKey string) ([]Paste, 
 	}
 	result := make([]Paste, 0, len(values))
 	for _, value := range values {
+		if value.State == StateDeleted {
+			continue
+		}
 		result = append(result, publicPaste(value))
 	}
 	sort.Slice(result, func(left, right int) bool { return result[left].CreatedAt.After(result[right].CreatedAt) })

@@ -1,15 +1,15 @@
 # Paste interface contract
 
-Paste is an editor-first workbench, not a marketing page or a miniature file manager. The primary surface keeps the ordered file
-set, active code and publication settings visible as one continuous task. Recipients get the same file vocabulary in a quieter,
-read-only surface; authenticated users get a compact management ledger rather than a second product shell.
+Paste is an editor-first workbench, not a marketing page or a miniature file manager. The creation and editing route (`/`) begins
+directly with a full-height editor shell: ordered file tabs, active code, transient share controls and document status. It does not
+place a hero, explanatory copy or a separate public website Header ahead of the task. Recipients get the same file vocabulary in a
+quieter, read-only surface; authenticated users get the same application shell around a compact management ledger.
 
 ## Visual language
 
-- Warm paper page backgrounds and near-white working surfaces connect Paste to the Yueli product family without making code feel
-  decorative.
-- Mineral blue is the single primary accent for selection, focus and commit actions. Red and green are reserved for destructive
-  and successful states.
+- Cool porcelain canvases, mist-blue chrome and ink-navy dark surfaces give the editor a focused technical atmosphere without
+  falling into generic charcoal. Mineral blue owns selection, focus, commit actions and the editor status bar; red and green stay
+  reserved for destructive and successful states.
 - Borders establish structure. Shadows are limited to genuinely elevated overlays, while the workbench itself remains flat.
 - Interface text uses the system Chinese sans-serif stack. Monospace typography is reserved for source code and file-oriented
   metadata.
@@ -20,12 +20,35 @@ reinterpreting the layout with unrelated colors or effects.
 
 ## Layout and interaction
 
-- Desktop creation uses three connected regions: file rail, code editor and publication rail. This keeps switching, editing and
-  publishing within one scan path.
-- Narrow viewports convert the file rail to a horizontal chooser, retain a substantial editor viewport and stack publication
-  controls below it.
+- Creation and editing on `/` use one edge-to-edge editor shell. A single editor chrome merges the product entry, horizontal file
+  tabs, share, My Paste, theme and account controls into one 40px desktop row; it is the route's only title and
+  navigation layer. The code surface consumes the remaining viewport above a 28px status bar, which owns the language selector.
+- Sharing opens from the editor chrome in a transient Nuxt UI slideover and never permanently consumes editing width.
+- File tabs support direct switching, drag reordering, `Alt + ←/→` keyboard reordering, double-click rename and direct deletion
+  from the tab close control. Inline rename uses the tab's flat editor-native field rather than a rounded form control, and adding
+  a file does not force rename mode. On
+  narrow viewports the editor chrome becomes 44px and the status bar 30px; the product entry collapses to an icon, My Paste moves
+  into the account context, and the horizontally scrolling file tabs remain the primary file carrier.
+- The authenticated `/mine` route uses the same edge-to-edge application shell: one editor-like titlebar, one flat search toolbar,
+  an internally scrolling file ledger and a readable status bar. It does not render the shared public Header or card-page hero.
+- The shared `/p/:code` route is the read-only expression of that same editor shell. Its desktop frame is one 40px file bar, a
+  full-height code surface and a 28px status bar; narrow viewports use the matching 44px file bar and 30px status bar. The file bar
+  carries file selection plus the primary read, copy and inspect actions, without adding a page title, card wrapper or second
+  navigation row.
+- Shared-Paste metadata and secondary copy actions live in a transient information rail opened from the file bar. The rail may
+  explain title, description, tags, visibility, expiry and file details, but it must not reserve permanent width beside the code
+  or make reading contingent on opening it.
+- `/mine` supports explicit row selection and selection of the current filtered result set. Once anything is selected, the search
+  toolbar becomes a contextual command bar for batch visibility/expiry changes, destructive deletion and clearing selection.
+  Batch changes patch only the chosen fields, run with bounded concurrency and keep failed items selected after partial failure;
+  they must never overwrite file content, passwords or unrelated metadata.
+- Other public routes retain the shared public Header. Do not reintroduce that Header—or any second titlebar—above the application
+  shell on `/`, `/mine` or `/p/:code`.
 - A Paste contains 1–20 ordered text files. Multiple files should feel like one shareable artifact, not a directory browser.
 - Passwords are submitted in the protected access form and never appear in a query string or copied share URL.
+- A single file may use the full 1 MiB Paste budget; all files together remain limited to 1 MiB. The status bar shows the active
+  file against that real boundary, client validation names an offending file before submission, and API validation preserves
+  field violations.
 - Anonymous creators receive a usable link immediately. Identity login adds history and management but must not obstruct public
   creation or reading.
 - Every control retains a visible focus state, text status and a practical touch target. Reduced-motion preferences suppress
@@ -34,5 +57,6 @@ reinterpreting the layout with unrelated colors or effects.
 ## Reuse boundaries
 
 Foundation supplies shared runtime, Identity integration and common UI primitives. Paste owns its workbench composition, code
-editor and product-specific states. New pages should reuse the established tokens and shell before introducing another card,
-navigation pattern or visual motif.
+editor and product-specific states. Standard form controls—including inputs, textareas, tags and dropdowns—use Nuxt UI; custom
+controls are reserved for editor-native interactions such as the file explorer and code surface. New pages should reuse the
+established tokens and shell before introducing another card, navigation pattern or visual motif.

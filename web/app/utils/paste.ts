@@ -53,6 +53,7 @@ export function displayTitle(title: string, path?: string): string {
 }
 
 export function pasteProblemCode(caught: unknown): string {
+  const failure = getApiFailure(caught);
   if (caught && typeof caught === "object") {
     const value = caught as {
       data?: { detail?: string; message?: string; code?: string; failure?: { code?: string } };
@@ -61,17 +62,21 @@ export function pasteProblemCode(caught: unknown): string {
       statusCode?: number;
     };
     const candidates = [
+      failure?.code,
       value.data?.code,
       value.data?.failure?.code,
       value.failure?.code,
       value.message,
     ];
-    return candidates.find((candidate) => candidate?.startsWith("paste.")) || "";
+    return candidates.find((candidate) =>
+      typeof candidate === "string" && /^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)+$/.test(candidate),
+    ) || "";
   }
   return "";
 }
 
 export function pasteErrorMessage(caught: unknown): string {
+  const failure = getApiFailure(caught);
   if (caught && typeof caught === "object") {
     const value = caught as {
       data?: { detail?: string; message?: string; code?: string };
@@ -84,6 +89,19 @@ export function pasteErrorMessage(caught: unknown): string {
     if (code === "paste.gone") return "此 Paste 已过期或已被删除。";
     if (code === "paste.not_authenticated") return "请先登录，再继续管理你的 Paste。";
     if (code === "paste.conflict") return "内容已在别处更新，请刷新后重试。";
+    if (code === "validation.failed") {
+      const violation = failure?.kind === "remote" ? failure.violations[0] : undefined;
+      if (violation?.pointer === "/files/content" && violation.code === "validation.max_bytes") {
+        return "单个文件不能超过 1 MiB，请拆分文件或删减内容后重试。";
+      }
+      if (violation?.pointer === "/files/content") {
+        return "全部文件合计不能超过 1 MiB，请删减内容后重试。";
+      }
+      if (violation?.pointer === "/files/path") return "文件名不符合要求，请检查长度、重复项和相对路径。";
+      if (violation?.pointer === "/password") return "访问密码需要包含 8–128 个字符。";
+      if (violation?.pointer === "/tags") return "标签最多 8 个，每个标签不超过 32 个字符。";
+      return "填写的分享信息不符合要求，请检查后重试。";
+    }
     if (value.data?.detail) return value.data.detail;
     if (value.data?.message) return value.data.message;
     if (value.message && !value.message.startsWith("[") && !value.message.startsWith("paste.")) return value.message;
@@ -102,3 +120,4 @@ export function expiryISO(value: string): string | undefined {
   };
   return new Date(now + (durations[value] || durations["7d"]!)).toISOString();
 }
+import { getApiFailure } from "@yueli/http-runtime";

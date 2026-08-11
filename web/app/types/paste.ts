@@ -50,3 +50,9 @@ export interface PasteWriteInput {
   expiresAt?: string;
   clearExpiry?: boolean;
 }
+
+export interface PastePatchInput {
+  visibility?: PasteVisibility;
+  expiresAt?: string;
+  clearExpiry?: boolean;
+}

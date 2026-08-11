@@ -5,43 +5,57 @@
 
 :root {
   color-scheme: light;
-  --paste-page: #f8f7f3;
-  --paste-surface: #fffefb;
-  --paste-surface-muted: #f1f0eb;
-  --paste-editor: #fcfcf9;
-  --paste-editor-active: #f2f4f6;
-  --paste-ink: #181b21;
-  --paste-ink-soft: #555d68;
-  --paste-ink-dim: #626a74;
-  --paste-line: #dddcd6;
-  --paste-line-strong: #c8c7c0;
-  --paste-blue: #1d5fae;
-  --paste-blue-hover: #174d8d;
-  --paste-blue-soft: #e9f1fb;
-  --paste-selection: #cadef3;
+  --paste-page: #eef3f8;
+  --paste-surface: #ffffff;
+  --paste-surface-muted: #f2f6fa;
+  --paste-editor: #fbfdff;
+  --paste-editor-active: #edf5ff;
+  --paste-chrome: #eaf0f6;
+  --paste-ink: #172033;
+  --paste-ink-soft: #46566c;
+  --paste-ink-dim: #5d6c80;
+  --paste-line: #d3dce7;
+  --paste-line-strong: #b8c5d4;
+  --paste-blue: #0b69bd;
+  --paste-blue-hover: #07589e;
+  --paste-blue-soft: #e4f1ff;
+  --paste-selection: #c4e1ff;
+  --paste-status: #155f95;
+  --paste-status-border: #0d4f80;
+  --paste-status-text: #ffffff;
+  --paste-status-text-muted: #dcefff;
+  --paste-status-hover: #0f527f;
+  --paste-status-error: #ffd4cf;
   --paste-red: #b33a31;
   --paste-red-soft: #fbecea;
-  --paste-green: #26704f;
-  --paste-green-soft: #e8f4ee;
+  --paste-green: #1c8a61;
+  --paste-green-soft: #e1f5ec;
   --paste-shadow: 0 14px 34px -25px rgb(32 39 47 / 0.42), 0 3px 10px -8px rgb(32 39 47 / 0.22);
 }
 
 .dark {
   color-scheme: dark;
-  --paste-page: oklch(16.2% 0.022 257);
-  --paste-surface: oklch(22.8% 0.025 257);
-  --paste-surface-muted: oklch(19.4% 0.024 257);
-  --paste-editor: oklch(18.7% 0.022 257);
-  --paste-editor-active: oklch(23.2% 0.027 257);
+  --paste-page: oklch(14.5% 0.027 255);
+  --paste-surface: oklch(20.5% 0.031 255);
+  --paste-surface-muted: oklch(17.8% 0.03 255);
+  --paste-editor: oklch(16.8% 0.028 255);
+  --paste-editor-active: oklch(23.5% 0.045 252);
+  --paste-chrome: oklch(18.5% 0.036 255);
   --paste-ink: oklch(95.8% 0.008 257);
-  --paste-ink-soft: oklch(76.5% 0.022 257);
-  --paste-ink-dim: oklch(60.5% 0.02 257);
-  --paste-line: oklch(31.5% 0.027 257);
-  --paste-line-strong: oklch(42% 0.032 257);
-  --paste-blue: oklch(66% 0.14 243);
-  --paste-blue-hover: oklch(73% 0.12 243);
-  --paste-blue-soft: oklch(27% 0.065 243);
-  --paste-selection: oklch(36% 0.09 243);
+  --paste-ink-soft: oklch(79% 0.025 255);
+  --paste-ink-dim: oklch(68% 0.025 255);
+  --paste-line: oklch(29.5% 0.038 255);
+  --paste-line-strong: oklch(40% 0.045 255);
+  --paste-blue: oklch(70% 0.15 242);
+  --paste-blue-hover: oklch(77% 0.12 242);
+  --paste-blue-soft: oklch(27% 0.075 245);
+  --paste-selection: oklch(38% 0.105 244);
+  --paste-status: oklch(40% 0.105 243);
+  --paste-status-border: oklch(32% 0.082 243);
+  --paste-status-text: oklch(98% 0.01 243);
+  --paste-status-text-muted: oklch(88% 0.035 243);
+  --paste-status-hover: oklch(35% 0.09 243);
+  --paste-status-error: oklch(88% 0.075 25);
   --paste-red: oklch(72% 0.16 28);
   --paste-red-soft: oklch(25% 0.055 28);
   --paste-green: oklch(75% 0.11 155);
@@ -72,6 +86,14 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+.paste-page-frame {
+  min-height: 100dvh;
+}
+
+.paste-page-frame > main {
+  min-width: 0;
+}
+
 ::selection {
   background: var(--paste-selection);
   color: var(--paste-ink);
@@ -91,24 +113,25 @@ body {
   position: relative;
   z-index: 30;
   border-bottom: 1px solid color-mix(in srgb, var(--paste-line) 76%, transparent);
-  background: color-mix(in srgb, var(--paste-page) 94%, transparent);
-  backdrop-filter: blur(12px);
+  background: var(--paste-surface);
 }
 
 .paste-public-nav {
   display: flex;
-  min-height: 64px;
+  width: 100%;
+  min-height: 48px;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
+  gap: 16px;
+  padding-inline: 12px;
 }
 
 .paste-wordmark {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 7px;
   color: var(--paste-ink);
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 730;
   letter-spacing: -0.025em;
   text-decoration: none;
@@ -116,11 +139,11 @@ body {
 
 .paste-wordmark-mark {
   display: grid;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   place-items: center;
   border: 1px solid color-mix(in srgb, var(--paste-blue) 28%, var(--paste-line));
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--paste-blue-soft);
   color: var(--paste-blue);
 }
@@ -128,7 +151,7 @@ body {
 .paste-nav-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
 }
 
 .paste-field-label {
@@ -206,12 +229,21 @@ body {
 }
 
 .paste-code-editor {
+  min-width: 0;
+  max-width: 100%;
   min-height: 0;
   height: 100%;
 }
 
 .paste-code-editor .cm-editor {
+  min-width: 0;
+  max-width: 100%;
   height: 100%;
+}
+
+.paste-code-editor .cm-scroller {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .paste-code-editor .cm-tooltip {
@@ -225,9 +257,7 @@ body {
     width: min(100% - 24px, 1480px);
   }
 
-  .paste-public-nav {
-    min-height: 60px;
-  }
+  .paste-public-nav { min-height: 48px; padding-inline: 8px; }
 
   .paste-public-nav :where(a, button) {
     min-width: 44px;

@@ -2,6 +2,7 @@ import type { JsonValue } from "@yueli/http-runtime";
 import { useApi as useFoundationApi } from "@yueli/nuxt-runtime/runtime";
 import type {
   Paste,
+  PastePatchInput,
   PasteSummary,
   PasteWriteInput,
 } from "../types/paste";
@@ -66,6 +67,17 @@ export function usePasteApi() {
       return { paste: normalizePaste(response.paste) };
     },
     async update(code: string, expectedRevision: number, input: PasteWriteInput) {
+      const response = await api.request<{ paste: Paste }>(
+        `/api/v1/me/pastes/${encodeURIComponent(code)}`,
+        {
+          method: "PATCH",
+          body: jsonBody({ expectedRevision, ...input }),
+          auth: "required",
+        },
+      );
+      return { paste: normalizePaste(response.paste) };
+    },
+    async patch(code: string, expectedRevision: number, input: PastePatchInput) {
       const response = await api.request<{ paste: Paste }>(
         `/api/v1/me/pastes/${encodeURIComponent(code)}`,
         {

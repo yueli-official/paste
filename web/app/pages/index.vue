@@ -1,12 +1,13 @@
 <!--
-THESIS: Paste is an editor-first workbench where the document stays central and publishing controls stay at the edge.
-OWN-WORLD: no — it inherits the established Yueli warm-paper, mineral-blue, flat-surface visual language.
-STORY: assemble ordered files, shape access boundaries, publish once, then share a stable locator.
-FIRST VIEWPORT: the complete three-part workbench is visible without marketing copy displacing the editor.
-FORM: one continuous bordered work surface with a file rail, code floor, and publication rail.
+THESIS: The editor owns the whole viewport; Paste refuses a separate website header above the work.
+OWN-WORLD: Yueli mineral blue inside restrained, flat, VS Code-derived application chrome.
+STORY: open a file, write code, set its boundary, and share without leaving the editor context.
+FIRST VIEWPORT: one 40px title-and-tab bar, the code floor, and a 28px readable status bar; sharing stays transient.
+FORM: a single integrated editor shell with product, files, commands, navigation, and identity on one line.
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
 -->
 <script setup lang="ts">
+import type { AccountMenuAction } from "@yueli/ui/account-menu/pattern";
 import type { PasteFile, PasteVisibility } from "../types/paste";
 import {
   displayTitle,
@@ -23,6 +24,16 @@ const api = usePasteApi();
 const transfer = usePasteTransfer();
 const { loggedIn, login } = useAuth();
 let nextFileID = 1;
+const maxFileBytes = 1024 * 1024;
+const maxContentBytes = 1024 * 1024;
+
+const accountActions: readonly AccountMenuAction[] = [
+  {
+    label: "我的 Paste",
+    icon: "i-tabler-folders",
+    to: "/mine",
+  },
+];
 
 const files = ref<LocalFile[]>([
   { id: nextFileID++, path: "main.go", language: "go", content: "" },
@@ -30,10 +41,16 @@ const files = ref<LocalFile[]>([
 const activeFileID = ref(files.value[0]!.id);
 const title = ref("");
 const description = ref("");
-const tags = ref("");
+const tags = ref<string[]>([]);
 const visibility = ref<PasteVisibility>("unlisted");
 const password = ref("");
 const expiry = ref("7d");
+const shareOpen = ref(false);
+const renamingFileID = ref<number>();
+const renameDraft = ref("");
+const draggedFileID = ref<number>();
+const dragOverFileID = ref<number>();
+const dragOverPosition = ref<"before" | "after">();
 const saving = ref(false);
 const loadingEdit = ref(false);
 const error = ref("");
@@ -47,6 +64,40 @@ const activeFile = computed(() =>
 const totalBytes = computed(() =>
   files.value.reduce((total, file) => total + new Blob([file.content]).size, 0),
 );
+const activeFileBytes = computed(() => new Blob([activeFile.value.content]).size);
+const languageOptions: { label: string; value: string }[] = languageItems.map(
+  ({ label, value }) => ({ label, value }),
+);
+const visibilityItems = computed(() => [
+  {
+    label: "知道链接即可访问",
+    value: "unlisted" as const,
+    icon: "i-tabler-link",
+  },
+  {
+    label: "仅自己可访问",
+    value: "private" as const,
+    icon: "i-tabler-lock",
+    disabled: !loggedIn.value,
+  },
+]);
+const expiryItems = computed(() => [
+  ...(editCode.value && expiry.value === "keep"
+    ? [{ label: "保持原到期时间", value: "keep" }]
+    : []),
+  { label: "1 小时", value: "1h" },
+  { label: "1 天", value: "1d" },
+  { label: "7 天", value: "7d" },
+  { label: "30 天", value: "30d" },
+  { label: "不过期", value: "never" },
+]);
+const visibilityLabel = computed(() =>
+  visibility.value === "private" ? "仅自己" : "链接访问",
+);
+
+function openShare() {
+  shareOpen.value = true;
+}
 
 useSeoMeta({
   title: editCode.value ? "编辑 Paste" : "新建 Paste",
@@ -75,6 +126,7 @@ function removeFile(file: LocalFile) {
   if (activeFileID.value === file.id) {
     activeFileID.value = files.value[Math.max(0, index - 1)]!.id;
   }
+  if (renamingFileID.value === file.id) cancelRename();
 }
 
 function moveFile(file: LocalFile, direction: -1 | 1) {
@@ -85,17 +137,95 @@ function moveFile(file: LocalFile, direction: -1 | 1) {
   files.value.splice(target, 0, moved!);
 }
 
+function clearFileDrag() {
+  draggedFileID.value = undefined;
+  dragOverFileID.value = undefined;
+  dragOverPosition.value = undefined;
+}
+
+function startFileDrag(file: LocalFile, event: DragEvent) {
+  if (renamingFileID.value === file.id) {
+    event.preventDefault();
+    return;
+  }
+  draggedFileID.value = file.id;
+  event.dataTransfer?.setData("text/plain", String(file.id));
+  if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+}
+
+function updateFileDrop(file: LocalFile, event: DragEvent) {
+  if (!draggedFileID.value || draggedFileID.value === file.id) {
+    dragOverFileID.value = undefined;
+    dragOverPosition.value = undefined;
+    return;
+  }
+  const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect();
+  dragOverFileID.value = file.id;
+  dragOverPosition.value = event.clientX < bounds.left + bounds.width / 2 ? "before" : "after";
+  if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+}
+
+function dropFile(targetFile: LocalFile, event: DragEvent) {
+  const sourceID = draggedFileID.value || Number(event.dataTransfer?.getData("text/plain"));
+  const sourceIndex = files.value.findIndex((file) => file.id === sourceID);
+  let targetIndex = files.value.findIndex((file) => file.id === targetFile.id);
+  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) {
+    clearFileDrag();
+    return;
+  }
+  const [moved] = files.value.splice(sourceIndex, 1);
+  if (sourceIndex < targetIndex) targetIndex -= 1;
+  const insertIndex = targetIndex + (dragOverPosition.value === "after" ? 1 : 0);
+  files.value.splice(insertIndex, 0, moved!);
+  activeFileID.value = moved!.id;
+  clearFileDrag();
+}
+
 function inferLanguage(file: LocalFile) {
   file.language = languageFromPath(file.path);
 }
 
+function beginRename(file: LocalFile) {
+  activeFileID.value = file.id;
+  renameDraft.value = file.path;
+  renamingFileID.value = file.id;
+}
+
+function commitRename(file: LocalFile) {
+  const nextPath = renameDraft.value.trim();
+  if (nextPath) {
+    file.path = nextPath;
+    inferLanguage(file);
+  }
+  cancelRename();
+}
+
+function cancelRename() {
+  renamingFileID.value = undefined;
+  renameDraft.value = "";
+}
+
+async function loginForManagement() {
+  await login("/");
+}
+
 function validate(): string {
   if (files.value.some((file) => !file.path.trim())) return "每个文件都需要一个文件名。";
-  if (new Set(files.value.map((file) => file.path.trim())).size !== files.value.length) {
+  if (files.value.some((file) => {
+    const path = file.path.trim().replaceAll("\\", "/");
+    return path.startsWith("/") || path.split("/").includes("..");
+  })) return "文件名需要使用 Paste 内的相对路径，不能包含上级目录。";
+  if (new Set(files.value.map((file) => file.path.trim().toLowerCase())).size !== files.value.length) {
     return "文件名不能重复。";
   }
   if (files.value.every((file) => !file.content)) return "请先粘贴要分享的内容。";
-  if (totalBytes.value > 1024 * 1024) return "全部文件合计不能超过 1 MiB。";
+  const oversized = files.value.find((file) => new Blob([file.content]).size > maxFileBytes);
+  if (oversized) return `“${oversized.path}”超过文件限制；单个文件不能超过 1 MiB。`;
+  if (totalBytes.value > maxContentBytes) return "全部文件合计不能超过 1 MiB。";
+  if (tags.value.some((tag) => [...tag.trim()].length > 32)) return "每个标签不能超过 32 个字符。";
+  if (password.value && ([...password.value].length < 8 || [...password.value].length > 128)) {
+    return "访问密码需要包含 8–128 个字符。";
+  }
   if (visibility.value === "private" && !loggedIn.value) return "私有 Paste 需要先登录。";
   return "";
 }
@@ -111,9 +241,6 @@ async function submit(event: SubmitEvent) {
   const form = event.currentTarget as HTMLFormElement;
   title.value = fieldValue(form, "title");
   description.value = fieldValue(form, "description");
-  tags.value = fieldValue(form, "tags");
-  visibility.value = fieldValue(form, "visibility") as PasteVisibility;
-  expiry.value = fieldValue(form, "expiry");
   password.value = fieldValue(form, "password");
   error.value = validate();
   if (error.value) return;
@@ -121,7 +248,7 @@ async function submit(event: SubmitEvent) {
   const input = {
     title: title.value.trim(),
     description: description.value.trim(),
-    tags: tags.value.split(",").map((tag) => tag.trim()).filter(Boolean),
+    tags: tags.value.map((tag) => tag.trim()).filter(Boolean),
     files: files.value.map(({ path, language, content }) => ({
       path: path.trim(), language, content,
     })),
@@ -155,7 +282,7 @@ async function loadEdit() {
     const value = response.paste;
     title.value = value.title;
     description.value = value.description || "";
-    tags.value = value.tags.join(", ");
+    tags.value = [...value.tags];
     visibility.value = value.visibility;
     password.value = "";
     expiry.value = value.expiresAt ? "keep" : "never";
@@ -173,21 +300,75 @@ onMounted(loadEdit);
 </script>
 
 <template>
-  <section class="paste-compose paste-container" aria-labelledby="compose-title">
-    <div class="paste-compose-intro">
-      <div>
-        <h1 id="compose-title">{{ editCode ? "继续编辑" : "把代码放好，再分享。" }}</h1>
-        <p>{{ editCode ? `正在编辑 ${editCode}` : "匿名可直接创建；登录后可回看、修改和删除。" }}</p>
-      </div>
-      <span class="paste-capacity" aria-live="polite">
-        {{ files.length }}/20 个文件 · {{ Math.ceil(totalBytes / 1024) }} KiB / 1024 KiB
-      </span>
-    </div>
+  <section class="paste-compose" aria-labelledby="compose-title">
+    <form
+      id="paste-compose-form"
+      class="paste-workbench"
+      :aria-busy="saving || loadingEdit"
+      @submit.prevent="submit"
+    >
+      <header class="paste-editor-chrome" aria-label="Paste 编辑器工具栏">
+        <NuxtLink to="/" class="paste-editor-brand" aria-label="Paste 首页">
+          <span class="paste-editor-brand-mark" aria-hidden="true">
+            <UIcon name="i-tabler-code-dots" class="size-4" />
+          </span>
+          <span class="paste-editor-brand-label">Paste</span>
+        </NuxtLink>
 
-    <form class="paste-workbench" :aria-busy="saving || loadingEdit" @submit.prevent="submit">
-      <aside class="paste-file-rail" aria-label="Paste 文件">
-        <div class="paste-rail-heading">
-          <span>文件</span>
+        <nav class="paste-file-tabs" aria-label="Paste 文件">
+          <div
+            v-for="(file, index) in files"
+            :key="file.id"
+            class="paste-file-tab"
+            :data-active="activeFileID === file.id"
+            :data-dragging="draggedFileID === file.id"
+            :data-drop-position="dragOverFileID === file.id ? dragOverPosition : undefined"
+            :draggable="renamingFileID !== file.id"
+            @dragstart="startFileDrag(file, $event)"
+            @dragover.prevent="updateFileDrop(file, $event)"
+            @drop.prevent="dropFile(file, $event)"
+            @dragend="clearFileDrag"
+          >
+            <input
+              v-if="renamingFileID === file.id"
+              v-model="renameDraft"
+              autofocus
+              type="text"
+              maxlength="180"
+              spellcheck="false"
+              aria-label="重命名文件"
+              class="paste-rename-input"
+              @blur="commitRename(file)"
+              @keyup.enter="commitRename(file)"
+              @keyup.esc="cancelRename"
+            />
+            <button
+              v-else
+              type="button"
+              class="paste-file-tab-button"
+              :aria-pressed="activeFileID === file.id"
+              :aria-label="`${file.path || `文件 ${index + 1}`}，双击重命名，Alt 加方向键移动`"
+              @click="activeFileID = file.id"
+              @dblclick.prevent="beginRename(file)"
+              @keydown.alt.left.prevent="moveFile(file, -1)"
+              @keydown.alt.right.prevent="moveFile(file, 1)"
+            >
+              <UIcon name="i-tabler-file-code" class="size-4 shrink-0" />
+              <span class="truncate">{{ file.path || `文件 ${index + 1}` }}</span>
+            </button>
+            <UButton
+              v-if="files.length > 1 && renamingFileID !== file.id"
+              type="button"
+              icon="i-tabler-x"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              square
+              :aria-label="`删除 ${file.path}`"
+              class="paste-tab-close"
+              @click.stop="removeFile(file)"
+            />
+          </div>
           <UTooltip text="添加文件">
             <UButton
               type="button"
@@ -195,59 +376,60 @@ onMounted(loadEdit);
               color="neutral"
               variant="ghost"
               size="sm"
+              square
               aria-label="添加文件"
+              class="paste-add-file"
               :disabled="files.length >= 20"
               @click="addFile"
             />
           </UTooltip>
+        </nav>
+
+        <div class="paste-editor-actions">
+          <UTooltip text="分享">
+            <UButton
+              type="button"
+              icon="i-tabler-share-3"
+              color="primary"
+              variant="ghost"
+              size="sm"
+              square
+              aria-label="打开分享设置"
+              @click="openShare"
+            />
+          </UTooltip>
+          <span class="paste-editor-action-divider" aria-hidden="true" />
+          <UTooltip text="我的 Paste">
+            <UButton
+              to="/mine"
+              icon="i-tabler-folders"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              square
+              class="paste-editor-history"
+              aria-label="我的 Paste"
+            />
+          </UTooltip>
+          <UTooltip text="切换颜色模式">
+            <UColorModeButton
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              aria-label="切换颜色模式"
+              class="paste-editor-theme"
+            />
+          </UTooltip>
+          <div class="paste-editor-account">
+            <ConsumerAccountControl
+              :context-actions="accountActions"
+              trigger-mode="collapsed"
+            />
+          </div>
         </div>
-        <div class="paste-file-list">
-          <button
-            v-for="(file, index) in files"
-            :key="file.id"
-            type="button"
-            class="paste-file-item"
-            :data-active="activeFileID === file.id"
-            :aria-current="activeFileID === file.id ? 'true' : undefined"
-            @click="activeFileID = file.id"
-          >
-            <UIcon name="i-tabler-file-code" class="size-4 shrink-0" />
-            <span class="truncate">{{ file.path || `文件 ${index + 1}` }}</span>
-          </button>
-        </div>
-        <p class="paste-rail-note">按列表顺序展示；每个文件最多 256 KiB。</p>
-      </aside>
+      </header>
 
       <section class="paste-editor-floor" aria-label="当前文件">
-        <div class="paste-editor-toolbar">
-          <div class="paste-path-field">
-            <UIcon name="i-tabler-file" class="size-4" />
-            <input
-              v-model="activeFile.path"
-              class="paste-path-input"
-              aria-label="当前文件名"
-              maxlength="180"
-              spellcheck="false"
-              @change="inferLanguage(activeFile)"
-            >
-          </div>
-          <select v-model="activeFile.language" class="paste-language-select" aria-label="代码语言">
-            <option v-for="item in languageItems" :key="item.value" :value="item.value">
-              {{ item.label }}
-            </option>
-          </select>
-          <div class="paste-file-actions" aria-label="文件排序操作">
-            <UTooltip text="上移">
-              <UButton type="button" icon="i-tabler-arrow-up" color="neutral" variant="ghost" size="sm" aria-label="上移文件" :disabled="files[0]?.id === activeFile.id" @click="moveFile(activeFile, -1)" />
-            </UTooltip>
-            <UTooltip text="下移">
-              <UButton type="button" icon="i-tabler-arrow-down" color="neutral" variant="ghost" size="sm" aria-label="下移文件" :disabled="files.at(-1)?.id === activeFile.id" @click="moveFile(activeFile, 1)" />
-            </UTooltip>
-            <UTooltip text="移除">
-              <UButton type="button" icon="i-tabler-trash" color="error" variant="ghost" size="sm" aria-label="移除文件" :disabled="files.length === 1" @click="removeFile(activeFile)" />
-            </UTooltip>
-          </div>
-        </div>
         <ClientOnly>
           <PasteCodeEditor
             v-model="activeFile.content"
@@ -260,139 +442,218 @@ onMounted(loadEdit);
         </ClientOnly>
       </section>
 
-      <aside class="paste-publish-rail" aria-label="发布设置">
-        <div class="paste-publish-heading">
-          <div>
-            <h2>发布设置</h2>
-            <p>分享前确认内容与访问边界。</p>
-          </div>
-          <UIcon name="i-tabler-adjustments-horizontal" class="size-5" />
-        </div>
-
-        <div class="paste-setting-fields">
-          <div>
-            <label class="paste-field-label" for="paste-title">标题</label>
-            <input id="paste-title" v-model="title" name="title" class="paste-input" maxlength="120" :placeholder="displayTitle('', activeFile.path)">
-          </div>
-          <div>
-            <label class="paste-field-label" for="paste-description">说明（可选）</label>
-            <textarea id="paste-description" v-model="description" name="description" class="paste-textarea" maxlength="2000" placeholder="告诉接收者这组文件是什么" />
-          </div>
-          <div>
-            <label class="paste-field-label" for="paste-tags">标签（可选）</label>
-            <input id="paste-tags" v-model="tags" name="tags" class="paste-input" placeholder="go, api, demo">
-            <p class="paste-help">逗号分隔，最多 8 个。</p>
-          </div>
-          <div class="paste-setting-grid">
-            <div>
-              <label class="paste-field-label" for="paste-visibility">可见性</label>
-              <select id="paste-visibility" v-model="visibility" name="visibility" class="paste-select">
-                <option value="unlisted">知道链接即可访问</option>
-                <option value="private" :disabled="!loggedIn">仅自己可访问</option>
-              </select>
-            </div>
-            <div>
-              <label class="paste-field-label" for="paste-expiry">有效期</label>
-              <select id="paste-expiry" v-model="expiry" name="expiry" class="paste-select">
-                <option v-if="editCode && expiry === 'keep'" value="keep">保持原到期时间</option>
-                <option value="1h">1 小时</option>
-                <option value="1d">1 天</option>
-                <option value="7d">7 天</option>
-                <option value="30d">30 天</option>
-                <option value="never">不过期</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <label class="paste-field-label" for="paste-password">访问密码（可选）</label>
-            <input id="paste-password" v-model="password" name="password" class="paste-input" type="password" autocomplete="new-password" placeholder="不会出现在链接中">
-            <p v-if="editCode" class="paste-help">留空会移除原有密码。</p>
-          </div>
-        </div>
-
-        <div class="paste-publish-action">
-          <p v-if="error" class="paste-error" role="alert">{{ error }}</p>
-          <p v-else-if="!loggedIn && !editCode" class="paste-anonymous-note">
-            <UIcon name="i-tabler-user-off" class="size-4" />匿名 Paste 创建后不能修改。
-          </p>
-          <UButton
-            type="submit"
-            :label="editCode ? '保存修改' : '生成分享链接'"
-            :icon="editCode ? 'i-tabler-device-floppy' : 'i-tabler-send'"
-            block
-            size="lg"
-            class="paste-button-primary min-h-12"
-            :loading="saving || loadingEdit"
-            :disabled="saving || loadingEdit"
+      <footer class="paste-statusbar" aria-label="编辑状态">
+        <span class="paste-status-primary">
+          <span class="paste-status-dot" aria-hidden="true" />
+          <h1 id="compose-title">{{ editCode ? "编辑 Paste" : "新建 Paste" }}</h1>
+        </span>
+        <span class="paste-status-meta" aria-live="polite">
+          <span>{{ visibilityLabel }}</span>
+          <USelectMenu
+            v-model="activeFile.language"
+            :items="languageOptions"
+            value-key="value"
+            label-key="label"
+            :search-input="false"
+            :content="{ align: 'end', side: 'top', sideOffset: 6, collisionPadding: 8 }"
+            variant="none"
+            size="xs"
+            class="paste-status-language"
+            :ui="{
+              base: 'min-h-0 rounded-none px-1.5 py-0 text-[12px] text-[var(--paste-status-text)] ring-0 hover:bg-[var(--paste-status-hover)]',
+              content: 'w-52 min-w-52 rounded-md',
+              viewport: 'max-h-[33rem] py-1',
+              item: 'min-h-8 text-xs',
+              trailingIcon: 'size-3',
+            }"
+            aria-label="代码语言"
           />
-          <button v-if="!loggedIn && !editCode" type="button" class="paste-login-link" @click="login('/')">
-            登录后创建，保留管理入口
-          </button>
-        </div>
-      </aside>
+          <span>{{ files.length }}/20 文件</span>
+          <span
+            class="paste-status-size"
+            :data-over-limit="activeFileBytes > maxFileBytes"
+            :title="`当前文件 ${Math.ceil(activeFileBytes / 1024)}/1024 KiB；全部文件 ${Math.ceil(totalBytes / 1024)}/1024 KiB`"
+          >{{ Math.ceil(activeFileBytes / 1024) }}/1024 KiB</span>
+        </span>
+      </footer>
+
+      <USlideover
+        v-model:open="shareOpen"
+        title="分享 Paste"
+        description="设置访问边界，然后生成链接。"
+        :ui="{ content: 'sm:max-w-sm' }"
+      >
+        <template #body>
+          <div class="paste-share-fields">
+            <UFormField name="title" label="标题">
+              <UInput
+                v-model="title"
+                form="paste-compose-form"
+                name="title"
+                maxlength="120"
+                :placeholder="displayTitle('', activeFile.path)"
+                class="w-full"
+              />
+            </UFormField>
+            <UFormField name="description" label="说明" hint="可选">
+              <UTextarea
+                v-model="description"
+                form="paste-compose-form"
+                name="description"
+                :rows="3"
+                autoresize
+                maxlength="2000"
+                placeholder="这组文件用于什么？"
+                class="w-full"
+              />
+            </UFormField>
+            <UFormField name="tags" label="标签" hint="最多 8 个">
+              <UInputTags
+                v-model="tags"
+                name="tags"
+                :max="8"
+                add-on-paste
+                add-on-blur
+                delimiter=","
+                placeholder="输入后回车"
+                class="w-full"
+              />
+            </UFormField>
+            <div class="paste-setting-grid">
+              <UFormField label="可见性">
+                <USelect
+                  v-model="visibility"
+                  :items="visibilityItems"
+                  value-key="value"
+                  label-key="label"
+                  class="w-full"
+                  aria-label="可见性"
+                />
+              </UFormField>
+              <UFormField label="有效期">
+                <USelect
+                  v-model="expiry"
+                  :items="expiryItems"
+                  value-key="value"
+                  label-key="label"
+                  class="w-full"
+                  aria-label="有效期"
+                />
+              </UFormField>
+            </div>
+            <UFormField
+              name="password"
+              label="访问密码"
+              :hint="editCode ? '留空即移除' : '可选'"
+            >
+              <UInput
+                v-model="password"
+                form="paste-compose-form"
+                name="password"
+                type="password"
+                autocomplete="new-password"
+                icon="i-tabler-key"
+                placeholder="不会出现在链接中"
+                class="w-full"
+              />
+            </UFormField>
+            <UAlert
+              v-if="error"
+              color="error"
+              variant="subtle"
+              icon="i-tabler-alert-circle"
+              title="无法完成分享"
+              :description="error"
+              role="alert"
+            />
+            <UAlert
+              v-else-if="!loggedIn && !editCode"
+              color="neutral"
+              variant="subtle"
+              icon="i-tabler-user-off"
+              description="匿名创建后不能修改。"
+            />
+          </div>
+        </template>
+        <template #footer>
+          <div class="paste-share-footer">
+            <UButton
+              v-if="!loggedIn && !editCode"
+              type="button"
+              label="登录后创建"
+              color="neutral"
+              variant="ghost"
+              @click="loginForManagement"
+            />
+            <UButton
+              form="paste-compose-form"
+              type="submit"
+              :label="editCode ? '保存修改' : '生成分享链接'"
+              :icon="editCode ? 'i-tabler-device-floppy' : 'i-tabler-send'"
+              class="paste-button-primary"
+              :loading="saving || loadingEdit"
+              :disabled="saving || loadingEdit"
+            />
+          </div>
+        </template>
+      </USlideover>
     </form>
   </section>
 </template>
 
 <style scoped>
-.paste-compose { padding-block: 30px 40px; }
-.paste-compose-intro { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 18px; }
-.paste-compose-intro h1 { margin: 0; font-size: clamp(25px, 3vw, 38px); font-weight: 760; letter-spacing: -.035em; line-height: 1.08; text-wrap: balance; }
-.paste-compose-intro p { margin: 8px 0 0; color: var(--paste-ink-soft); font-size: 13px; }
-.paste-capacity { color: var(--paste-ink-soft); font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; white-space: nowrap; }
-.paste-workbench { display: grid; min-height: calc(100vh - 174px); grid-template-columns: 190px minmax(420px, 1fr) 300px; overflow: hidden; border: 1px solid var(--paste-line-strong); border-radius: 15px; background: var(--paste-surface); box-shadow: var(--paste-shadow); }
-.paste-file-rail { display: flex; min-width: 0; flex-direction: column; border-right: 1px solid var(--paste-line); background: var(--paste-surface-muted); }
-.paste-rail-heading { display: flex; min-height: 54px; align-items: center; justify-content: space-between; padding: 0 10px 0 15px; border-bottom: 1px solid var(--paste-line); color: var(--paste-ink-soft); font-size: 12px; font-weight: 680; }
-.paste-file-list { display: grid; gap: 3px; padding: 8px; }
-.paste-file-item { display: flex; min-width: 0; min-height: 40px; align-items: center; gap: 8px; border: 0; border-radius: 8px; padding: 0 9px; background: transparent; color: var(--paste-ink-soft); font-size: 12px; text-align: left; }
-.paste-file-item:hover { background: color-mix(in srgb, var(--paste-surface) 64%, transparent); color: var(--paste-ink); }
-.paste-file-item[data-active="true"] { background: var(--paste-blue-soft); color: var(--paste-blue); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--paste-blue) 20%, transparent); font-weight: 680; }
-.paste-rail-note { margin: auto 14px 16px; color: var(--paste-ink-dim); font-size: 10px; line-height: 1.55; }
-.paste-editor-floor { display: grid; min-width: 0; min-height: 0; grid-template-rows: 54px minmax(480px, 1fr); background: var(--paste-editor); }
-.paste-editor-toolbar { display: flex; min-width: 0; align-items: center; gap: 8px; border-bottom: 1px solid var(--paste-line); padding: 0 10px 0 14px; background: var(--paste-surface); }
-.paste-path-field { display: flex; min-width: 0; flex: 1; align-items: center; gap: 7px; color: var(--paste-ink-soft); }
-.paste-path-input { width: 100%; min-width: 90px; border: 0; background: transparent; color: var(--paste-ink); font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; font-weight: 650; outline: 0; }
-.paste-path-input:focus { text-decoration: underline; text-decoration-color: var(--paste-blue); text-underline-offset: 4px; }
-.paste-language-select { min-height: 34px; border: 1px solid var(--paste-line); border-radius: 8px; padding: 0 28px 0 9px; background: var(--paste-surface); color: var(--paste-ink-soft); font-size: 11px; }
-.paste-file-actions { display: flex; align-items: center; }
+.paste-compose { min-height: 100dvh; background: var(--paste-editor); }
+.paste-workbench { display: grid; height: 100dvh; min-height: 360px; grid-template-rows: 40px minmax(0, 1fr) 28px; overflow: hidden; background: var(--paste-surface); }
+.paste-editor-chrome { display: flex; min-width: 0; align-items: stretch; border-bottom: 1px solid var(--paste-line); background: var(--paste-chrome); }
+.paste-editor-brand { display: flex; flex: none; align-items: center; gap: 7px; border-right: 1px solid var(--paste-line); padding: 0 11px; color: var(--paste-ink); text-decoration: none; }
+.paste-editor-brand-mark { display: grid; width: 24px; height: 24px; place-items: center; border: 1px solid color-mix(in srgb, var(--paste-blue) 28%, var(--paste-line)); border-radius: 6px; background: var(--paste-blue-soft); color: var(--paste-blue); }
+.paste-editor-brand-label { font-size: 13px; font-weight: 730; letter-spacing: -0.025em; }
+.paste-file-tabs { display: flex; min-width: 0; flex: 1; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.paste-file-tabs::-webkit-scrollbar { display: none; }
+.paste-file-tab { position: relative; display: flex; min-width: 108px; max-width: 220px; flex: 0 1 176px; align-items: center; border-right: 1px solid var(--paste-line); color: var(--paste-ink-soft); }
+.paste-file-tab[data-active="true"] { background: var(--paste-editor); box-shadow: inset 0 2px var(--paste-blue); color: var(--paste-ink); }
+.paste-file-tab[data-dragging="true"] { opacity: 0.48; }
+.paste-file-tab[data-drop-position]::after { position: absolute; z-index: 2; top: 3px; bottom: 3px; width: 2px; border-radius: 1px; background: var(--paste-blue); content: ""; }
+.paste-file-tab[data-drop-position="before"]::after { left: -1px; }
+.paste-file-tab[data-drop-position="after"]::after { right: -1px; }
+.paste-file-tab-button { display: flex; min-width: 0; height: 100%; flex: 1; align-items: center; gap: 7px; border: 0; padding: 0 8px 0 11px; background: transparent; color: inherit; font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; text-align: left; }
+.paste-file-tab-button:focus-visible { outline-offset: -3px; }
+.paste-rename-input { min-width: 0; height: 26px; flex: 1; margin: 0 6px; border: 1px solid var(--paste-blue); border-radius: 2px; padding: 0 5px; background: var(--paste-editor); color: var(--paste-ink); font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; line-height: 24px; outline: none; box-shadow: none; }
+.paste-rename-input::selection { background: var(--paste-selection); }
+.paste-tab-close { margin-right: 4px; opacity: 0; transition: opacity 120ms ease; }
+.paste-file-tab[data-active="true"] .paste-tab-close,
+.paste-file-tab:hover .paste-tab-close,
+.paste-file-tab:focus-within .paste-tab-close { opacity: 1; }
+.paste-add-file { width: 32px; min-width: 32px; flex: none; border-radius: 0; }
+.paste-editor-actions { display: flex; flex: none; align-items: center; gap: 2px; padding: 0 5px; background: var(--paste-chrome); }
+.paste-editor-action-divider { width: 1px; height: 20px; margin-inline: 3px; background: var(--paste-line); }
+.paste-editor-account { display: grid; width: 32px; height: 32px; place-items: center; }
+.paste-editor-account :deep(button) { width: 30px; min-width: 30px; height: 30px; min-height: 30px; padding: 0; }
+.paste-editor-account :deep([data-slot="label"]) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.paste-editor-floor { min-width: 0; min-height: 0; background: var(--paste-editor); }
 .paste-editor-fallback { width: 100%; height: 100%; resize: none; border: 0; padding: 18px 20px; background: var(--paste-editor); color: var(--paste-ink); font-family: "SFMono-Regular", Consolas, monospace; line-height: 1.72; outline: 0; }
-.paste-publish-rail { display: flex; min-width: 0; flex-direction: column; border-left: 1px solid var(--paste-line); background: var(--paste-surface); }
-.paste-publish-heading { display: flex; min-height: 76px; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--paste-line); padding: 14px 18px; }
-.paste-publish-heading h2 { margin: 0; font-size: 15px; font-weight: 720; letter-spacing: -.015em; }
-.paste-publish-heading p { margin: 4px 0 0; color: var(--paste-ink-soft); font-size: 10px; }
-.paste-publish-heading > svg { color: var(--paste-ink-dim); }
-.paste-setting-fields { display: grid; gap: 17px; padding: 18px; }
+.paste-share-fields { display: grid; gap: 18px; }
 .paste-setting-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.paste-publish-action { display: grid; gap: 10px; margin-top: auto; border-top: 1px solid var(--paste-line); padding: 16px 18px 18px; background: var(--paste-surface-muted); }
-.paste-anonymous-note { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--paste-ink-soft); font-size: 11px; }
-.paste-login-link { min-height: 38px; border: 0; background: transparent; color: var(--paste-blue); font-size: 11px; font-weight: 650; }
-.paste-login-link:hover { text-decoration: underline; text-underline-offset: 3px; }
-@media (max-width: 1060px) {
-  .paste-workbench { grid-template-columns: 170px minmax(390px, 1fr); }
-  .paste-publish-rail { grid-column: 1 / -1; display: grid; grid-template-columns: 170px minmax(0, 1fr) 260px; border-top: 1px solid var(--paste-line); border-left: 0; }
-  .paste-publish-heading { align-items: flex-start; border-right: 1px solid var(--paste-line); border-bottom: 0; }
-  .paste-setting-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .paste-setting-fields > :nth-child(2) { grid-column: span 2; }
-  .paste-publish-action { margin: 0; border-top: 0; border-left: 1px solid var(--paste-line); }
-}
+.paste-share-fields :deep(label) { font-size: 11px; font-weight: 680; }
+.paste-share-footer { display: flex; width: 100%; align-items: center; justify-content: flex-end; gap: 8px; }
+.paste-statusbar { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 20px; border-top: 1px solid var(--paste-status-border); padding: 0 9px; background: var(--paste-status); color: var(--paste-status-text-muted); font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; }
+.paste-status-primary, .paste-status-meta { display: flex; min-width: 0; align-items: center; gap: 12px; }
+.paste-status-primary { color: var(--paste-status-text); white-space: nowrap; }
+.paste-status-primary h1 { margin: 0; font: inherit; font-weight: 600; }
+.paste-status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--paste-green); }
+.paste-status-meta { justify-content: flex-end; white-space: nowrap; }
+.paste-status-language { width: auto; min-width: 0; }
+.paste-status-size[data-over-limit="true"] { color: var(--paste-status-error); font-weight: 700; }
 @media (max-width: 720px) {
-  .paste-compose { width: 100%; padding-block: 20px 0; }
-  .paste-compose-intro { width: calc(100% - 24px); margin-inline: auto; align-items: flex-start; flex-direction: column; gap: 10px; }
-  .paste-compose-intro h1 { font-size: 28px; }
-  .paste-workbench { min-height: 0; grid-template-columns: 1fr; overflow: visible; border-right: 0; border-left: 0; border-radius: 0; box-shadow: none; }
-  .paste-file-rail { border-right: 0; border-bottom: 1px solid var(--paste-line); }
-  .paste-file-list { display: flex; overflow-x: auto; padding: 7px 10px 10px; }
-  .paste-file-item { min-width: 128px; min-height: 44px; }
-  .paste-rail-note { display: none; }
-  .paste-editor-floor { grid-template-rows: auto 58vh; }
-  .paste-editor-toolbar { min-height: 58px; flex-wrap: wrap; padding-block: 7px; }
-  .paste-path-field { flex-basis: calc(100% - 165px); }
-  .paste-language-select { min-height: 44px; }
-  .paste-publish-rail { grid-column: auto; display: flex; border-left: 0; }
-  .paste-publish-heading { border-right: 0; border-bottom: 1px solid var(--paste-line); }
-  .paste-setting-fields { grid-template-columns: 1fr; }
-  .paste-setting-fields > :nth-child(2) { grid-column: auto; }
-  .paste-input, .paste-select { min-height: 44px; }
-  .paste-publish-action { border-top: 1px solid var(--paste-line); border-left: 0; padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+  .paste-compose, .paste-workbench { height: 100dvh; min-height: 320px; }
+  .paste-workbench { grid-template-rows: 44px minmax(0, 1fr) 30px; }
+  .paste-editor-brand { padding-inline: 6px; }
+  .paste-editor-brand-label { display: none; }
+  .paste-file-tab { min-width: 88px; flex-basis: 124px; }
+  .paste-editor-actions { gap: 2px; padding-inline: 4px; }
+  .paste-editor-action-divider { display: none; }
+  .paste-editor-history { display: none; }
+  .paste-status-meta > span:first-child { display: none; }
+  .paste-setting-grid { grid-template-columns: 1fr; }
 }
 </style>

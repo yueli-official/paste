@@ -8,12 +8,16 @@ const accountActions: readonly AccountMenuAction[] = [
     to: "/mine",
   },
 ];
+const route = useRoute();
+const applicationShell = computed(() =>
+  route.path === "/" || route.path === "/mine" || route.path.startsWith("/p/"),
+);
 </script>
 
 <template>
   <div class="paste-page-frame">
-    <header class="paste-public-header">
-      <nav class="paste-container paste-public-nav" aria-label="主导航">
+    <header v-if="!applicationShell" class="paste-public-header">
+      <nav class="paste-public-nav" aria-label="主导航">
         <NuxtLink to="/" class="paste-wordmark" aria-label="Paste 首页">
           <span class="paste-wordmark-mark" aria-hidden="true">
             <UIcon name="i-tabler-code-dots" class="size-4" />
@@ -27,7 +31,7 @@ const accountActions: readonly AccountMenuAction[] = [
             icon="i-tabler-folders"
             color="neutral"
             variant="ghost"
-            class="hidden min-h-11 sm:inline-flex"
+            class="hidden min-h-9 sm:inline-flex"
           />
           <UTooltip text="切换颜色模式">
             <UColorModeButton

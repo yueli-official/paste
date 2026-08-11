@@ -23,4 +23,19 @@ describe("Paste presentation rules", () => {
     expect(pasteProblemCode(caught)).toBe("paste.password_required");
     expect(pasteErrorMessage(caught)).toContain("需要密码");
   });
+
+  it("turns file-size violations into a useful recovery message", () => {
+    const caught = {
+      failure: {
+        kind: "remote",
+        status: 400,
+        code: "validation.failed",
+        params: {},
+        violations: [{ pointer: "/files/content", code: "validation.max_bytes", params: { maxBytes: 1048576 } }],
+        traceId: "test-trace",
+        reauth: "not-attempted",
+      },
+    };
+    expect(pasteErrorMessage(caught)).toContain("单个文件不能超过 1 MiB");
+  });
 });

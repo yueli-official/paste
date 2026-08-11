@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 const email = process.env.PASTE_E2E_EMAIL || "test@example.com";
@@ -21,6 +22,17 @@ async function login(page: Page) {
   await page.waitForURL(/\/mine(?:\?|$)/, { timeout: 30_000 });
 }
 
+async function createOwnedPaste(page: Page, title: string, content: string) {
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: /打开.+的用户菜单/ })).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("textbox", { name: "main.go 代码编辑器" }).fill(content);
+  await page.getByRole("button", { name: "打开分享设置" }).click();
+  await page.getByLabel("标题").fill(title);
+  await page.getByRole("button", { name: "生成分享链接" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
+}
+
 test("signed-in owner can create, find, edit, and delete a private Paste", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop", "one real OIDC lifecycle is sufficient");
   const marker = Date.now().toString(36);
@@ -29,16 +41,24 @@ test("signed-in owner can create, find, edit, and delete a private Paste", async
 
   await login(page);
   await expect(page.getByRole("heading", { level: 1, name: "我的 Paste" })).toBeVisible();
+  await expect(page.locator(".paste-public-header")).toHaveCount(0);
+  const mineStatusFontSize = await page.locator(".paste-mine-statusbar").evaluate((node) =>
+    Number.parseFloat(getComputedStyle(node).fontSize),
+  );
+  expect(mineStatusFontSize).toBeGreaterThanOrEqual(12);
   await page.goto("/");
   await expect(page.getByRole("button", { name: /打开.+的用户菜单/ })).toBeVisible();
   await page.waitForLoadState("networkidle");
+  await page.screenshot({ path: testInfo.outputPath("composer-owner.png"), fullPage: true });
+  await page.getByRole("button", { name: "打开分享设置" }).click();
   await page.getByLabel("标题").fill(originalTitle);
-  await page.getByLabel("可见性").selectOption("private");
+  await page.getByLabel("可见性").click();
+  await page.getByRole("option", { name: "仅自己可访问" }).click();
   await expect(page.getByLabel("标题")).toHaveValue(originalTitle);
-  await expect(page.getByLabel("可见性")).toHaveValue("private");
+  await expect(page.getByLabel("可见性")).toContainText("仅自己可访问");
   await page.locator(".cm-content").fill(`package private_${marker}\n`);
   await expect(page.getByLabel("标题")).toHaveValue(originalTitle);
-  await expect(page.getByLabel("可见性")).toHaveValue("private");
+  await expect(page.getByLabel("可见性")).toContainText("仅自己可访问");
   const createRequest = page.waitForRequest((request) =>
     request.url().endsWith("/api/v1/pastes") && request.method() === "POST",
   );
@@ -61,9 +81,12 @@ test("signed-in owner can create, find, edit, and delete a private Paste", async
   await expect(row).toContainText("仅自己");
   await row.getByRole("link", { name: originalTitle }).focus();
   await page.screenshot({ path: testInfo.outputPath("mine-owner-ledger.png"), fullPage: true });
+  const accessibility = await new AxeBuilder({ page }).exclude("[data-nuxt-devtools]").analyze();
+  expect(accessibility.violations, accessibility.violations.map((item) => `${item.id}: ${item.help}`).join("\n")).toEqual([]);
   await row.getByRole("link", { name: "编辑 Paste" }).click();
 
-  await expect(page.getByRole("heading", { level: 1, name: "继续编辑" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "编辑 Paste" })).toBeVisible();
+  await page.getByRole("button", { name: "打开分享设置" }).click();
   await expect(page.getByLabel("标题")).toHaveValue(originalTitle);
   await page.getByLabel("标题").fill(updatedTitle);
   await page.getByRole("button", { name: "保存修改" }).click();
@@ -75,4 +98,86 @@ test("signed-in owner can create, find, edit, and delete a private Paste", async
   page.once("dialog", (dialog) => dialog.accept());
   await updatedRow.getByRole("button", { name: "删除 Paste" }).click();
   await expect(updatedRow).toHaveCount(0);
+});
+
+test("owner can batch update and delete selected Pastes", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "one real OIDC batch lifecycle is sufficient");
+  test.setTimeout(90_000);
+  const marker = Date.now().toString(36);
+  const titles = [`批量示例 A ${marker}`, `批量示例 B ${marker}`];
+
+  await login(page);
+  await createOwnedPaste(page, titles[0], `const batchA = "${marker}";\n`);
+  await createOwnedPaste(page, titles[1], `const batchB = "${marker}";\n`);
+  await page.getByRole("link", { name: "我的 Paste" }).click();
+
+  const rows = titles.map((title) => page.locator(".paste-ledger-row").filter({ hasText: title }));
+  for (const [index, title] of titles.entries()) {
+    await expect(rows[index]).toBeVisible();
+    await page.getByRole("checkbox", { name: `选择 ${title}` }).click();
+  }
+  await expect(page.getByText("已选择 2 项", { exact: true }).first()).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  const narrowDimensions = await page.locator(".paste-mine-shell").evaluate((node) => ({
+    width: node.getBoundingClientRect().width,
+    viewport: innerWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(narrowDimensions.width).toBeLessThanOrEqual(narrowDimensions.viewport);
+  expect(narrowDimensions.scrollWidth).toBeLessThanOrEqual(narrowDimensions.viewport);
+  await expect(page.getByRole("button", { name: "批量修改" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "删除", exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("mine-batch-selected-mobile.png"), fullPage: true });
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.getByRole("button", { name: "批量修改" }).click();
+  await expect(page.getByRole("heading", { name: "批量修改" })).toBeVisible();
+  await page.getByLabel("批量可见性").click();
+  await page.getByRole("option", { name: "仅自己", exact: true }).click();
+
+  const patchBodies: Array<Record<string, unknown>> = [];
+  page.on("request", (request) => {
+    if (request.method() === "PATCH" && request.url().includes("/api/v1/me/pastes/")) {
+      patchBodies.push(request.postDataJSON());
+    }
+  });
+  const accessibility = await new AxeBuilder({ page }).exclude("[data-nuxt-devtools]").analyze();
+  expect(accessibility.violations, accessibility.violations.map((item) => `${item.id}: ${item.help}`).join("\n")).toEqual([]);
+  await page.getByRole("button", { name: "应用修改" }).click();
+  await expect(page.getByRole("heading", { name: "批量修改" })).toHaveCount(0);
+  for (const row of rows) await expect(row).toContainText("仅自己");
+  expect(patchBodies).toHaveLength(2);
+  for (const body of patchBodies) {
+    expect(body.visibility).toBe("private");
+    expect(body).not.toHaveProperty("password");
+    expect(body).not.toHaveProperty("files");
+  }
+
+  for (const title of titles) {
+    await page.getByRole("checkbox", { name: `选择 ${title}` }).click();
+  }
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "删除", exact: true }).click();
+  for (const row of rows) await expect(row).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator(".paste-ledger-loading")).toHaveCount(0);
+  for (const row of rows) await expect(row).toHaveCount(0);
+});
+
+test("my Paste keeps the editor workspace at mobile width", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile", "mobile shell contract");
+  await page.emulateMedia({ colorScheme: "dark" });
+  await login(page);
+  await expect(page.getByRole("heading", { level: 1, name: "我的 Paste" })).toBeVisible();
+  await expect(page.locator(".paste-public-header")).toHaveCount(0);
+  await expect(page.locator(".paste-ledger-loading")).toHaveCount(0);
+  const dimensions = await page.locator(".paste-mine-shell").evaluate((node) => ({
+    width: node.getBoundingClientRect().width,
+    viewport: innerWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(dimensions.width).toBeLessThanOrEqual(dimensions.viewport);
+  expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.viewport);
+  await page.screenshot({ path: testInfo.outputPath("mine-mobile.png"), fullPage: true });
+  const accessibility = await new AxeBuilder({ page }).exclude("[data-nuxt-devtools]").analyze();
+  expect(accessibility.violations, accessibility.violations.map((item) => `${item.id}: ${item.help}`).join("\n")).toEqual([]);
 });
