@@ -49,7 +49,9 @@ export function languageFromPath(path: string): string {
 }
 
 export function displayTitle(title: string, path?: string): string {
-  return title.trim() || path?.trim() || "未命名 Paste";
+  const normalized = title.trim();
+  if (normalized && normalized !== "未命名 Paste") return normalized;
+  return path?.trim() || "未命名片段";
 }
 
 export function pasteProblemCode(caught: unknown): string {
@@ -84,11 +86,14 @@ export function pasteErrorMessage(caught: unknown): string {
       statusCode?: number;
     };
     const code = pasteProblemCode(caught);
-    if (code === "paste.password_required") return "此 Paste 需要密码才能打开。";
+    if (code === "paste.password_required") return "此代码片段需要密码才能打开。";
     if (code === "paste.password_invalid") return "密码不正确，请重新输入。";
-    if (code === "paste.gone") return "此 Paste 已过期或已被删除。";
-    if (code === "paste.not_authenticated") return "请先登录，再继续管理你的 Paste。";
+    if (code === "paste.gone") return "此代码片段已过期或已被删除。";
+    if (code === "paste.not_authenticated") return "请先登录，再继续管理你的代码片段。";
     if (code === "paste.conflict") return "内容已在别处更新，请刷新后重试。";
+    if (code === "paste.creation_suspended") return "你的代码片段创建权限已被暂停；已有内容仍可查看和删除。";
+    if (code === "paste.anonymous_creation_disabled") return "本站暂时停止匿名创建，请登录后重试。";
+    if (code === "common.rate_limited") return "今天的代码片段创建额度已经用完，请在下一个 UTC 自然日再试。";
     if (code === "validation.failed") {
       const violation = failure?.kind === "remote" ? failure.violations[0] : undefined;
       if (violation?.pointer === "/files/content" && violation.code === "validation.max_bytes") {

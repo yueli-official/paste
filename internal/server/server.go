@@ -43,4 +43,12 @@ func Configure(server *ghttp.Server, dependencies Dependencies) {
 		group.Middleware(middlewares...)
 		group.Bind(dependencies.Controller.Managed())
 	})
+	server.Group("/", func(group *ghttp.RouterGroup) {
+		middlewares := []ghttp.HandlerFunc{apiMiddleware}
+		if dependencies.Verifier != nil {
+			middlewares = append(middlewares, pasteruntime.RequiredAuth(dependencies.Verifier))
+		}
+		group.Middleware(middlewares...)
+		group.Bind(dependencies.Controller.Administrator())
+	})
 }

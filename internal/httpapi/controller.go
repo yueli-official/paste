@@ -8,27 +8,55 @@ import (
 	foundationauth "github.com/yueli-official/foundation/go/auth"
 	"github.com/yueli-official/foundation/go/problem"
 	v1 "github.com/yueli-official/paste/api/v1"
+	"github.com/yueli-official/paste/internal/governance"
 	"github.com/yueli-official/paste/internal/paste"
 	"github.com/yueli-official/paste/internal/pasteerr"
+	"github.com/yueli-official/paste/internal/site"
 )
 
 type Core struct {
-	pastes     *paste.Service
-	publicBase string
+	pastes         *paste.Service
+	settings       *site.Service
+	governance     *governance.Service
+	publicBase     string
+	administrators map[string]struct{}
 }
 
-func New(pastes *paste.Service, publicBase string) (*Core, error) {
+type Options struct {
+	PublicBase            string
+	AdministratorSubjects []string
+}
+
+func New(pastes *paste.Service, settings *site.Service, governanceService *governance.Service, options Options) (*Core, error) {
 	if pastes == nil {
 		return nil, errors.New("paste/httpapi: Paste service is required")
 	}
-	return &Core{pastes: pastes, publicBase: strings.TrimRight(strings.TrimSpace(publicBase), "/")}, nil
+	if settings == nil {
+		return nil, errors.New("paste/httpapi: Site service is required")
+	}
+	if governanceService == nil {
+		return nil, errors.New("paste/httpapi: Governance service is required")
+	}
+	administrators := make(map[string]struct{}, len(options.AdministratorSubjects))
+	for _, raw := range options.AdministratorSubjects {
+		if subject := strings.TrimSpace(raw); subject != "" {
+			administrators[subject] = struct{}{}
+		}
+	}
+	return &Core{
+		pastes: pastes, settings: settings, governance: governanceService,
+		publicBase:     strings.TrimRight(strings.TrimSpace(options.PublicBase), "/"),
+		administrators: administrators,
+	}, nil
 }
 
 type Public struct{ core *Core }
 type Managed struct{ core *Core }
+type Administrator struct{ core *Core }
 
-func (core *Core) Public() *Public   { return &Public{core: core} }
-func (core *Core) Managed() *Managed { return &Managed{core: core} }
+func (core *Core) Public() *Public               { return &Public{core: core} }
+func (core *Core) Managed() *Managed             { return &Managed{core: core} }
+func (core *Core) Administrator() *Administrator { return &Administrator{core: core} }
 
 func (controller *Public) CreatePaste(ctx context.Context, request *v1.CreatePasteReq) (*v1.CreatePasteRes, error) {
 	owner, err := optionalUser(ctx)
@@ -77,6 +105,14 @@ func (controller *Public) UnlockPaste(ctx context.Context, request *v1.UnlockPas
 		return nil, pasteerr.Map(err)
 	}
 	return &v1.UnlockPasteRes{Paste: controller.core.view(value)}, nil
+}
+
+func (controller *Public) GetSiteSettings(ctx context.Context, _ *v1.GetSiteSettingsReq) (*v1.GetSiteSettingsRes, error) {
+	value, err := controller.core.settings.Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.GetSiteSettingsRes{Settings: siteSettingsView(value)}, nil
 }
 
 func (controller *Managed) ListMyPastes(ctx context.Context, _ *v1.ListMyPastesReq) (*v1.ListMyPastesRes, error) {
@@ -154,6 +190,135 @@ func (controller *Managed) DeletePaste(ctx context.Context, request *v1.DeletePa
 	return &v1.DeletePasteRes{}, nil
 }
 
+func (controller *Administrator) ListPastes(ctx context.Context, request *v1.ListAdministrationPastesReq) (*v1.ListAdministrationPastesRes, error) {
+	if _, err := controller.core.requiredAdministrator(ctx); err != nil {
+		return nil, err
+	}
+	page, err := controller.core.pastes.ListForAdministration(ctx, paste.AdministrationQuery{
+		Query: request.Query, Visibility: paste.Visibility(request.Visibility), State: paste.State(request.State),
+		Ownership: request.Ownership, Limit: request.Limit, Offset: request.Offset,
+	})
+	if err != nil {
+		return nil, pasteerr.Map(err)
+	}
+	values := make([]v1.AdministrationPasteView, len(page.Items))
+	for index, value := range page.Items {
+		values[index] = controller.core.administrationView(value)
+	}
+	return &v1.ListAdministrationPastesRes{Pastes: values, Total: page.Total, Limit: page.Limit, Offset: page.Offset}, nil
+}
+
+func (controller *Administrator) GetSession(ctx context.Context, _ *v1.GetAdministrationSessionReq) (*v1.GetAdministrationSessionRes, error) {
+	userKey, err := controller.core.requiredAdministrator(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.GetAdministrationSessionRes{Allowed: true, UserKey: userKey}, nil
+}
+
+func (controller *Administrator) GovernPaste(ctx context.Context, request *v1.GovernPasteReq) (*v1.GovernPasteRes, error) {
+	if _, err := controller.core.requiredAdministrator(ctx); err != nil {
+		return nil, err
+	}
+	var visibility *paste.Visibility
+	if request.Visibility != nil {
+		value := paste.Visibility(*request.Visibility)
+		visibility = &value
+	}
+	updated, err := controller.core.pastes.Govern(ctx, request.Code, paste.GovernanceInput{
+		ExpectedRevision: request.ExpectedRevision, Visibility: visibility,
+		ExpiresAt: request.ExpiresAt, ClearExpiry: request.ClearExpiry,
+	})
+	if err != nil {
+		return nil, pasteerr.Map(err)
+	}
+	return &v1.GovernPasteRes{Paste: controller.core.administrationView(administrationItem(updated))}, nil
+}
+
+func (controller *Administrator) DeletePaste(ctx context.Context, request *v1.AdministrationDeletePasteReq) (*v1.AdministrationDeletePasteRes, error) {
+	if _, err := controller.core.requiredAdministrator(ctx); err != nil {
+		return nil, err
+	}
+	if err := controller.core.pastes.DeleteAsAdministrator(ctx, request.Code, request.ExpectedRevision); err != nil {
+		return nil, pasteerr.Map(err)
+	}
+	return &v1.AdministrationDeletePasteRes{}, nil
+}
+
+func (controller *Administrator) ListUsers(ctx context.Context, request *v1.ListAdministrationUsersReq) (*v1.ListAdministrationUsersRes, error) {
+	if _, err := controller.core.requiredAdministrator(ctx); err != nil {
+		return nil, err
+	}
+	page, err := controller.core.governance.ListUsers(ctx, governance.UserQuery{
+		Query: request.Query, State: governance.UserState(request.State), Limit: request.Limit, Offset: request.Offset,
+	})
+	if err != nil {
+		return nil, pasteerr.Map(err)
+	}
+	users := make([]v1.AdministrationUserView, 0, len(page.Users))
+	for _, user := range page.Users {
+		users = append(users, administrationUserView(user))
+	}
+	return &v1.ListAdministrationUsersRes{Users: users, Total: page.Total, Limit: page.Limit, Offset: page.Offset}, nil
+}
+
+func (controller *Administrator) UpdateUser(ctx context.Context, request *v1.UpdateAdministrationUserReq) (*v1.UpdateAdministrationUserRes, error) {
+	administrator, err := controller.core.requiredAdministrator(ctx)
+	if err != nil {
+		return nil, err
+	}
+	updated, err := controller.core.governance.UpdateUser(ctx, governance.UpdateUserInput{
+		UserKey: request.UserKey, State: governance.UserState(request.State),
+		DailyLimitOverride: request.DailyLimitOverride, ClearDailyLimit: request.ClearDailyLimit,
+		Reason: request.Reason, ExpectedRevision: request.ExpectedRevision, UpdatedBy: administrator,
+	})
+	if err != nil {
+		return nil, pasteerr.Map(err)
+	}
+	return &v1.UpdateAdministrationUserRes{User: administrationUserPolicyView(updated)}, nil
+}
+
+func (controller *Administrator) GetGovernanceSettings(ctx context.Context, _ *v1.GetGovernanceSettingsReq) (*v1.GetGovernanceSettingsRes, error) {
+	if _, err := controller.core.requiredAdministrator(ctx); err != nil {
+		return nil, err
+	}
+	value, err := controller.core.governance.GetSettings(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.GetGovernanceSettingsRes{Settings: governanceSettingsView(value)}, nil
+}
+
+func (controller *Administrator) UpdateGovernanceSettings(ctx context.Context, request *v1.UpdateGovernanceSettingsReq) (*v1.UpdateGovernanceSettingsRes, error) {
+	administrator, err := controller.core.requiredAdministrator(ctx)
+	if err != nil {
+		return nil, err
+	}
+	updated, err := controller.core.governance.UpdateSettings(ctx, governance.UpdateSettingsInput{
+		UserDailyLimit: request.UserDailyLimit, AnonymousDailyLimit: request.AnonymousDailyLimit,
+		ExpectedRevision: request.ExpectedRevision, UpdatedBy: administrator,
+	})
+	if err != nil {
+		return nil, pasteerr.Map(err)
+	}
+	return &v1.UpdateGovernanceSettingsRes{Settings: governanceSettingsView(updated)}, nil
+}
+
+func (controller *Administrator) UpdateSiteSettings(ctx context.Context, request *v1.UpdateSiteSettingsReq) (*v1.UpdateSiteSettingsRes, error) {
+	administrator, err := controller.core.requiredAdministrator(ctx)
+	if err != nil {
+		return nil, err
+	}
+	updated, err := controller.core.settings.Update(ctx, site.UpdateInput{
+		Name: request.Name, Description: request.Description,
+		ExpectedRevision: request.ExpectedRevision, UpdatedBy: administrator,
+	})
+	if err != nil {
+		return nil, pasteerr.Map(err)
+	}
+	return &v1.UpdateSiteSettingsRes{Settings: siteSettingsView(updated)}, nil
+}
+
 func (core *Core) view(value paste.Paste) v1.PasteView {
 	files := make([]v1.FileView, len(value.Files))
 	for index, file := range value.Files {
@@ -177,6 +342,58 @@ func (core *Core) summary(value paste.Paste) v1.PasteSummaryView {
 		Tags: append([]string{}, value.Tags...), FileCount: len(value.Files), PrimaryLanguage: language,
 		Visibility: string(value.Visibility), PasswordProtected: value.PasswordGuard, State: string(value.State),
 		Revision: value.Revision, CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt, ExpiresAt: value.ExpiresAt,
+	}
+}
+
+func (core *Core) administrationView(value paste.AdministrationItem) v1.AdministrationPasteView {
+	return v1.AdministrationPasteView{
+		Code: value.Code, ShareURL: core.shareURL(value.Code), OwnerUserKey: value.OwnerUserKey,
+		Title: value.Title, Tags: append([]string{}, value.Tags...), FileCount: value.FileCount,
+		PrimaryLanguage: value.PrimaryLanguage, Visibility: string(value.Visibility),
+		PasswordProtected: value.PasswordProtected, State: string(value.State), Revision: value.Revision,
+		CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt, ExpiresAt: value.ExpiresAt,
+	}
+}
+
+func administrationItem(value paste.Paste) paste.AdministrationItem {
+	language := "text"
+	if len(value.Files) > 0 {
+		language = value.Files[0].Language
+	}
+	return paste.AdministrationItem{
+		Code: value.Code, OwnerUserKey: value.OwnerUserKey, Title: value.Title,
+		Tags: append([]string{}, value.Tags...), FileCount: len(value.Files), PrimaryLanguage: language,
+		Visibility: value.Visibility, PasswordProtected: value.PasswordGuard, State: value.State,
+		Revision: value.Revision, CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt, ExpiresAt: value.ExpiresAt,
+	}
+}
+
+func siteSettingsView(value site.Settings) v1.SiteSettingsView {
+	return v1.SiteSettingsView{
+		Name: value.Name, Description: value.Description, Revision: value.Revision, UpdatedAt: value.UpdatedAt,
+	}
+}
+
+func governanceSettingsView(value governance.Settings) v1.GovernanceSettingsView {
+	return v1.GovernanceSettingsView{
+		UserDailyLimit: value.UserDailyLimit, AnonymousDailyLimit: value.AnonymousDailyLimit,
+		Revision: value.Revision, UpdatedAt: value.UpdatedAt,
+	}
+}
+
+func administrationUserView(value governance.User) v1.AdministrationUserView {
+	return v1.AdministrationUserView{
+		UserKey: value.UserKey, State: string(value.State), DailyLimitOverride: value.DailyLimitOverride,
+		EffectiveDailyLimit: value.EffectiveDailyLimit, UsedToday: value.UsedToday,
+		TotalPastes: value.TotalPastes, ActivePastes: value.ActivePastes, LastCreatedAt: value.LastCreatedAt,
+		Reason: value.Reason, Revision: value.Revision, UpdatedAt: value.UpdatedAt,
+	}
+}
+
+func administrationUserPolicyView(value governance.UserPolicy) v1.AdministrationUserPolicyView {
+	return v1.AdministrationUserPolicyView{
+		UserKey: value.UserKey, State: string(value.State), DailyLimitOverride: value.DailyLimitOverride,
+		Reason: value.Reason, Revision: value.Revision, UpdatedAt: value.UpdatedAt,
 	}
 }
 
@@ -210,6 +427,17 @@ func requiredUser(ctx context.Context) (string, error) {
 		return "", mustProblem(pasteerr.Forbidden)
 	}
 	return principal.Subject, nil
+}
+
+func (core *Core) requiredAdministrator(ctx context.Context) (string, error) {
+	userKey, err := requiredUser(ctx)
+	if err != nil {
+		return "", err
+	}
+	if _, ok := core.administrators[userKey]; !ok {
+		return "", mustProblem(pasteerr.Forbidden)
+	}
+	return userKey, nil
 }
 
 func mustProblem(descriptor problem.Descriptor) error {

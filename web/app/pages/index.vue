@@ -22,18 +22,18 @@ interface LocalFile extends PasteFile { id: number }
 const route = useRoute();
 const api = usePasteApi();
 const transfer = usePasteTransfer();
-const { loggedIn, login } = useAuth();
+const { loggedIn, login, isAdmin } = useAuth();
+const { siteName, siteDescription } = useSiteSettings();
 let nextFileID = 1;
 const maxFileBytes = 1024 * 1024;
 const maxContentBytes = 1024 * 1024;
 
-const accountActions: readonly AccountMenuAction[] = [
-  {
-    label: "我的 Paste",
-    icon: "i-tabler-folders",
-    to: "/mine",
-  },
-];
+const accountActions = computed<readonly AccountMenuAction[]>(() => [
+  { label: "我的片段", icon: "i-tabler-folders", to: "/mine" },
+  ...(isAdmin.value
+    ? [{ label: "管理后台", icon: "i-tabler-shield-cog", to: "/admin" }]
+    : []),
+]);
 
 const files = ref<LocalFile[]>([
   { id: nextFileID++, path: "main.go", language: "go", content: "" },
@@ -100,10 +100,10 @@ function openShare() {
 }
 
 useSeoMeta({
-  title: editCode.value ? "编辑 Paste" : "新建 Paste",
+  title: computed(() => editCode.value ? `编辑片段 · ${siteName.value}` : `新建片段 · ${siteName.value}`),
   description: "粘贴一段或一组代码，设定访问边界，再分享一个稳定链接。",
-  ogTitle: "月离 Paste",
-  ogDescription: "多文件代码分享工作台。",
+  ogTitle: computed(() => siteName.value),
+  ogDescription: computed(() => siteDescription.value),
 });
 
 function addFile() {
@@ -214,7 +214,7 @@ function validate(): string {
   if (files.value.some((file) => {
     const path = file.path.trim().replaceAll("\\", "/");
     return path.startsWith("/") || path.split("/").includes("..");
-  })) return "文件名需要使用 Paste 内的相对路径，不能包含上级目录。";
+  })) return "文件名需要使用片段内的相对路径，不能包含上级目录。";
   if (new Set(files.value.map((file) => file.path.trim().toLowerCase())).size !== files.value.length) {
     return "文件名不能重复。";
   }
@@ -226,7 +226,7 @@ function validate(): string {
   if (password.value && ([...password.value].length < 8 || [...password.value].length > 128)) {
     return "访问密码需要包含 8–128 个字符。";
   }
-  if (visibility.value === "private" && !loggedIn.value) return "私有 Paste 需要先登录。";
+  if (visibility.value === "private" && !loggedIn.value) return "私有片段需要先登录。";
   return "";
 }
 
@@ -307,15 +307,15 @@ onMounted(loadEdit);
       :aria-busy="saving || loadingEdit"
       @submit.prevent="submit"
     >
-      <header class="paste-editor-chrome" aria-label="Paste 编辑器工具栏">
-        <NuxtLink to="/" class="paste-editor-brand" aria-label="Paste 首页">
+      <header class="paste-editor-chrome" aria-label="代码片段编辑器工具栏">
+        <NuxtLink to="/" class="paste-editor-brand" :aria-label="`${siteName} 首页`">
           <span class="paste-editor-brand-mark" aria-hidden="true">
             <UIcon name="i-tabler-code-dots" class="size-4" />
           </span>
-          <span class="paste-editor-brand-label">Paste</span>
+          <span class="paste-editor-brand-label">{{ siteName }}</span>
         </NuxtLink>
 
-        <nav class="paste-file-tabs" aria-label="Paste 文件">
+        <nav class="paste-file-tabs" aria-label="片段文件">
           <div
             v-for="(file, index) in files"
             :key="file.id"
@@ -399,7 +399,7 @@ onMounted(loadEdit);
             />
           </UTooltip>
           <span class="paste-editor-action-divider" aria-hidden="true" />
-          <UTooltip text="我的 Paste">
+          <UTooltip text="我的片段">
             <UButton
               to="/mine"
               icon="i-tabler-folders"
@@ -408,7 +408,7 @@ onMounted(loadEdit);
               size="sm"
               square
               class="paste-editor-history"
-              aria-label="我的 Paste"
+              aria-label="我的片段"
             />
           </UTooltip>
           <UTooltip text="切换颜色模式">
@@ -445,7 +445,7 @@ onMounted(loadEdit);
       <footer class="paste-statusbar" aria-label="编辑状态">
         <span class="paste-status-primary">
           <span class="paste-status-dot" aria-hidden="true" />
-          <h1 id="compose-title">{{ editCode ? "编辑 Paste" : "新建 Paste" }}</h1>
+          <h1 id="compose-title">{{ editCode ? "编辑片段" : "新建片段" }}</h1>
         </span>
         <span class="paste-status-meta" aria-live="polite">
           <span>{{ visibilityLabel }}</span>
@@ -479,7 +479,7 @@ onMounted(loadEdit);
 
       <USlideover
         v-model:open="shareOpen"
-        title="分享 Paste"
+        title="分享代码片段"
         description="设置访问边界，然后生成链接。"
         :ui="{ content: 'sm:max-w-sm' }"
       >

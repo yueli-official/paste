@@ -83,3 +83,42 @@ type UpdateInput struct {
 	ExpiresAt        *time.Time
 	ClearExpiry      bool
 }
+
+type AdministrationQuery struct {
+	Query      string
+	Visibility Visibility
+	State      State
+	Ownership  string
+	Limit      int
+	Offset     int
+}
+
+type AdministrationItem struct {
+	Code              string
+	OwnerUserKey      string
+	Title             string
+	Tags              []string
+	FileCount         int
+	PrimaryLanguage   string
+	Visibility        Visibility
+	PasswordProtected bool
+	State             State
+	Revision          int64
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	ExpiresAt         *time.Time
+}
+
+type AdministrationPage struct {
+	Items  []AdministrationItem
+	Total  int
+	Limit  int
+	Offset int
+}
+
+type GovernanceInput struct {
+	ExpectedRevision int64
+	Visibility       *Visibility
+	ExpiresAt        *time.Time
+	ClearExpiry      bool
+}

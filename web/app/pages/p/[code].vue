@@ -15,6 +15,8 @@ const route = useRoute();
 const api = usePasteApi();
 const transfer = usePasteTransfer();
 const toast = useToast();
+const { isAdmin } = useAuth();
+const { siteName, siteDescription } = useSiteSettings();
 const code = computed(() => String(route.params.code || ""));
 const value = ref<Paste>();
 const activeIndex = ref(0);
@@ -28,9 +30,12 @@ const copied = ref("");
 const infoOpen = ref(false);
 const createdNotified = ref(false);
 
-const accountActions: readonly AccountMenuAction[] = [
-  { label: "我的 Paste", icon: "i-tabler-folders", to: "/mine" },
-];
+const accountActions = computed<readonly AccountMenuAction[]>(() => [
+  { label: "我的片段", icon: "i-tabler-folders", to: "/mine" },
+  ...(isAdmin.value
+    ? [{ label: "管理后台", icon: "i-tabler-shield-cog", to: "/admin" }]
+    : []),
+]);
 const activeFile = computed<PasteFile | undefined>(() => value.value?.files[activeIndex.value]);
 const created = computed(() => route.query.created === "1");
 const visibilityLabel = computed(() => value.value?.visibility === "private" ? "仅自己" : "链接访问");
@@ -41,15 +46,15 @@ const shellState = computed(() => {
   return created.value ? "created" : "ready";
 });
 const shellTitle = computed(() => {
-  if (loading.value) return "正在打开 Paste";
+  if (loading.value) return "正在打开片段";
   if (locked.value) return "需要访问密码";
-  if (loadError.value || !value.value) return "无法打开这个 Paste";
+  if (loadError.value || !value.value) return "无法打开这个片段";
   return displayTitle(value.value.title, value.value.files[0]?.path);
 });
 
 useSeoMeta({
-  title: computed(() => value.value ? displayTitle(value.value.title, activeFile.value?.path) : `Paste ${code.value}`),
-  description: computed(() => value.value?.description || "月离 Paste 代码分享"),
+  title: computed(() => value.value ? `${displayTitle(value.value.title, activeFile.value?.path)} · ${siteName.value}` : `${code.value} · ${siteName.value}`),
+  description: computed(() => value.value?.description || siteDescription.value),
 });
 
 async function load() {
@@ -81,7 +86,7 @@ function notifyCreated() {
   if (!created.value || createdNotified.value) return;
   createdNotified.value = true;
   toast.add({
-    title: "Paste 已创建",
+    title: "代码片段已创建",
     description: "链接已经可以复制和分享。",
     color: "success",
   });
@@ -153,15 +158,15 @@ watch(code, (next, previous) => {
 <template>
   <section class="paste-reader" :aria-label="shellTitle" :aria-busy="loading">
     <div class="paste-reader-shell">
-      <header class="paste-reader-chrome" aria-label="Paste 只读工具栏">
-        <NuxtLink to="/" class="paste-reader-brand" aria-label="Paste 首页">
+      <header class="paste-reader-chrome" aria-label="代码片段只读工具栏">
+        <NuxtLink to="/" class="paste-reader-brand" :aria-label="`${siteName} 首页`">
           <span class="paste-reader-brand-mark" aria-hidden="true">
             <UIcon name="i-tabler-code-dots" class="size-4" />
           </span>
-          <span class="paste-reader-brand-label">Paste</span>
+          <span class="paste-reader-brand-label">{{ siteName }}</span>
         </NuxtLink>
 
-        <nav v-if="value" class="paste-reader-tabs" role="tablist" aria-label="Paste 文件">
+        <nav v-if="value" class="paste-reader-tabs" role="tablist" aria-label="片段文件">
           <button
             v-for="(file, index) in value.files"
             :id="`paste-reader-tab-${index}`"
@@ -185,12 +190,12 @@ watch(code, (next, previous) => {
         <div v-else class="paste-reader-tabs" aria-hidden="true">
           <div class="paste-reader-tab paste-reader-tab-placeholder" data-active="true">
             <UIcon :name="locked ? 'i-tabler-lock' : loadError ? 'i-tabler-file-off' : 'i-tabler-file-code'" class="size-4 shrink-0" />
-            <span>{{ locked ? "受保护的 Paste" : loadError ? "无法打开" : code }}</span>
+            <span>{{ locked ? "受保护的片段" : loadError ? "无法打开" : code }}</span>
           </div>
         </div>
 
         <div class="paste-reader-actions">
-          <UTooltip v-if="value" text="Paste 信息">
+          <UTooltip v-if="value" text="片段信息">
             <UButton
               type="button"
               icon="i-tabler-info-circle"
@@ -198,7 +203,7 @@ watch(code, (next, previous) => {
               variant="ghost"
               size="sm"
               square
-              aria-label="查看 Paste 信息"
+              aria-label="查看片段信息"
               @click="openInfo"
             />
           </UTooltip>
@@ -228,7 +233,7 @@ watch(code, (next, previous) => {
             />
           </UTooltip>
           <span v-if="value" class="paste-reader-action-divider" aria-hidden="true" />
-          <UTooltip text="我的 Paste">
+          <UTooltip text="我的片段">
             <UButton
               to="/mine"
               icon="i-tabler-folders"
@@ -237,7 +242,7 @@ watch(code, (next, previous) => {
               size="sm"
               square
               class="paste-reader-history"
-              aria-label="我的 Paste"
+              aria-label="我的片段"
             />
           </UTooltip>
           <UTooltip text="切换颜色模式">
@@ -252,7 +257,7 @@ watch(code, (next, previous) => {
       <div class="paste-reader-floor">
         <div v-if="loading" class="paste-reader-state" role="status">
           <UIcon name="i-tabler-loader-2" class="size-6 animate-spin" />
-          <span>正在打开 Paste</span>
+          <span>正在打开片段</span>
         </div>
 
         <div v-else-if="locked" class="paste-reader-state paste-reader-gate">
@@ -275,7 +280,7 @@ watch(code, (next, previous) => {
             <p v-if="accessError" class="paste-reader-error" role="alert">{{ accessError }}</p>
             <UButton
               type="submit"
-              label="打开 Paste"
+              label="打开片段"
               icon="i-tabler-lock-open"
               block
               class="paste-button-primary min-h-11"
@@ -287,11 +292,11 @@ watch(code, (next, previous) => {
 
         <div v-else-if="loadError || !value" class="paste-reader-state paste-reader-failure">
           <span class="paste-reader-state-mark" aria-hidden="true"><UIcon name="i-tabler-file-off" class="size-5" /></span>
-          <h1 id="paste-title">无法打开这个 Paste</h1>
+          <h1 id="paste-title">无法打开这个片段</h1>
           <p role="alert">{{ loadError || "内容不存在。" }}</p>
           <div class="paste-reader-state-actions">
             <UButton type="button" label="重新打开" icon="i-tabler-refresh" color="neutral" variant="outline" @click="load" />
-            <UButton to="/" label="新建 Paste" icon="i-tabler-file-plus" color="primary" />
+            <UButton to="/" label="新建片段" icon="i-tabler-file-plus" color="primary" />
           </div>
         </div>
 
@@ -315,7 +320,7 @@ watch(code, (next, previous) => {
         </section>
       </div>
 
-      <footer class="paste-reader-statusbar" aria-label="Paste 状态">
+      <footer class="paste-reader-statusbar" aria-label="片段状态">
         <span class="paste-reader-status-primary">
           <span class="paste-reader-status-dot" :data-state="shellState" aria-hidden="true" />
           <h1 v-if="value" id="paste-title">{{ shellTitle }}</h1>
@@ -333,7 +338,7 @@ watch(code, (next, previous) => {
       <USlideover
         v-if="value"
         v-model:open="infoOpen"
-        title="Paste 信息"
+        title="片段信息"
         :description="value.code"
         :ui="{ content: 'sm:max-w-sm' }"
       >

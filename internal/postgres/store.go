@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/lib/pq"
+	"github.com/yueli-official/paste/internal/governance"
 	"github.com/yueli-official/paste/internal/paste"
 )
 
@@ -29,6 +30,9 @@ func (store *Store) Insert(ctx context.Context, value paste.Paste) (paste.Paste,
 		return paste.Paste{}, fmt.Errorf("begin Paste insert: %w", err)
 	}
 	defer transaction.Rollback()
+	if err := claimCreation(ctx, transaction, value); err != nil {
+		return paste.Paste{}, err
+	}
 
 	_, err = transaction.ExecContext(ctx, `
 INSERT INTO pastes (
@@ -50,6 +54,58 @@ INSERT INTO pastes (
 		return paste.Paste{}, fmt.Errorf("commit Paste insert: %w", err)
 	}
 	return clone(value), nil
+}
+
+func claimCreation(ctx context.Context, transaction *sql.Tx, value paste.Paste) error {
+	settings, err := scanGovernanceSettings(transaction.QueryRowContext(ctx, `
+SELECT user_daily_limit, anonymous_daily_limit, revision, updated_at, updated_by
+FROM paste_governance_settings
+WHERE singleton = true
+FOR SHARE`))
+	if err != nil {
+		return fmt.Errorf("read creation governance settings: %w", err)
+	}
+	actorKind := "anonymous"
+	actorKey := "global"
+	limit := settings.AnonymousDailyLimit
+	if value.OwnerUserKey != "" {
+		actorKind = "user"
+		actorKey = value.OwnerUserKey
+		policy := governance.UserPolicy{UserKey: actorKey, State: governance.UserStateActive}
+		policyRow := transaction.QueryRowContext(ctx, `
+SELECT user_key, state, daily_limit_override, reason, revision, updated_at, updated_by
+FROM paste_user_policies
+WHERE user_key = $1
+FOR SHARE`, actorKey)
+		policy, err = scanGovernancePolicy(policyRow)
+		if errors.Is(err, sql.ErrNoRows) {
+			policy = governance.UserPolicy{UserKey: actorKey, State: governance.UserStateActive}
+		} else if err != nil {
+			return fmt.Errorf("read creation user policy: %w", err)
+		}
+		if policy.State == governance.UserStateSuspended {
+			return governance.ErrCreationSuspended
+		}
+		limit = governance.EffectiveDailyLimit(settings, policy)
+	} else if limit == 0 {
+		return governance.ErrAnonymousCreationOff
+	}
+	var used int
+	err = transaction.QueryRowContext(ctx, `
+INSERT INTO paste_daily_creation_usage (usage_day, actor_kind, actor_key, used, updated_at)
+VALUES ($1::date, $2, $3, 1, $4)
+ON CONFLICT (usage_day, actor_kind, actor_key) DO UPDATE SET
+    used = paste_daily_creation_usage.used + 1,
+    updated_at = EXCLUDED.updated_at
+WHERE paste_daily_creation_usage.used < $5
+RETURNING used`, value.CreatedAt.UTC().Format("2006-01-02"), actorKind, actorKey, value.CreatedAt, limit).Scan(&used)
+	if errors.Is(err, sql.ErrNoRows) {
+		return governance.ErrDailyLimitReached
+	}
+	if err != nil {
+		return fmt.Errorf("claim daily creation usage: %w", err)
+	}
+	return nil
 }
 
 func (store *Store) GetByCode(ctx context.Context, code string) (paste.Paste, error) {

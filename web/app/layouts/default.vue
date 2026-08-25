@@ -1,16 +1,17 @@
 <script setup lang="ts">
 import type { AccountMenuAction } from "@yueli/ui/account-menu/pattern";
 
-const accountActions: readonly AccountMenuAction[] = [
-  {
-    label: "我的 Paste",
-    icon: "i-tabler-folders",
-    to: "/mine",
-  },
-];
+const { siteName } = useSiteSettings();
+const { isAdmin } = useAuth();
+const accountActions = computed<readonly AccountMenuAction[]>(() => [
+  { label: "我的片段", icon: "i-tabler-folders", to: "/mine" },
+  ...(isAdmin.value
+    ? [{ label: "管理后台", icon: "i-tabler-shield-cog", to: "/admin" }]
+    : []),
+]);
 const route = useRoute();
 const applicationShell = computed(() =>
-  route.path === "/" || route.path === "/mine" || route.path.startsWith("/p/"),
+  route.path === "/" || route.path === "/mine" || route.path === "/admin" || route.path.startsWith("/p/"),
 );
 </script>
 
@@ -18,16 +19,16 @@ const applicationShell = computed(() =>
   <div class="paste-page-frame">
     <header v-if="!applicationShell" class="paste-public-header">
       <nav class="paste-public-nav" aria-label="主导航">
-        <NuxtLink to="/" class="paste-wordmark" aria-label="Paste 首页">
+        <NuxtLink to="/" class="paste-wordmark" :aria-label="`${siteName} 首页`">
           <span class="paste-wordmark-mark" aria-hidden="true">
             <UIcon name="i-tabler-code-dots" class="size-4" />
           </span>
-          <span>Paste</span>
+          <span>{{ siteName }}</span>
         </NuxtLink>
         <div class="paste-nav-actions">
           <UButton
             to="/mine"
-            label="我的 Paste"
+            label="我的片段"
             icon="i-tabler-folders"
             color="neutral"
             variant="ghost"

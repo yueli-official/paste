@@ -6,7 +6,7 @@ test("editor-first composer works at desktop and mobile widths", async ({ page }
     await page.emulateMedia({ colorScheme: "dark" });
   }
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1, name: "新建 Paste" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "新建片段" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: /代码编辑器/ })).toBeVisible();
   await expect(page.locator(".cm-editor")).toBeVisible();
   const statusFontSize = await page.locator(".paste-statusbar").evaluate((node) =>
@@ -51,10 +51,10 @@ test("editor-first composer works at desktop and mobile widths", async ({ page }
   expect(results.violations, results.violations.map((item) => `${item.id}: ${item.help}`).join("\n")).toEqual([]);
 
   await page.getByRole("button", { name: "打开分享设置" }).click();
-  await expect(page.getByRole("heading", { name: "分享 Paste" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "分享代码片段" })).toBeVisible();
   await page.getByRole("button", { name: "生成分享链接" }).click();
   await expect(page).toHaveURL(/\/p\/[A-Za-z0-9_-]{8}\?created=1$/);
-  await expect(page.getByRole("heading", { level: 1, name: "未命名 Paste" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "未命名片段" })).toBeVisible();
   await expect(page.locator(".paste-public-header")).toHaveCount(0);
   await expect(page.locator(".paste-reader-shell")).toBeVisible();
   const readerStatusFontSize = await page.locator(".paste-reader-statusbar").evaluate((node) =>
@@ -75,11 +75,11 @@ test("editor-first composer works at desktop and mobile widths", async ({ page }
   expect(readerDimensions.width).toBeLessThanOrEqual(readerDimensions.viewport);
   expect(readerDimensions.scrollWidth).toBeLessThanOrEqual(readerDimensions.viewport);
   await page.screenshot({ path: testInfo.outputPath(`reader-${testInfo.project.name}.png`), fullPage: true });
-  await page.getByRole("button", { name: "查看 Paste 信息" }).click();
-  await expect(page.getByRole("heading", { name: "Paste 信息" })).toBeVisible();
+  await page.getByRole("button", { name: "查看片段信息" }).click();
+  await expect(page.getByRole("heading", { name: "片段信息" })).toBeVisible();
   await expect(page.getByRole("button", { name: "复制当前文件" })).toBeVisible();
   await expect(page.getByRole("button", { name: "复制全部文件" })).toBeVisible();
-  const infoPanel = page.getByRole("dialog", { name: "Paste 信息" });
+  const infoPanel = page.getByRole("dialog", { name: "片段信息" });
   await expect.poll(async () => {
     const box = await infoPanel.boundingBox();
     return box ? Math.round(box.x + box.width) : 0;
@@ -115,11 +115,11 @@ test("password access stays out of the URL", async ({ page, request }) => {
   await page.goto(`/p/${code}`);
   await expect(page.getByRole("heading", { level: 1, name: "需要访问密码" })).toBeVisible();
   await page.getByRole("textbox", { name: "访问密码", exact: true }).fill("wrong-pass");
-  await page.getByRole("button", { name: "打开 Paste" }).click();
+  await page.getByRole("button", { name: "打开片段" }).click();
   await expect(page.getByRole("alert")).toContainText("密码不正确");
   await page.getByRole("textbox", { name: "访问密码", exact: true }).fill("safepass123");
-  await page.getByRole("button", { name: "打开 Paste" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: "未命名 Paste" })).toBeVisible();
+  await page.getByRole("button", { name: "打开片段" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "未命名片段" })).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`/p/${code}$`));
   await expect(page.getByText("bounded secret")).toBeVisible();
 });
@@ -128,7 +128,7 @@ test("missing shares keep the read-only editor shell", async ({ page }) => {
   await page.goto("/p/Missing1");
   await expect(page.locator(".paste-public-header")).toHaveCount(0);
   await expect(page.locator(".paste-reader-shell")).toBeVisible();
-  await expect(page.getByRole("heading", { level: 1, name: "无法打开这个 Paste" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "无法打开这个片段" })).toBeVisible();
   await expect(page.getByRole("button", { name: "重新打开" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "新建 Paste" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "新建片段" })).toBeVisible();
 });

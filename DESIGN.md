@@ -42,8 +42,30 @@ reinterpreting the layout with unrelated colors or effects.
   toolbar becomes a contextual command bar for batch visibility/expiry changes, destructive deletion and clearing selection.
   Batch changes patch only the chosen fields, run with bounded concurrency and keep failed items selected after partial failure;
   they must never overwrite file content, passwords or unrelated metadata.
+- The protected `/admin` route is an editor-native Operate master-detail ledger, not a card dashboard. Compact application chrome
+  leads to full-site governance as the primary workspace and site settings as a deliberate secondary workspace. On desktop, the
+  safe record inspector shares the work plane with the ledger; at narrower widths it becomes an overlay, and on mobile it occupies
+  the full work plane.
+- User governance within `/admin` searches exact or partial user subjects and filters active or creation-suspended states. Its
+  ledger keeps today's successful creations, effective quota, active and lifetime Paste counts, and latest creation visible;
+  administrators can suspend or resume creation directly without confusing the action with an Identity account ban. Rows support
+  explicit selection and current-page selection; selection turns the toolbar into batch state and daily-quota commands.
+- User batch operations report partial success, keep failed subjects selected for retry and never imply deletion of an Identity
+  user.
+- The user inspector edits creation state, a per-user quota override and governance notes, and links into that subject's Paste
+  records. It occupies the desktop side rail and becomes the complete governance plane at 320px; access state remains visible and
+  mobile actions retain targets of at least 44px.
+- Admin rows keep access state visible at mobile widths instead of hiding it as expendable table metadata. Mobile navigation,
+  selection, filtering, paging and inspector actions provide actionable targets of at least 44px.
+- Admin batch modification and deletion report partial success and keep failed records available for retry. The inspector is a
+  governance summary only: it never returns code content or password material.
+- Site settings use one command bar over a flat settings catalog, without a decorative preview pane. The display group edits the
+  public site name and description; the governance group edits the signed-in users' default daily creation limit (1–10000) and
+  shared anonymous daily total (0–100000). Each group exposes its own revision. Unified save reports partial success by group, and
+  the mobile command bar keeps abandoning unsaved changes reachable. Presentation values may replace the user-facing product
+  label, but do not rename the technical `paste` identity, API or routes.
 - Other public routes retain the shared public Header. Do not reintroduce that Header—or any second titlebar—above the application
-  shell on `/`, `/mine` or `/p/:code`.
+  shell on `/`, `/mine`, `/p/:code` or `/admin`.
 - A Paste contains 1–20 ordered text files. Multiple files should feel like one shareable artifact, not a directory browser.
 - Passwords are submitted in the protected access form and never appear in a query string or copied share URL.
 - A single file may use the full 1 MiB Paste budget; all files together remain limited to 1 MiB. The status bar shows the active

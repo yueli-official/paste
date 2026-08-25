@@ -10,10 +10,16 @@ import (
 //go:embed migrations/0001_pastes.up.sql
 var schemaV1 string
 
+//go:embed migrations/0002_site_settings.up.sql
+var schemaV2 string
+
+//go:embed migrations/0003_governance.up.sql
+var schemaV3 string
+
 func ApplySchema(ctx context.Context, database *sql.DB) error {
 	if database == nil {
 		return errors.New("paste/postgres: DB is required")
 	}
-	_, err := database.ExecContext(ctx, schemaV1)
+	_, err := database.ExecContext(ctx, schemaV1+"\n"+schemaV2+"\n"+schemaV3)
 	return err
 }

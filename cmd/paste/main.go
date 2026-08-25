@@ -9,11 +9,13 @@ import (
 	"github.com/gogf/gf/v2/frame/g"
 	_ "github.com/lib/pq"
 	foundationauth "github.com/yueli-official/foundation/go/auth"
+	"github.com/yueli-official/paste/internal/governance"
 	"github.com/yueli-official/paste/internal/httpapi"
 	"github.com/yueli-official/paste/internal/paste"
 	pastepostgres "github.com/yueli-official/paste/internal/postgres"
 	pasteruntime "github.com/yueli-official/paste/internal/runtime"
 	"github.com/yueli-official/paste/internal/server"
+	"github.com/yueli-official/paste/internal/site"
 )
 
 func main() {
@@ -28,7 +30,14 @@ func main() {
 	must(err)
 	pastes, err := paste.New(store, paste.Options{})
 	must(err)
-	controller, err := httpapi.New(pastes, environment("PASTE_PUBLIC_BASE_URL", "http://localhost:3010"))
+	settings, err := site.New(store, site.Options{})
+	must(err)
+	governanceService, err := governance.New(store, governance.Options{})
+	must(err)
+	controller, err := httpapi.New(pastes, settings, governanceService, httpapi.Options{
+		PublicBase:            environment("PASTE_PUBLIC_BASE_URL", "http://localhost:3010"),
+		AdministratorSubjects: commaSeparated(os.Getenv("PASTE_ADMIN_SUBS")),
+	})
 	must(err)
 
 	var verifier *foundationauth.Verifier
@@ -60,6 +69,16 @@ func requiredEnvironment(name string) string {
 		panic(name + " is required")
 	}
 	return value
+}
+
+func commaSeparated(raw string) []string {
+	values := make([]string, 0)
+	for _, value := range strings.Split(raw, ",") {
+		if value = strings.TrimSpace(value); value != "" {
+			values = append(values, value)
+		}
+	}
+	return values
 }
 
 func must(err error) {

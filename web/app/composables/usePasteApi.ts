@@ -1,10 +1,21 @@
 import type { JsonValue } from "@yueli/http-runtime";
 import { useApi as useFoundationApi } from "@yueli/nuxt-runtime/runtime";
 import type {
+  AdministrationPaste,
+  AdministrationPastePage,
+  AdministrationPasteQuery,
+  AdministrationUserPage,
+  AdministrationUserPolicy,
+  AdministrationUserPolicyInput,
+  AdministrationUserQuery,
+  GovernanceSettings,
+  GovernanceSettingsInput,
   Paste,
   PastePatchInput,
   PasteSummary,
   PasteWriteInput,
+  SiteSettings,
+  SiteSettingsInput,
 } from "../types/paste";
 
 function jsonBody(value: unknown): JsonValue {
@@ -27,6 +38,9 @@ export function usePasteApi() {
   const api = useFoundationApi("platform");
 
   return {
+    getAdministrationSession() {
+      return api.request<{ allowed: boolean; userKey: string }>("/api/v1/admin/session", { auth: "required" });
+    },
     async create(input: PasteWriteInput) {
       const response = await api.request<{ paste: Paste }>("/api/v1/pastes", {
         method: "POST",
@@ -58,6 +72,11 @@ export function usePasteApi() {
         auth: "required",
       });
       return { pastes: (response.pastes || []).map(normalizeSummary) };
+    },
+    async getSettings() {
+      return api.request<{ settings: SiteSettings }>("/api/v1/settings", {
+        auth: "optional",
+      });
     },
     async getMine(code: string) {
       const response = await api.request<{ paste: Paste }>(
@@ -97,6 +116,72 @@ export function usePasteApi() {
           auth: "required",
         },
       );
+    },
+    async listAdministration(query: AdministrationPasteQuery = {}) {
+      const response = await api.request<AdministrationPastePage>("/api/v1/admin/pastes", {
+        auth: "required",
+        query: query as Record<string, string | number>,
+      });
+      return {
+        ...response,
+        pastes: (response.pastes || []).map((value) => normalizeSummary(value) as AdministrationPaste),
+      };
+    },
+    async govern(code: string, expectedRevision: number, input: PastePatchInput) {
+      const response = await api.request<{ paste: AdministrationPaste }>(
+        `/api/v1/admin/pastes/${encodeURIComponent(code)}`,
+        {
+          method: "PATCH",
+          body: jsonBody({ expectedRevision, ...input }),
+          auth: "required",
+        },
+      );
+      return { paste: normalizeSummary(response.paste) as AdministrationPaste };
+    },
+    removeAdministration(code: string, expectedRevision: number) {
+      return api.request<Record<string, never>>(
+        `/api/v1/admin/pastes/${encodeURIComponent(code)}`,
+        {
+          method: "DELETE",
+          query: { expectedRevision },
+          auth: "required",
+        },
+      );
+    },
+    listAdministrationUsers(query: AdministrationUserQuery = {}) {
+      return api.request<AdministrationUserPage>("/api/v1/admin/users", {
+        auth: "required",
+        query: query as Record<string, string | number>,
+      });
+    },
+    updateAdministrationUser(userKey: string, input: AdministrationUserPolicyInput) {
+      return api.request<{ user: AdministrationUserPolicy }>(
+        `/api/v1/admin/users/${encodeURIComponent(userKey)}`,
+        {
+          method: "PATCH",
+          body: jsonBody(input),
+          auth: "required",
+        },
+      );
+    },
+    getGovernanceSettings() {
+      return api.request<{ settings: GovernanceSettings }>("/api/v1/admin/governance-settings", {
+        auth: "required",
+      });
+    },
+    updateGovernanceSettings(input: GovernanceSettingsInput) {
+      return api.request<{ settings: GovernanceSettings }>("/api/v1/admin/governance-settings", {
+        method: "PATCH",
+        body: jsonBody(input),
+        auth: "required",
+      });
+    },
+    updateSettings(input: SiteSettingsInput) {
+      return api.request<{ settings: SiteSettings }>("/api/v1/admin/settings", {
+        method: "PATCH",
+        body: jsonBody(input),
+        auth: "required",
+      });
     },
   };
 }

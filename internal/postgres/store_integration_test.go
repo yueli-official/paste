@@ -29,7 +29,7 @@ func TestStoreLifecycleIntegration(t *testing.T) {
 	if err := ApplySchema(ctx, database); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := database.ExecContext(ctx, `TRUNCATE paste_files, pastes`); err != nil {
+	if _, err := database.ExecContext(ctx, `TRUNCATE paste_daily_creation_usage, paste_user_policies, paste_files, pastes`); err != nil {
 		t.Fatal(err)
 	}
 	store, err := New(database)

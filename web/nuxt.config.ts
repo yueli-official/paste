@@ -36,7 +36,7 @@ export default defineNuxtConfig({
   app: {
     head: {
       htmlAttrs: { lang: "zh-CN" },
-      titleTemplate: "%s · Paste",
+      titleTemplate: "%s",
       meta: [
         {
           name: "theme-color",
@@ -48,7 +48,7 @@ export default defineNuxtConfig({
           content: "#111820",
           media: "(prefers-color-scheme: dark)",
         },
-        { property: "og:site_name", content: "月离 Paste" },
+        { property: "og:site_name", content: "代码片段" },
         { property: "og:type", content: "website" },
         { name: "twitter:card", content: "summary" },
       ],

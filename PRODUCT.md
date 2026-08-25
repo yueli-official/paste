@@ -13,6 +13,8 @@ web
 - Authenticated Yueli users return to their own Pastes to find, edit, expire or delete them.
 - Recipients open a Paste link, understand its files and language immediately, and copy one file or the complete Paste without
   needing an account.
+- Explicitly configured Paste site administrators govern full-site records and public presentation settings. Identity control-plane
+  administration does not implicitly grant this product-local role.
 
 ## Product Purpose
 
@@ -42,6 +44,22 @@ remains as direct as a single-file paste.
 - A Paste may have an expiry and may be protected by a password. Passwords are never placed in share URLs, logs or plaintext
   storage.
 - Anonymous Pastes are immutable after creation. Authenticated owners may list, edit, expire and delete their own Pastes.
+- A creation suspension applies to one authenticated subject and blocks only new Paste creation. It is not an Identity account
+  ban and does not delete, disable or otherwise change that subject's existing shares.
+- Signed-in creation quotas count successful creations per subject over a UTC calendar day. The site-wide default is 1–10000 and
+  an administrator may set an independent per-user override.
+- Anonymous creation uses one shared site-wide UTC daily total, not an IP-, device- or inferred-user identity. Its configured range
+  is 0–100000; zero pauses anonymous creation for everyone.
+- Only a successfully committed Paste consumes quota. Counter consumption and Paste insertion are one atomic database operation,
+  so rejected or rolled-back attempts are not counted.
+- Exhausted quotas return `429 common.rate_limited`; creation suspension returns `403 paste.creation_suspended`; a disabled
+  anonymous pool returns `403 paste.anonymous_creation_disabled`.
+- Administrator user batches change only Paste-local creation state or daily quota. They never delete Identity users; partial
+  failures remain explicit and retryable.
+- Display and governance settings have independent revisions. A unified save may partially succeed and must identify which group
+  failed rather than presenting stale settings as one atomic result.
+- Administrator summaries never return code content or password material. Batch modification and deletion report partial failures
+  instead of presenting a false all-or-nothing result.
 - Expired and deleted locators are terminal states and are not silently reallocated.
 - Syntax highlighting, per-file copy, whole-Paste copy, share-link copy and responsive keyboard operation are first-release
   behavior.
@@ -51,7 +69,9 @@ remains as direct as a single-file paste.
 
 ## Brand Commitments
 
-- Product and repository name: `Paste` / `paste`.
+- The user-facing site name defaults to `代码片段`; a Paste site administrator may change it and the public site description.
+- Repository, service, API, route and persistence identifiers remain `paste`; editable presentation never renames technical
+  contracts.
 - Product copy is concise Chinese and speaks in familiar developer terms.
 - Interface icons use Tabler only.
 - The old CodeShare purple landing page is source evidence, not a visual authority.
@@ -77,4 +97,3 @@ remains as direct as a single-file paste.
 Creation, file switching, protected access, copy/share and owner management must work by keyboard, retain visible focus, expose
 status in text rather than color alone, and remain usable on narrow mobile viewports. Code typography may be monospaced, but all
 controls and explanatory content must remain readable under browser zoom and user font scaling.
-

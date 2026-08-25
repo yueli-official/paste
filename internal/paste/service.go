@@ -139,6 +139,73 @@ func (service *Service) ListMine(ctx context.Context, userKey string) ([]Paste, 
 	return result, nil
 }
 
+func (service *Service) ListForAdministration(ctx context.Context, query AdministrationQuery) (AdministrationPage, error) {
+	query.Query = strings.TrimSpace(query.Query)
+	query.Ownership = strings.TrimSpace(strings.ToLower(query.Ownership))
+	if query.Visibility != "" && query.Visibility != VisibilityUnlisted && query.Visibility != VisibilityPrivate {
+		return AdministrationPage{}, ValidationError{Field: "visibility", Message: "is invalid"}
+	}
+	if query.State != "" && query.State != StateActive && query.State != StateDeleted {
+		return AdministrationPage{}, ValidationError{Field: "state", Message: "is invalid"}
+	}
+	if query.Ownership != "" && query.Ownership != "anonymous" && query.Ownership != "owned" {
+		return AdministrationPage{}, ValidationError{Field: "ownership", Message: "is invalid"}
+	}
+	if query.Limit <= 0 {
+		query.Limit = 50
+	}
+	if query.Limit > 100 {
+		query.Limit = 100
+	}
+	if query.Offset < 0 {
+		query.Offset = 0
+	}
+	page, err := service.store.ListForAdministration(ctx, query)
+	if err != nil {
+		return AdministrationPage{}, err
+	}
+	if page.Items == nil {
+		page.Items = []AdministrationItem{}
+	}
+	return page, nil
+}
+
+func (service *Service) Govern(ctx context.Context, code string, input GovernanceInput) (Paste, error) {
+	value, err := service.managedValue(ctx, code)
+	if err != nil {
+		return Paste{}, err
+	}
+	if input.ExpectedRevision < 1 || input.ExpectedRevision != value.Revision {
+		return Paste{}, ErrConflict
+	}
+	if input.Visibility != nil {
+		if *input.Visibility != VisibilityUnlisted && *input.Visibility != VisibilityPrivate {
+			return Paste{}, ValidationError{Field: "visibility", Message: "is invalid"}
+		}
+		if *input.Visibility == VisibilityPrivate && value.OwnerUserKey == "" {
+			return Paste{}, ValidationError{Field: "visibility", Message: "anonymous Paste cannot be private"}
+		}
+		value.Visibility = *input.Visibility
+	}
+	now := service.now().UTC()
+	if input.ClearExpiry {
+		value.ExpiresAt = nil
+	} else if input.ExpiresAt != nil {
+		expires := input.ExpiresAt.UTC()
+		if !expires.After(now) {
+			return Paste{}, ValidationError{Field: "expiresAt", Message: "must be in the future"}
+		}
+		value.ExpiresAt = &expires
+	}
+	value.Revision++
+	value.UpdatedAt = now
+	updated, err := service.store.Update(ctx, value, input.ExpectedRevision)
+	if err != nil {
+		return Paste{}, err
+	}
+	return publicPaste(updated), nil
+}
+
 // GetMine returns an owned Paste for management without requiring its public
 // access password. Ownership is the authorization boundary for this view.
 func (service *Service) GetMine(ctx context.Context, code, userKey string) (Paste, error) {
@@ -162,7 +229,7 @@ func (service *Service) Update(ctx context.Context, code string, input UpdateInp
 	if input.Title != nil {
 		title := strings.TrimSpace(*input.Title)
 		if title == "" {
-			title = "未命名 Paste"
+			title = "未命名片段"
 		}
 		if utf8.RuneCountInString(title) > MaxTitleRunes {
 			return Paste{}, ValidationError{Field: "title", Message: "is too long"}
@@ -233,6 +300,18 @@ func (service *Service) Delete(ctx context.Context, code, ownerUserKey string, e
 	if err != nil {
 		return err
 	}
+	return service.deleteValue(ctx, value, expectedRevision)
+}
+
+func (service *Service) DeleteAsAdministrator(ctx context.Context, code string, expectedRevision int64) error {
+	value, err := service.managedValue(ctx, code)
+	if err != nil {
+		return err
+	}
+	return service.deleteValue(ctx, value, expectedRevision)
+}
+
+func (service *Service) deleteValue(ctx context.Context, value Paste, expectedRevision int64) error {
 	if expectedRevision < 1 || expectedRevision != value.Revision {
 		return ErrConflict
 	}
@@ -246,8 +325,23 @@ func (service *Service) Delete(ctx context.Context, code, ownerUserKey string, e
 	value.Tags = []string{}
 	value.PasswordHash = nil
 	value.PasswordGuard = false
-	_, err = service.store.Update(ctx, value, expectedRevision)
+	_, err := service.store.Update(ctx, value, expectedRevision)
 	return err
+}
+
+func (service *Service) managedValue(ctx context.Context, code string) (Paste, error) {
+	parsed, err := identifier.CompactURLV1.Parse(code)
+	if err != nil {
+		return Paste{}, ErrNotFound
+	}
+	value, err := service.store.GetByCode(ctx, parsed.String())
+	if err != nil {
+		return Paste{}, err
+	}
+	if value.State == StateDeleted {
+		return Paste{}, ErrDeleted
+	}
+	return value, nil
 }
 
 func (service *Service) owned(ctx context.Context, code, ownerUserKey string) (Paste, error) {
@@ -276,7 +370,7 @@ func normalizeCreate(input CreateInput, now time.Time) (CreateInput, error) {
 	input.OwnerUserKey = strings.TrimSpace(input.OwnerUserKey)
 	input.Title = strings.TrimSpace(input.Title)
 	if input.Title == "" {
-		input.Title = "未命名 Paste"
+		input.Title = "未命名片段"
 	}
 	if utf8.RuneCountInString(input.Title) > MaxTitleRunes {
 		return CreateInput{}, ValidationError{Field: "title", Message: "is too long"}

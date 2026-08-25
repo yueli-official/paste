@@ -6,22 +6,26 @@ import (
 	"strings"
 
 	"github.com/yueli-official/foundation/go/problem"
+	"github.com/yueli-official/paste/internal/governance"
 	"github.com/yueli-official/paste/internal/paste"
+	"github.com/yueli-official/paste/internal/site"
 )
 
 const typeRoot = "https://errors.yuelili.com/problems/"
 
 var (
-	RateLimited     = descriptor("common.rate_limited", http.StatusTooManyRequests)
-	Validation      = descriptor("validation.failed", http.StatusBadRequest)
-	Internal        = descriptor("common.internal", http.StatusInternalServerError)
-	Unauthorized    = descriptor("paste.not_authenticated", http.StatusUnauthorized)
-	Forbidden       = descriptor("paste.forbidden", http.StatusForbidden)
-	NotFound        = descriptor("paste.not_found", http.StatusNotFound)
-	Gone            = descriptor("paste.gone", http.StatusGone)
-	PasswordNeeded  = descriptor("paste.password_required", http.StatusLocked)
-	PasswordInvalid = descriptor("paste.password_invalid", http.StatusForbidden)
-	Conflict        = descriptor("paste.conflict", http.StatusConflict)
+	RateLimited          = descriptor("common.rate_limited", http.StatusTooManyRequests)
+	Validation           = descriptor("validation.failed", http.StatusBadRequest)
+	Internal             = descriptor("common.internal", http.StatusInternalServerError)
+	Unauthorized         = descriptor("paste.not_authenticated", http.StatusUnauthorized)
+	Forbidden            = descriptor("paste.forbidden", http.StatusForbidden)
+	CreationSuspended    = descriptor("paste.creation_suspended", http.StatusForbidden)
+	AnonymousCreationOff = descriptor("paste.anonymous_creation_disabled", http.StatusForbidden)
+	NotFound             = descriptor("paste.not_found", http.StatusNotFound)
+	Gone                 = descriptor("paste.gone", http.StatusGone)
+	PasswordNeeded       = descriptor("paste.password_required", http.StatusLocked)
+	PasswordInvalid      = descriptor("paste.password_invalid", http.StatusForbidden)
+	Conflict             = descriptor("paste.conflict", http.StatusConflict)
 )
 
 func descriptor(code string, status int) problem.Descriptor {
@@ -32,10 +36,24 @@ func Map(err error) error {
 	var selected problem.Descriptor
 	var violations []problem.Violation
 	var validation paste.ValidationError
+	var siteValidation site.ValidationError
+	var governanceValidation governance.ValidationError
 	switch {
 	case errors.As(err, &validation):
 		selected = Validation
 		violations = []problem.Violation{validationViolation(validation)}
+	case errors.As(err, &siteValidation):
+		selected = Validation
+		violations = []problem.Violation{siteValidationViolation(siteValidation)}
+	case errors.As(err, &governanceValidation):
+		selected = Validation
+		violations = []problem.Violation{governanceValidationViolation(governanceValidation)}
+	case errors.Is(err, governance.ErrDailyLimitReached):
+		selected = RateLimited
+	case errors.Is(err, governance.ErrCreationSuspended):
+		selected = CreationSuspended
+	case errors.Is(err, governance.ErrAnonymousCreationOff):
+		selected = AnonymousCreationOff
 	case errors.Is(err, paste.ErrNotFound):
 		selected = NotFound
 	case errors.Is(err, paste.ErrExpired), errors.Is(err, paste.ErrDeleted):
@@ -46,7 +64,7 @@ func Map(err error) error {
 		selected = PasswordInvalid
 	case errors.Is(err, paste.ErrForbidden):
 		selected = Forbidden
-	case errors.Is(err, paste.ErrConflict), errors.Is(err, paste.ErrCodeCollision):
+	case errors.Is(err, paste.ErrConflict), errors.Is(err, paste.ErrCodeCollision), errors.Is(err, site.ErrConflict), errors.Is(err, governance.ErrConflict):
 		selected = Conflict
 	default:
 		return err
@@ -56,6 +74,46 @@ func Map(err error) error {
 		return err
 	}
 	return mapped
+}
+
+func governanceValidationViolation(err governance.ValidationError) problem.Violation {
+	violation := problem.Violation{
+		Pointer: "/" + err.Field,
+		Code:    "validation.invalid",
+		Params:  problem.Parameters{"detail": err.Message},
+	}
+	if err.Message == "is out of range" {
+		switch err.Field {
+		case "userDailyLimit", "dailyLimitOverride":
+			violation.Code = "validation.range"
+			violation.Params = problem.Parameters{"min": 1, "max": governance.MaxUserDailyLimit}
+		case "anonymousDailyLimit":
+			violation.Code = "validation.range"
+			violation.Params = problem.Parameters{"min": 0, "max": governance.MaxAnonymousDailyLimit}
+		}
+	}
+	if err.Field == "reason" && err.Message == "is too long" {
+		violation.Code = "validation.max_length"
+		violation.Params = problem.Parameters{"maxLength": governance.MaxReasonRunes}
+	}
+	return violation
+}
+
+func siteValidationViolation(err site.ValidationError) problem.Violation {
+	violation := problem.Violation{
+		Pointer: "/" + err.Field,
+		Code:    "validation.invalid",
+		Params:  problem.Parameters{"detail": err.Message},
+	}
+	if err.Message == "is too long" && err.Field == "name" {
+		violation.Code = "validation.max_length"
+		violation.Params = problem.Parameters{"maxLength": site.MaxNameRunes}
+	}
+	if err.Message == "is too long" && err.Field == "description" {
+		violation.Code = "validation.max_length"
+		violation.Params = problem.Parameters{"maxLength": site.MaxDescriptionRunes}
+	}
+	return violation
 }
 
 func validationViolation(err paste.ValidationError) problem.Violation {

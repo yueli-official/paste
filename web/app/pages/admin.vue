@@ -1,0 +1,1044 @@
+<!--
+THESIS: Site governance is a focused inspection desk, not a dashboard of summary cards.
+OWN-WORLD: Cool porcelain and ink-navy editor planes use mineral-blue focus, flat rules, and compact Nuxt UI controls.
+STORY: find records or users, select one or many, apply bounded governance, then tune public identity and abuse controls in one save flow.
+FIRST VIEWPORT: one 40px application bar, one section rail, a selection-aware toolbar or settings command bar, the work plane, and a 28px status bar.
+FORM: the fourth grounded master-detail explorer extended with contextual user batching and a flat VS Code-like settings catalog; seed eb959727.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+-->
+<script setup lang="ts">
+import { PageHeader } from "@yueli/ui/admin";
+import type {
+  AdministrationPaste,
+  AdministrationUser,
+  AdministrationUserState,
+  GovernanceSettings,
+  PastePatchInput,
+  PasteVisibility,
+} from "../types/paste";
+import { displayTitle, pasteErrorMessage } from "../utils/paste";
+
+definePageMeta({ layout: "admin", middleware: ["auth", "operator"] });
+
+const api = usePasteApi();
+const route = useRoute();
+const toast = useToast();
+const { settings, siteName, adopt } = useSiteSettings();
+
+const section = computed<"pastes" | "users" | "settings">(() => {
+  if (route.query.view === "users") return "users";
+  if (route.query.view === "settings") return "settings";
+  return "pastes";
+});
+const pageTitle = computed(() => ({
+  pastes: "片段治理",
+  users: "用户治理",
+  settings: "站点设置",
+})[section.value]);
+const pageIcon = computed(() => ({
+  pastes: "i-tabler-files",
+  users: "i-tabler-users",
+  settings: "i-tabler-adjustments-horizontal",
+})[section.value]);
+const values = ref<AdministrationPaste[]>([]);
+const total = ref(0);
+const offset = ref(0);
+const limit = 50;
+const query = ref("");
+const visibility = ref<"all" | PasteVisibility>("all");
+const state = ref<"all" | "active" | "deleted">("active");
+const ownership = ref<"all" | "anonymous" | "owned">("all");
+const loading = ref(true);
+const error = ref("");
+const selectedCodes = ref<string[]>([]);
+const inspectedCode = ref("");
+const batchOpen = ref(false);
+const batchVisibility = ref<"keep" | PasteVisibility>("keep");
+const batchExpiry = ref<"keep" | "1d" | "7d" | "30d" | "never">("keep");
+const batchSaving = ref(false);
+const batchDeleting = ref(false);
+const operationMessage = ref("");
+const settingsName = ref(settings.value.name);
+const settingsDescription = ref(settings.value.description);
+const settingsSaving = ref(false);
+const settingsError = ref("");
+const users = ref<AdministrationUser[]>([]);
+const userTotal = ref(0);
+const userOffset = ref(0);
+const userQuery = ref("");
+const userState = ref<"all" | AdministrationUserState>("all");
+const userLoading = ref(true);
+const userError = ref("");
+const inspectedUserKey = ref("");
+const userPolicySaving = ref(false);
+const selectedUserKeys = ref<string[]>([]);
+const userBatchOpen = ref(false);
+const userBatchState = ref<"keep" | AdministrationUserState>("keep");
+const userBatchLimitMode = ref<"keep" | "default" | "custom">("keep");
+const userBatchLimit = ref<number | null>(null);
+const userBatchSaving = ref(false);
+const userDraftState = ref<AdministrationUserState>("active");
+const userDraftCustomLimit = ref(false);
+const userDraftLimit = ref<number | null>(null);
+const userDraftReason = ref("");
+const governanceSettings = ref<GovernanceSettings | null>(null);
+const governanceUserLimit = ref<number | null>(null);
+const governanceAnonymousLimit = ref<number | null>(null);
+const governanceSettingsLoading = ref(true);
+const governanceSettingsSaving = ref(false);
+const governanceSettingsError = ref("");
+
+const visibilityItems = [
+  { label: "全部可见性", value: "all" },
+  { label: "持链访问", value: "unlisted" },
+  { label: "仅自己", value: "private" },
+];
+const stateItems = [
+  { label: "全部状态", value: "all" },
+  { label: "有效", value: "active" },
+  { label: "已删除", value: "deleted" },
+];
+const userStateItems = [
+  { label: "全部创建状态", value: "all" },
+  { label: "正常创建", value: "active" },
+  { label: "已暂停创建", value: "suspended" },
+];
+const userPolicyStateItems = [
+  { label: "正常创建", value: "active" },
+  { label: "暂停创建", value: "suspended" },
+];
+const userBatchStateItems = [
+  { label: "保持原状态", value: "keep" },
+  { label: "正常创建", value: "active" },
+  { label: "暂停创建", value: "suspended" },
+];
+const userBatchLimitItems = [
+  { label: "保持原额度", value: "keep" },
+  { label: "跟随全站默认", value: "default" },
+  { label: "设置统一上限", value: "custom" },
+];
+const ownershipItems = [
+  { label: "全部归属", value: "all" },
+  { label: "登录用户", value: "owned" },
+  { label: "匿名", value: "anonymous" },
+];
+const batchVisibilityItems = [
+  { label: "保持原设置", value: "keep" },
+  { label: "持链访问", value: "unlisted" },
+  { label: "仅自己", value: "private" },
+];
+const batchExpiryItems = [
+  { label: "保持原设置", value: "keep" },
+  { label: "1 天后", value: "1d" },
+  { label: "7 天后", value: "7d" },
+  { label: "30 天后", value: "30d" },
+  { label: "不过期", value: "never" },
+];
+
+const selectedCodeSet = computed(() => new Set(selectedCodes.value));
+const selectedValues = computed(() => values.value.filter((value) => selectedCodeSet.value.has(value.code)));
+const inspected = computed(() => values.value.find((value) => value.code === inspectedCode.value));
+const selectionState = computed<boolean | "indeterminate">(() => {
+  if (values.value.length === 0) return false;
+  const count = values.value.filter((value) => selectedCodeSet.value.has(value.code)).length;
+  if (count === 0) return false;
+  return count === values.value.length ? true : "indeterminate";
+});
+const activeFilterCount = computed(() =>
+  [visibility.value !== "all", state.value !== "active", ownership.value !== "all"].filter(Boolean).length,
+);
+const pageStart = computed(() => total.value === 0 ? 0 : offset.value + 1);
+const pageEnd = computed(() => Math.min(offset.value + values.value.length, total.value));
+const currentPage = computed({
+  get: () => Math.floor(offset.value / limit) + 1,
+  set: (value: number) => {
+    const pageCount = Math.max(1, Math.ceil(total.value / limit));
+    const nextPage = Math.min(Math.max(1, value), pageCount);
+    const nextOffset = (nextPage - 1) * limit;
+    if (nextOffset === offset.value) return;
+    offset.value = nextOffset;
+    void loadPastes();
+  },
+});
+const settingsDirty = computed(() =>
+  settingsName.value.trim() !== settings.value.name ||
+  settingsDescription.value.trim() !== settings.value.description,
+);
+const inspectedUser = computed(() => users.value.find((value) => value.userKey === inspectedUserKey.value));
+const selectedUserKeySet = computed(() => new Set(selectedUserKeys.value));
+const selectedUsers = computed(() => users.value.filter((value) => selectedUserKeySet.value.has(value.userKey)));
+const userSelectionState = computed<boolean | "indeterminate">(() => {
+  if (users.value.length === 0) return false;
+  const count = users.value.filter((value) => selectedUserKeySet.value.has(value.userKey)).length;
+  if (count === 0) return false;
+  return count === users.value.length ? true : "indeterminate";
+});
+const userPageStart = computed(() => userTotal.value === 0 ? 0 : userOffset.value + 1);
+const userPageEnd = computed(() => Math.min(userOffset.value + users.value.length, userTotal.value));
+const currentUserPage = computed({
+  get: () => Math.floor(userOffset.value / limit) + 1,
+  set: (value: number) => {
+    const pageCount = Math.max(1, Math.ceil(userTotal.value / limit));
+    const nextPage = Math.min(Math.max(1, value), pageCount);
+    const nextOffset = (nextPage - 1) * limit;
+    if (nextOffset === userOffset.value) return;
+    userOffset.value = nextOffset;
+    void loadUsers();
+  },
+});
+const userPolicyDirty = computed(() => {
+  if (!inspectedUser.value) return false;
+  const currentLimit = inspectedUser.value.dailyLimitOverride;
+  return userDraftState.value !== inspectedUser.value.state ||
+    userDraftCustomLimit.value !== (currentLimit !== undefined) ||
+    (userDraftCustomLimit.value && userDraftLimit.value !== currentLimit) ||
+    userDraftReason.value.trim() !== (inspectedUser.value.reason || "");
+});
+const governanceSettingsDirty = computed(() =>
+  Boolean(governanceSettings.value) && (
+    governanceUserLimit.value !== governanceSettings.value?.userDailyLimit ||
+    governanceAnonymousLimit.value !== governanceSettings.value?.anonymousDailyLimit
+  ),
+);
+const settingsWorkspaceDirty = computed(() => settingsDirty.value || governanceSettingsDirty.value);
+const settingsWorkspaceSaving = computed(() => settingsSaving.value || governanceSettingsSaving.value);
+
+useSeoMeta({
+  title: computed(() => `管理后台 · ${siteName.value}`),
+  description: computed(() => `治理全站代码片段并维护 ${siteName.value} 的展示设置。`),
+});
+
+let loadSequence = 0;
+async function loadPastes(reset = false) {
+  if (reset) offset.value = 0;
+  const sequence = ++loadSequence;
+  loading.value = true;
+  error.value = "";
+  try {
+    const page = await api.listAdministration({
+      q: query.value.trim() || undefined,
+      visibility: visibility.value === "all" ? undefined : visibility.value,
+      state: state.value === "all" ? undefined : state.value,
+      ownership: ownership.value === "all" ? undefined : ownership.value,
+      limit,
+      offset: offset.value,
+    });
+    if (sequence !== loadSequence) return;
+    values.value = page.pastes;
+    total.value = page.total;
+    const available = new Set(values.value.map((value) => value.code));
+    selectedCodes.value = selectedCodes.value.filter((code) => available.has(code));
+    if (inspectedCode.value && !available.has(inspectedCode.value)) inspectedCode.value = "";
+  } catch (caught) {
+    if (sequence === loadSequence) error.value = pasteErrorMessage(caught);
+  } finally {
+    if (sequence === loadSequence) loading.value = false;
+  }
+}
+
+let loadUsersSequence = 0;
+async function loadUsers(reset = false) {
+  if (reset) userOffset.value = 0;
+  const sequence = ++loadUsersSequence;
+  userLoading.value = true;
+  userError.value = "";
+  try {
+    const page = await api.listAdministrationUsers({
+      q: userQuery.value.trim() || undefined,
+      state: userState.value === "all" ? undefined : userState.value,
+      limit,
+      offset: userOffset.value,
+    });
+    if (sequence !== loadUsersSequence) return;
+    users.value = page.users || [];
+    userTotal.value = page.total;
+    const available = new Set(users.value.map((value) => value.userKey));
+    selectedUserKeys.value = selectedUserKeys.value.filter((userKey) => available.has(userKey));
+    if (inspectedUserKey.value && !users.value.some((value) => value.userKey === inspectedUserKey.value)) {
+      inspectedUserKey.value = "";
+    }
+  } catch (caught) {
+    if (sequence === loadUsersSequence) userError.value = pasteErrorMessage(caught);
+  } finally {
+    if (sequence === loadUsersSequence) userLoading.value = false;
+  }
+}
+
+async function loadGovernanceSettings() {
+  governanceSettingsLoading.value = true;
+  governanceSettingsError.value = "";
+  try {
+    const response = await api.getGovernanceSettings();
+    governanceSettings.value = response.settings;
+    governanceUserLimit.value = response.settings.userDailyLimit;
+    governanceAnonymousLimit.value = response.settings.anonymousDailyLimit;
+  } catch (caught) {
+    governanceSettingsError.value = pasteErrorMessage(caught);
+  } finally {
+    governanceSettingsLoading.value = false;
+  }
+}
+
+function announce(message: string, color: "success" | "warning" | "error") {
+  operationMessage.value = message;
+  if (color === "success") return;
+  toast.add({
+    title: color === "warning" ? "部分项目未完成" : "操作未完成",
+    description: message,
+    color,
+  });
+}
+
+function toggleSelected(code: string, checked: boolean) {
+  const next = new Set(selectedCodes.value);
+  if (checked) next.add(code);
+  else next.delete(code);
+  selectedCodes.value = [...next];
+}
+
+function togglePageSelection(checked: boolean | "indeterminate") {
+  selectedCodes.value = checked === true ? values.value.map((value) => value.code) : [];
+}
+
+function clearSelection() {
+  selectedCodes.value = [];
+}
+
+function toggleUserSelected(userKey: string, checked: boolean) {
+  const next = new Set(selectedUserKeys.value);
+  if (checked) next.add(userKey);
+  else next.delete(userKey);
+  selectedUserKeys.value = [...next];
+}
+
+function toggleUserPageSelection(checked: boolean | "indeterminate") {
+  selectedUserKeys.value = checked === true ? users.value.map((value) => value.userKey) : [];
+}
+
+function clearUserSelection() {
+  selectedUserKeys.value = [];
+}
+
+function openUserBatch() {
+  userBatchState.value = "keep";
+  userBatchLimitMode.value = "keep";
+  userBatchLimit.value = governanceSettings.value?.userDailyLimit ?? 50;
+  userBatchOpen.value = true;
+}
+
+function closeUserBatch() {
+  userBatchOpen.value = false;
+}
+
+function clearFilters() {
+  query.value = "";
+  visibility.value = "all";
+  state.value = "active";
+  ownership.value = "all";
+}
+
+function openBatch() {
+  batchVisibility.value = "keep";
+  batchExpiry.value = "keep";
+  batchOpen.value = true;
+}
+
+function closeBatch() {
+  batchOpen.value = false;
+}
+
+function inspect(code: string) {
+  inspectedCode.value = code;
+}
+
+function closeInspector() {
+  inspectedCode.value = "";
+}
+
+function inspectUser(userKey: string) {
+  const user = users.value.find((value) => value.userKey === userKey);
+  if (!user) return;
+  inspectedUserKey.value = userKey;
+  userDraftState.value = user.state;
+  userDraftCustomLimit.value = user.dailyLimitOverride !== undefined;
+  userDraftLimit.value = user.dailyLimitOverride ?? user.effectiveDailyLimit;
+  userDraftReason.value = user.reason || "";
+}
+
+function closeUserInspector() {
+  inspectedUserKey.value = "";
+}
+
+function viewUserPastes(userKey: string) {
+  query.value = userKey;
+}
+
+async function updateUserState(user: AdministrationUser, nextState: AdministrationUserState) {
+  if (nextState === "suspended" && !window.confirm(`暂停 ${user.userKey} 创建新的代码片段？已有链接不会自动删除。`)) return;
+  userPolicySaving.value = true;
+  try {
+    await api.updateAdministrationUser(user.userKey, {
+      state: nextState,
+      dailyLimitOverride: user.dailyLimitOverride,
+      clearDailyLimit: user.dailyLimitOverride === undefined,
+      reason: user.reason || "",
+      expectedRevision: user.revision,
+    });
+    await loadUsers();
+    announce(nextState === "suspended" ? `已暂停 ${user.userKey} 创建代码片段。` : `已恢复 ${user.userKey} 创建代码片段。`, "success");
+  } catch (caught) {
+    announce(pasteErrorMessage(caught), "error");
+  } finally {
+    userPolicySaving.value = false;
+  }
+}
+
+async function saveUserPolicy() {
+  const user = inspectedUser.value;
+  if (!user || !userPolicyDirty.value) return;
+  if (userDraftCustomLimit.value && (userDraftLimit.value === null || userDraftLimit.value < 1)) {
+    announce("单独上限必须至少为 1。", "error");
+    return;
+  }
+  userPolicySaving.value = true;
+  try {
+    await api.updateAdministrationUser(user.userKey, {
+      state: userDraftState.value,
+      dailyLimitOverride: userDraftCustomLimit.value ? userDraftLimit.value! : undefined,
+      clearDailyLimit: !userDraftCustomLimit.value,
+      reason: userDraftReason.value,
+      expectedRevision: user.revision,
+    });
+    await loadUsers();
+    if (inspectedUserKey.value) inspectUser(inspectedUserKey.value);
+    announce(`已更新 ${user.userKey} 的创建策略。`, "success");
+  } catch (caught) {
+    announce(pasteErrorMessage(caught), "error");
+  } finally {
+    userPolicySaving.value = false;
+  }
+}
+
+async function applyUserBatch() {
+  const targets = [...selectedUsers.value];
+  if (targets.length === 0) return;
+  if (userBatchState.value === "keep" && userBatchLimitMode.value === "keep") return;
+  if (userBatchLimitMode.value === "custom" && (userBatchLimit.value === null || userBatchLimit.value < 1 || userBatchLimit.value > 10_000)) {
+    announce("统一上限必须在 1–10,000 之间。", "error");
+    return;
+  }
+  userBatchSaving.value = true;
+  const result = await runBounded(targets, async (user) => {
+    const clearDailyLimit = userBatchLimitMode.value === "default"
+      || (userBatchLimitMode.value === "keep" && user.dailyLimitOverride === undefined);
+    const dailyLimitOverride = userBatchLimitMode.value === "custom"
+      ? userBatchLimit.value!
+      : userBatchLimitMode.value === "keep"
+        ? user.dailyLimitOverride
+        : undefined;
+    return (await api.updateAdministrationUser(user.userKey, {
+      state: userBatchState.value === "keep" ? user.state : userBatchState.value,
+      dailyLimitOverride,
+      clearDailyLimit,
+      reason: user.reason || "",
+      expectedRevision: user.revision,
+    })).user;
+  });
+  userBatchSaving.value = false;
+  await loadUsers();
+  selectedUserKeys.value = result.failed.map((user) => user.userKey);
+  if (result.failed.length) {
+    announce(`已更新 ${result.succeeded.length} 个用户，${result.failed.length} 个失败；失败项仍保持选中。`, "warning");
+  } else {
+    userBatchOpen.value = false;
+    announce(`已更新 ${result.succeeded.length} 个用户的创建策略。`, "success");
+  }
+}
+
+async function runBounded<T, R>(items: T[], operation: (item: T) => Promise<R>) {
+  const succeeded: Array<{ item: T; value: R }> = [];
+  const failed: T[] = [];
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(4, items.length) }, async () => {
+    while (cursor < items.length) {
+      const item = items[cursor++];
+      if (!item) continue;
+      try {
+        succeeded.push({ item, value: await operation(item) });
+      } catch {
+        failed.push(item);
+      }
+    }
+  });
+  await Promise.all(workers);
+  return { succeeded, failed };
+}
+
+function governancePatch(): PastePatchInput {
+  const patch: PastePatchInput = {};
+  if (batchVisibility.value !== "keep") patch.visibility = batchVisibility.value;
+  if (batchExpiry.value === "never") patch.clearExpiry = true;
+  else if (batchExpiry.value !== "keep") {
+    const hours = { "1d": 24, "7d": 168, "30d": 720 }[batchExpiry.value];
+    patch.expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
+  }
+  return patch;
+}
+
+async function applyBatch() {
+  const targets = [...selectedValues.value];
+  if (targets.length === 0) return;
+  const patch = governancePatch();
+  if (Object.keys(patch).length === 0) return;
+  batchSaving.value = true;
+  const result = await runBounded(targets, async (value) =>
+    (await api.govern(value.code, value.revision, patch)).paste,
+  );
+  const updates = new Map(result.succeeded.map(({ item, value }) => [item.code, value]));
+  values.value = values.value.map((value) => updates.get(value.code) || value);
+  selectedCodes.value = result.failed.map((value) => value.code);
+  batchSaving.value = false;
+  if (result.failed.length) {
+    announce(`已修改 ${result.succeeded.length} 项，${result.failed.length} 项失败；匿名片段不能改为仅自己。`, "warning");
+  } else {
+    batchOpen.value = false;
+    announce(`已修改 ${result.succeeded.length} 个代码片段。`, "success");
+  }
+}
+
+async function deleteTargets(targets: AdministrationPaste[]) {
+  if (targets.length === 0 || !window.confirm(`删除选中的 ${targets.length} 个代码片段？分享链接将永久失效。`)) return;
+  batchDeleting.value = true;
+  const result = await runBounded(targets, (value) => api.removeAdministration(value.code, value.revision));
+  const removed = new Set(result.succeeded.map(({ item }) => item.code));
+  values.value = values.value.filter((value) => !removed.has(value.code));
+  total.value = Math.max(0, total.value - removed.size);
+  selectedCodes.value = result.failed.map((value) => value.code);
+  if (inspectedCode.value && removed.has(inspectedCode.value)) inspectedCode.value = "";
+  batchDeleting.value = false;
+  announce(
+    result.failed.length
+      ? `已删除 ${result.succeeded.length} 项，${result.failed.length} 项失败，失败项仍保持选中。`
+      : `已删除 ${result.succeeded.length} 个代码片段。`,
+    result.failed.length ? "warning" : "success",
+  );
+}
+
+async function saveSettings(silent = false): Promise<boolean> {
+  if (!settingsDirty.value) return true;
+  settingsSaving.value = true;
+  settingsError.value = "";
+  try {
+    const response = await api.updateSettings({
+      name: settingsName.value,
+      description: settingsDescription.value,
+      expectedRevision: settings.value.revision,
+    });
+    adopt(response.settings);
+    settingsName.value = response.settings.name;
+    settingsDescription.value = response.settings.description;
+    if (!silent) announce("站点展示设置已更新。", "success");
+    return true;
+  } catch (caught) {
+    settingsError.value = pasteErrorMessage(caught);
+    return false;
+  } finally {
+    settingsSaving.value = false;
+  }
+}
+
+function resetSettingsDraft() {
+  settingsName.value = settings.value.name;
+  settingsDescription.value = settings.value.description;
+  settingsError.value = "";
+}
+
+function resetGovernanceSettingsDraft() {
+  if (!governanceSettings.value) return;
+  governanceUserLimit.value = governanceSettings.value.userDailyLimit;
+  governanceAnonymousLimit.value = governanceSettings.value.anonymousDailyLimit;
+  governanceSettingsError.value = "";
+}
+
+function numberInputValue(event: Event): number | null {
+  const raw = (event.target as HTMLInputElement).value.trim().replaceAll(",", "").replaceAll(" ", "");
+  if (!raw) return null;
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : null;
+}
+
+async function saveGovernanceSettings(silent = false): Promise<boolean> {
+  if (!governanceSettingsDirty.value) return true;
+  if (!governanceSettings.value || governanceUserLimit.value === null || governanceAnonymousLimit.value === null) return false;
+  governanceSettingsSaving.value = true;
+  governanceSettingsError.value = "";
+  try {
+    const response = await api.updateGovernanceSettings({
+      userDailyLimit: governanceUserLimit.value,
+      anonymousDailyLimit: governanceAnonymousLimit.value,
+      expectedRevision: governanceSettings.value.revision,
+    });
+    governanceSettings.value = response.settings;
+    resetGovernanceSettingsDraft();
+    await loadUsers();
+    if (!silent) announce("创建限制已更新。", "success");
+    return true;
+  } catch (caught) {
+    governanceSettingsError.value = pasteErrorMessage(caught);
+    return false;
+  } finally {
+    governanceSettingsSaving.value = false;
+  }
+}
+
+async function saveSettingsWorkspace() {
+  if (!settingsWorkspaceDirty.value || settingsWorkspaceSaving.value) return;
+  const publicDirty = settingsDirty.value;
+  const governanceDirty = governanceSettingsDirty.value;
+  const results: boolean[] = [];
+  if (publicDirty) results.push(await saveSettings(true));
+  if (governanceDirty) results.push(await saveGovernanceSettings(true));
+  const saved = results.filter(Boolean).length;
+  if (saved === results.length) {
+    announce(saved === 1 ? "已保存 1 组站点设置。" : `已保存 ${saved} 组站点设置。`, "success");
+  } else if (saved > 0) {
+    announce(`已保存 ${saved} 组设置，其余设置需要修正后重试。`, "warning");
+  } else {
+    announce("站点设置未能保存，请检查页面中的错误。", "error");
+  }
+}
+
+function resetSettingsWorkspace() {
+  resetSettingsDraft();
+  resetGovernanceSettingsDraft();
+}
+
+function focusSearch(event: KeyboardEvent) {
+  if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey || section.value === "settings") return;
+  const target = event.target as HTMLElement | null;
+  if (target?.matches("input, textarea, [contenteditable='true']")) return;
+  event.preventDefault();
+  document.querySelector<HTMLInputElement>(section.value === "users" ? "#admin-user-search" : "#admin-search")?.focus();
+}
+
+let queryTimer: number | undefined;
+let userQueryTimer: number | undefined;
+watch(query, () => {
+  window.clearTimeout(queryTimer);
+  queryTimer = window.setTimeout(() => loadPastes(true), 240);
+});
+watch([visibility, state, ownership], () => loadPastes(true));
+watch(userQuery, () => {
+  window.clearTimeout(userQueryTimer);
+  userQueryTimer = window.setTimeout(() => loadUsers(true), 240);
+});
+watch(userState, () => loadUsers(true));
+watch(settings, resetSettingsDraft);
+onMounted(() => {
+  loadPastes();
+  loadUsers();
+  loadGovernanceSettings();
+  window.addEventListener("keydown", focusSearch);
+});
+onBeforeUnmount(() => {
+  window.clearTimeout(queryTimer);
+  window.clearTimeout(userQueryTimer);
+  window.removeEventListener("keydown", focusSearch);
+});
+</script>
+
+<template>
+  <div class="w-full space-y-5">
+    <PageHeader :title="pageTitle" :icon="pageIcon">
+      <template v-if="section === 'settings'" #actions>
+        <UButton
+          class="paste-admin-settings-reset"
+          type="button"
+          label="放弃修改"
+          icon="i-tabler-arrow-back-up"
+          color="neutral"
+          variant="ghost"
+          :disabled="!settingsWorkspaceDirty || settingsWorkspaceSaving"
+          @click="resetSettingsWorkspace"
+        />
+        <UButton
+          type="submit"
+          form="paste-settings-workspace"
+          :label="settingsWorkspaceSaving ? '保存中' : settingsWorkspaceDirty ? '保存更改' : '已保存'"
+          icon="i-tabler-device-floppy"
+          :color="settingsWorkspaceDirty ? 'primary' : 'neutral'"
+          :variant="settingsWorkspaceDirty ? 'solid' : 'ghost'"
+          :loading="settingsWorkspaceSaving"
+          :disabled="!settingsWorkspaceDirty || settingsWorkspaceSaving || governanceUserLimit === null || governanceAnonymousLimit === null"
+        />
+      </template>
+    </PageHeader>
+
+    <section v-if="section === 'pastes'" class="yueli-card paste-admin-content-surface" aria-label="片段治理">
+      <div class="paste-admin-toolbar" role="toolbar" aria-label="全站代码片段工具栏">
+        <UCheckbox
+          :model-value="selectionState"
+          size="sm"
+          class="paste-admin-select-all"
+          aria-label="选择当前页"
+          :disabled="loading || values.length === 0 || batchSaving || batchDeleting"
+          @update:model-value="togglePageSelection"
+        />
+        <template v-if="selectedValues.length">
+          <strong>{{ selectedValues.length }} 项已选择</strong>
+          <div class="paste-admin-selection-actions">
+            <UButton type="button" icon="i-tabler-adjustments" color="neutral" variant="ghost" size="sm" :disabled="batchDeleting" @click="openBatch">批量修改</UButton>
+            <UButton type="button" icon="i-tabler-trash" color="error" variant="ghost" size="sm" :loading="batchDeleting" :disabled="batchSaving" @click="deleteTargets(selectedValues)">删除</UButton>
+            <UTooltip text="取消选择"><UButton type="button" icon="i-tabler-x" color="neutral" variant="ghost" size="sm" square aria-label="取消全部选择" @click="clearSelection" /></UTooltip>
+          </div>
+        </template>
+        <template v-else>
+          <UInput id="admin-search" v-model="query" type="search" icon="i-tabler-search" placeholder="搜索标题、短码、用户或标签" aria-label="搜索全站代码片段" variant="none" size="sm" class="paste-admin-search" :ui="{ base: 'rounded-none ring-0' }">
+            <template #trailing><kbd class="paste-admin-search-key">/</kbd></template>
+          </UInput>
+          <UPopover :content="{ align: 'end' }">
+            <UButton type="button" icon="i-tabler-filter" color="neutral" variant="ghost" size="sm" :label="activeFilterCount ? `筛选 ${activeFilterCount}` : '筛选'" />
+            <template #content>
+              <div class="paste-admin-filter-panel">
+                <UFormField label="可见性"><USelect v-model="visibility" :items="visibilityItems" value-key="value" label-key="label" class="w-full" /></UFormField>
+                <UFormField label="状态"><USelect v-model="state" :items="stateItems" value-key="value" label-key="label" class="w-full" /></UFormField>
+                <UFormField label="归属"><USelect v-model="ownership" :items="ownershipItems" value-key="value" label-key="label" class="w-full" /></UFormField>
+              </div>
+            </template>
+          </UPopover>
+          <UTooltip text="刷新列表"><UButton type="button" icon="i-tabler-refresh" color="neutral" variant="ghost" size="sm" square aria-label="刷新列表" :loading="loading" @click="loadPastes()" /></UTooltip>
+        </template>
+      </div>
+
+      <div class="paste-admin-workspace" :data-inspecting="Boolean(inspected)">
+        <div class="paste-admin-viewport" :aria-busy="loading">
+          <div v-if="loading" class="paste-admin-loading" role="status" aria-label="正在读取全站代码片段">
+            <div v-for="index in 6" :key="index" class="paste-admin-skeleton"><USkeleton class="size-3.5" /><div><USkeleton class="h-3.5 w-52 max-w-full" /><USkeleton class="mt-2 h-2.5 w-72 max-w-full" /></div><USkeleton class="h-3 w-28" /><USkeleton class="h-3 w-16" /><USkeleton class="h-3 w-16" /></div>
+          </div>
+          <div v-else-if="error" class="paste-admin-state" role="alert"><UIcon name="i-tabler-alert-circle" class="size-7 text-[var(--paste-red)]" /><strong>无法读取治理列表</strong><p>{{ error }}</p><UButton type="button" label="重新读取" icon="i-tabler-refresh" color="neutral" variant="outline" @click="loadPastes()" /></div>
+          <div v-else-if="values.length === 0" class="paste-admin-state"><UIcon name="i-tabler-file-search" class="size-7" /><strong>没有符合条件的代码片段</strong><p>调整搜索或筛选条件后再试。</p><UButton type="button" label="清除条件" icon="i-tabler-filter-off" color="neutral" variant="outline" @click="clearFilters" /></div>
+          <div v-else class="paste-admin-ledger">
+            <div class="paste-admin-ledger-head" aria-hidden="true"><span /><span>内容</span><span>归属</span><span>访问</span><span>状态</span><span>更新</span></div>
+            <div role="list" aria-label="全站代码片段">
+              <div v-for="value in values" :key="value.code" class="paste-admin-row" role="listitem" :data-selected="selectedCodeSet.has(value.code)" :data-inspected="inspectedCode === value.code">
+                <UCheckbox :model-value="selectedCodeSet.has(value.code)" size="sm" :aria-label="`选择 ${displayTitle(value.title)}`" :disabled="batchSaving || batchDeleting || value.state === 'deleted'" @update:model-value="toggleSelected(value.code, $event === true)" />
+                <button type="button" class="paste-admin-row-primary" :aria-label="`检查 ${displayTitle(value.title)}`" @click="inspect(value.code)">
+                  <strong>{{ displayTitle(value.title) }}</strong>
+                  <span><code>{{ value.code }}</code><span>{{ value.fileCount }} 个文件</span><span>{{ value.primaryLanguage }}</span><span v-for="tag in value.tags.slice(0, 2)" :key="tag">#{{ tag }}</span></span>
+                </button>
+                <div class="paste-admin-owner"><UIcon :name="value.ownerUserKey ? 'i-tabler-user' : 'i-tabler-user-off'" class="size-4" /><span>{{ value.ownerUserKey || "匿名" }}</span></div>
+                <span class="paste-admin-access"><UIcon :name="value.visibility === 'private' ? 'i-tabler-lock' : 'i-tabler-link'" class="size-4" />{{ value.visibility === "private" ? "仅自己" : "持链访问" }}</span>
+                <span class="paste-admin-state-label" :data-state="value.state">{{ value.state === "deleted" ? "已删除" : value.expiresAt && new Date(value.expiresAt) <= new Date() ? "已过期" : "有效" }}</span>
+                <time :datetime="value.updatedAt">{{ new Date(value.updatedAt).toLocaleDateString("zh-CN") }}</time>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside v-if="inspected" class="paste-admin-inspector" aria-labelledby="inspector-title">
+          <header><div><small>检查代码片段</small><h2 id="inspector-title">{{ displayTitle(inspected.title) }}</h2></div><UButton type="button" icon="i-tabler-x" color="neutral" variant="ghost" size="sm" square aria-label="关闭检查器" @click="closeInspector" /></header>
+          <dl>
+            <div><dt>短码</dt><dd><code>{{ inspected.code }}</code></dd></div>
+            <div><dt>归属</dt><dd>{{ inspected.ownerUserKey || "匿名创建" }}</dd></div>
+            <div><dt>访问</dt><dd>{{ inspected.visibility === "private" ? "仅所有者" : "知道链接即可访问" }}{{ inspected.passwordProtected ? " · 另有密码" : "" }}</dd></div>
+            <div><dt>内容摘要</dt><dd>{{ inspected.fileCount }} 个文件 · {{ inspected.primaryLanguage }}</dd></div>
+            <div><dt>创建时间</dt><dd>{{ new Date(inspected.createdAt).toLocaleString("zh-CN") }}</dd></div>
+            <div><dt>有效期</dt><dd>{{ inspected.expiresAt ? new Date(inspected.expiresAt).toLocaleString("zh-CN") : "不过期" }}</dd></div>
+          </dl>
+          <p class="paste-admin-inspector-note">治理摘要不返回代码正文或密码材料。管理员打开分享链接时仍受原访问边界约束。</p>
+          <div class="paste-admin-inspector-actions"><UButton :to="`/p/${inspected.code}`" target="_blank" label="打开分享链接" icon="i-tabler-external-link" color="neutral" variant="outline" /><UButton v-if="inspected.state !== 'deleted'" type="button" label="选择此项" icon="i-tabler-square-check" color="primary" variant="soft" @click="toggleSelected(inspected.code, true)" /></div>
+        </aside>
+      </div>
+    </section>
+
+    <section v-else-if="section === 'users'" class="yueli-card paste-admin-content-surface" aria-label="用户治理">
+      <div class="paste-admin-toolbar" role="toolbar" aria-label="Paste 用户治理工具栏">
+        <UCheckbox class="paste-admin-select-all" :model-value="userSelectionState" :disabled="userLoading || users.length === 0 || userBatchSaving" aria-label="选择当前页用户" @update:model-value="toggleUserPageSelection($event)" />
+        <template v-if="selectedUsers.length">
+          <strong>{{ selectedUsers.length }} 个用户已选择</strong>
+          <div class="paste-admin-selection-actions"><UButton type="button" icon="i-tabler-x" label="清除" color="neutral" variant="ghost" size="sm" :disabled="userBatchSaving" @click="clearUserSelection" /><UButton type="button" icon="i-tabler-user-cog" label="批量设置" color="primary" variant="soft" size="sm" :disabled="userBatchSaving" @click="openUserBatch" /></div>
+        </template>
+        <template v-else>
+          <UInput id="admin-user-search" v-model="userQuery" type="search" icon="i-tabler-search" placeholder="搜索用户主体标识" aria-label="搜索 Paste 用户" variant="none" size="sm" class="paste-admin-search" :ui="{ base: 'rounded-none ring-0' }"><template #trailing><kbd class="paste-admin-search-key">/</kbd></template></UInput>
+          <USelect v-model="userState" :items="userStateItems" value-key="value" label-key="label" aria-label="筛选创建状态" size="sm" class="paste-admin-user-state-filter" />
+          <UTooltip text="刷新用户列表"><UButton type="button" icon="i-tabler-refresh" color="neutral" variant="ghost" size="sm" square aria-label="刷新用户列表" :loading="userLoading" @click="loadUsers()" /></UTooltip>
+        </template>
+      </div>
+
+      <div class="paste-admin-workspace" :data-inspecting="Boolean(inspectedUser)">
+        <div class="paste-admin-viewport" :aria-busy="userLoading">
+          <div v-if="userLoading" class="paste-admin-loading" role="status" aria-label="正在读取 Paste 用户">
+            <div v-for="index in 6" :key="index" class="paste-admin-user-skeleton"><USkeleton class="h-3.5 w-40 max-w-full" /><USkeleton class="h-3 w-20" /><USkeleton class="h-3 w-16" /><USkeleton class="h-3 w-14" /></div>
+          </div>
+          <div v-else-if="userError" class="paste-admin-state" role="alert"><UIcon name="i-tabler-alert-circle" class="size-7 text-[var(--paste-red)]" /><strong>无法读取用户治理列表</strong><p>{{ userError }}</p><UButton type="button" label="重新读取" icon="i-tabler-refresh" color="neutral" variant="outline" @click="loadUsers()" /></div>
+          <div v-else-if="users.length === 0" class="paste-admin-state"><UIcon name="i-tabler-user-search" class="size-7" /><strong>没有符合条件的使用主体</strong><p>这里仅列出创建过代码片段或已有显式策略的 Identity 用户。</p><UButton v-if="userQuery || userState !== 'all'" type="button" label="清除条件" icon="i-tabler-filter-off" color="neutral" variant="outline" @click="userQuery = ''; userState = 'all'" /></div>
+          <div v-else class="paste-admin-user-ledger">
+            <div class="paste-admin-user-head" aria-hidden="true"><span /><span>使用主体</span><span>创建权限</span><span>今日额度</span><span>片段</span><span>最近创建</span><span /></div>
+            <div role="list" aria-label="Paste 使用主体">
+              <div v-for="user in users" :key="user.userKey" class="paste-admin-user-row" role="listitem" :data-selected="selectedUserKeySet.has(user.userKey)" :data-inspected="inspectedUserKey === user.userKey">
+                <UCheckbox class="paste-admin-user-select" :model-value="selectedUserKeySet.has(user.userKey)" :aria-label="`选择用户 ${user.userKey}`" :disabled="userBatchSaving" @update:model-value="toggleUserSelected(user.userKey, $event === true)" />
+                <button type="button" class="paste-admin-user-primary" :aria-label="`检查用户 ${user.userKey}`" @click="inspectUser(user.userKey)">
+                  <strong><UIcon name="i-tabler-user" class="size-4" />{{ user.userKey }}</strong>
+                  <span>{{ user.dailyLimitOverride === undefined ? "跟随全站默认上限" : `单独上限 ${user.dailyLimitOverride}` }}<template v-if="user.reason"> · {{ user.reason }}</template></span>
+                </button>
+                <span class="paste-admin-state-label" :data-state="user.state">{{ user.state === "suspended" ? "已暂停" : "正常" }}</span>
+                <span class="paste-admin-user-usage" :data-exhausted="user.usedToday >= user.effectiveDailyLimit">{{ user.usedToday }} / {{ user.effectiveDailyLimit }}</span>
+                <span class="paste-admin-user-count">{{ user.activePastes }} / {{ user.totalPastes }}</span>
+                <time v-if="user.lastCreatedAt" :datetime="user.lastCreatedAt">{{ new Date(user.lastCreatedAt).toLocaleDateString("zh-CN") }}</time><span v-else class="paste-admin-user-never">—</span>
+                <UButton type="button" :icon="user.state === 'suspended' ? 'i-tabler-player-play' : 'i-tabler-player-pause'" :label="user.state === 'suspended' ? '恢复创建' : '暂停创建'" :color="user.state === 'suspended' ? 'primary' : 'error'" variant="ghost" size="sm" :loading="userPolicySaving" @click="updateUserState(user, user.state === 'suspended' ? 'active' : 'suspended')" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside v-if="inspectedUser" class="paste-admin-inspector paste-admin-user-inspector" aria-labelledby="user-inspector-title">
+          <header><div><small>使用主体策略</small><h2 id="user-inspector-title">{{ inspectedUser.userKey }}</h2></div><UButton type="button" icon="i-tabler-x" color="neutral" variant="ghost" size="sm" square aria-label="关闭用户检查器" @click="closeUserInspector" /></header>
+          <dl>
+            <div><dt>今日额度</dt><dd>{{ inspectedUser.usedToday }} / {{ inspectedUser.effectiveDailyLimit }}</dd></div>
+            <div><dt>片段记录</dt><dd>{{ inspectedUser.activePastes }} 个有效 · {{ inspectedUser.totalPastes }} 个累计</dd></div>
+            <div><dt>最近创建</dt><dd>{{ inspectedUser.lastCreatedAt ? new Date(inspectedUser.lastCreatedAt).toLocaleString("zh-CN") : "尚无创建记录" }}</dd></div>
+          </dl>
+          <form class="paste-admin-user-policy" @submit.prevent="saveUserPolicy">
+            <UFormField label="创建权限"><USelect v-model="userDraftState" :items="userPolicyStateItems" value-key="value" label-key="label" class="w-full" /></UFormField>
+            <UCheckbox v-model="userDraftCustomLimit" label="为此用户设置单独上限" />
+            <UFormField v-if="userDraftCustomLimit" label="每日创建上限" hint="1–10,000；按 UTC 自然日重置"><UInputNumber v-model="userDraftLimit" :min="1" :max="10000" class="w-full" @input="userDraftLimit = numberInputValue($event)" /></UFormField>
+            <UFormField label="治理说明" hint="管理员可见，最多 240 个字符"><UTextarea v-model="userDraftReason" maxlength="240" :rows="3" autoresize class="w-full" /></UFormField>
+            <UAlert v-if="userDraftState === 'suspended'" color="warning" variant="subtle" icon="i-tabler-alert-triangle" title="暂停后不能创建新片段" description="既有分享链接不会自动删除；如需下架内容，请回到片段治理执行删除。" />
+            <footer><UButton to="/admin" label="查看该用户片段" icon="i-tabler-files" color="neutral" variant="ghost" @click="viewUserPastes(inspectedUser.userKey)" /><UButton type="submit" label="保存策略" icon="i-tabler-device-floppy" color="primary" :loading="userPolicySaving" :disabled="!userPolicyDirty || userPolicySaving" /></footer>
+          </form>
+        </aside>
+      </div>
+    </section>
+
+    <div v-else class="paste-admin-settings yueli-card">
+      <form id="paste-settings-workspace" class="paste-admin-settings-catalog" @submit.prevent="saveSettingsWorkspace">
+        <section class="paste-admin-settings-group" aria-labelledby="public-settings-title">
+          <header><span class="paste-admin-settings-icon"><UIcon name="i-tabler-world" class="size-5" /></span><div><h2 id="public-settings-title">公开展示</h2><p>控制访客在编辑器、浏览器标题和分享页面看到的名称与说明。</p><code>r{{ settings.revision }}</code></div></header>
+          <div class="paste-admin-settings-rows">
+            <div class="paste-admin-setting-row"><div><label for="paste-site-name">站点名称</label><p>最多 40 个字符；不会改变服务地址、API 或已有链接。</p></div><UInput id="paste-site-name" v-model="settingsName" name="siteName" maxlength="40" autocomplete="off" aria-label="站点名称" class="w-full" /></div>
+            <div class="paste-admin-setting-row"><div><label for="paste-site-description">站点说明</label><p>最多 160 个字符，用于搜索摘要和分享页面说明。</p></div><UTextarea id="paste-site-description" v-model="settingsDescription" name="siteDescription" maxlength="160" :rows="3" autoresize aria-label="站点说明" class="w-full" /></div>
+            <UAlert v-if="settingsError" class="paste-admin-settings-error" color="error" variant="subtle" icon="i-tabler-alert-circle" title="公开展示未保存" :description="settingsError" role="alert" />
+          </div>
+        </section>
+        <section class="paste-admin-settings-group" aria-labelledby="creation-settings-title">
+          <header><span class="paste-admin-settings-icon"><UIcon name="i-tabler-shield-bolt" class="size-5" /></span><div><h2 id="creation-settings-title">创建策略</h2><p>用清晰的每日边界保护服务；只有成功创建才会占用额度。</p><code>r{{ governanceSettings?.revision || "—" }}</code></div></header>
+          <div class="paste-admin-settings-rows">
+            <div v-if="governanceSettingsLoading" class="paste-admin-settings-loading" role="status" aria-label="正在读取创建限制"><USkeleton class="h-14 w-full" /><USkeleton class="h-14 w-full" /></div>
+            <template v-else>
+              <div class="paste-admin-setting-row"><div><label for="paste-user-limit">登录用户默认额度</label><p>每位登录用户在一个 UTC 自然日内可成功创建 1–10,000 个片段；可在用户治理中单独覆盖。</p></div><UInputNumber id="paste-user-limit" v-model="governanceUserLimit" :min="1" :max="10000" aria-label="登录用户每日默认上限" class="w-full" @input="governanceUserLimit = numberInputValue($event)" /></div>
+              <div class="paste-admin-setting-row"><div><label for="paste-anonymous-limit">匿名全站额度</label><p>所有匿名访客共享 0–100,000 的每日总额；设为 0 会暂停匿名创建。</p></div><UInputNumber id="paste-anonymous-limit" v-model="governanceAnonymousLimit" :min="0" :max="100000" aria-label="匿名创建每日全站总额" class="w-full" @input="governanceAnonymousLimit = numberInputValue($event)" /></div>
+              <p class="paste-admin-settings-note"><UIcon name="i-tabler-clock" class="size-4" />每天按 UTC 自然日重置。匿名额度是全站保护阀，不会把 IP 地址当成用户身份。</p>
+            </template>
+            <UAlert v-if="governanceSettingsError" class="paste-admin-settings-error" color="error" variant="subtle" icon="i-tabler-alert-circle" title="创建策略未保存" :description="governanceSettingsError" role="alert" />
+          </div>
+        </section>
+      </form>
+    </div>
+
+    <footer v-if="section !== 'settings'" class="paste-admin-statusbar rounded-xl">
+      <span><span class="paste-admin-status-dot" />{{ section === "users" ? "用户治理" : "片段治理" }}</span>
+      <span v-if="section === 'pastes'" class="paste-admin-page-status">
+        <span class="paste-admin-page-range">{{ selectedValues.length ? `已选择 ${selectedValues.length} 项` : operationMessage || `${pageStart}-${pageEnd} / ${total}` }}</span>
+        <UPagination
+          v-if="total > limit"
+          v-model:page="currentPage"
+          class="paste-admin-pagination"
+          :total="total"
+          :items-per-page="limit"
+          :sibling-count="1"
+          :show-edges="false"
+          :show-controls="false"
+          :disabled="loading"
+          color="neutral"
+          variant="ghost"
+          active-color="neutral"
+          active-variant="ghost"
+          size="xs"
+        >
+          <template #prev><UButton type="button" icon="i-tabler-chevron-left" color="neutral" variant="ghost" size="xs" square aria-label="上一页" /></template>
+          <template #item="{ item, page }"><UButton v-if="item.type === 'page'" type="button" :label="String(item.value)" color="neutral" variant="ghost" size="xs" :aria-label="`第 ${item.value} 页`" :data-selected="page === item.value ? 'true' : undefined" /></template>
+          <template #next><UButton type="button" icon="i-tabler-chevron-right" color="neutral" variant="ghost" size="xs" square aria-label="下一页" /></template>
+        </UPagination>
+      </span>
+      <span v-else-if="section === 'users'" class="paste-admin-page-status">
+        <span class="paste-admin-page-range">{{ selectedUsers.length ? `已选择 ${selectedUsers.length} 个用户` : operationMessage || `${userPageStart}-${userPageEnd} / ${userTotal}` }}</span>
+        <UPagination
+          v-if="userTotal > limit"
+          v-model:page="currentUserPage"
+          class="paste-admin-pagination"
+          :total="userTotal"
+          :items-per-page="limit"
+          :sibling-count="1"
+          :show-edges="false"
+          :show-controls="false"
+          :disabled="userLoading"
+          color="neutral"
+          variant="ghost"
+          active-color="neutral"
+          active-variant="ghost"
+          size="xs"
+        >
+          <template #prev><UButton type="button" icon="i-tabler-chevron-left" color="neutral" variant="ghost" size="xs" square aria-label="上一页用户" /></template>
+          <template #item="{ item, page }"><UButton v-if="item.type === 'page'" type="button" :label="String(item.value)" color="neutral" variant="ghost" size="xs" :aria-label="`第 ${item.value} 页用户`" :data-selected="page === item.value ? 'true' : undefined" /></template>
+          <template #next><UButton type="button" icon="i-tabler-chevron-right" color="neutral" variant="ghost" size="xs" square aria-label="下一页用户" /></template>
+        </UPagination>
+      </span>
+      <span v-else aria-live="polite">{{ settingsDirty || governanceSettingsDirty ? "有未保存修改" : operationMessage || `当前名称：${siteName}` }}</span>
+    </footer>
+
+    <USlideover v-if="batchOpen" v-model:open="batchOpen" title="批量治理" :description="`修改选中的 ${selectedValues.length} 个代码片段。`" :dismissible="!batchSaving" :close="!batchSaving" :ui="{ content: 'sm:max-w-sm' }">
+      <template #body><div class="paste-admin-batch-fields"><UFormField label="可见性"><USelect v-model="batchVisibility" :items="batchVisibilityItems" value-key="value" label-key="label" class="w-full" /></UFormField><UFormField label="有效期"><USelect v-model="batchExpiry" :items="batchExpiryItems" value-key="value" label-key="label" class="w-full" /></UFormField><p>匿名片段没有所有者，因此不能改为“仅自己”；其他项目仍会继续执行并保留失败项选择。</p></div></template>
+      <template #footer><div class="paste-admin-batch-footer"><UButton type="button" label="取消" color="neutral" variant="ghost" :disabled="batchSaving" @click="closeBatch" /><UButton type="button" label="应用修改" icon="i-tabler-check" color="primary" :loading="batchSaving" :disabled="batchSaving || (batchVisibility === 'keep' && batchExpiry === 'keep')" @click="applyBatch" /></div></template>
+    </USlideover>
+    <USlideover v-if="userBatchOpen" v-model:open="userBatchOpen" title="批量设置创建策略" :description="`把同一组策略应用到选中的 ${selectedUsers.length} 个用户。`" :dismissible="!userBatchSaving" :close="!userBatchSaving" :ui="{ content: 'sm:max-w-sm' }">
+      <template #body><div class="paste-admin-batch-fields"><UFormField label="创建权限"><USelect v-model="userBatchState" :items="userBatchStateItems" value-key="value" label-key="label" class="w-full" /></UFormField><UFormField label="每日额度"><USelect v-model="userBatchLimitMode" :items="userBatchLimitItems" value-key="value" label-key="label" class="w-full" /></UFormField><UFormField v-if="userBatchLimitMode === 'custom'" label="统一每日上限" hint="1–10,000；按 UTC 自然日重置"><UInputNumber v-model="userBatchLimit" :min="1" :max="10000" class="w-full" @input="userBatchLimit = numberInputValue($event)" /></UFormField><UAlert v-if="userBatchState === 'suspended'" color="warning" variant="subtle" icon="i-tabler-alert-triangle" title="只暂停创建" description="不会停用 Identity 账号，也不会删除或禁用已有分享。" /><p>每个用户原有的治理说明都会保留；发生冲突或失败的用户会继续保持选择，方便重试。</p></div></template>
+      <template #footer><div class="paste-admin-batch-footer"><UButton type="button" label="取消" color="neutral" variant="ghost" :disabled="userBatchSaving" @click="closeUserBatch" /><UButton type="button" :label="`应用到 ${selectedUsers.length} 个用户`" icon="i-tabler-check" color="primary" :loading="userBatchSaving" :disabled="userBatchSaving || (userBatchState === 'keep' && userBatchLimitMode === 'keep') || (userBatchLimitMode === 'custom' && (userBatchLimit === null || userBatchLimit < 1 || userBatchLimit > 10000))" @click="applyUserBatch" /></div></template>
+    </USlideover>
+    <p class="sr-only" aria-live="polite">{{ operationMessage }}</p>
+  </div>
+</template>
+
+<style scoped>
+.paste-admin-content-surface { display: flex; height: calc(100svh - 14.5rem); min-height: 32rem; flex-direction: column; overflow: hidden; background: var(--paste-editor); color: var(--paste-ink); }
+.paste-admin-toolbar { display: flex; min-width: 0; align-items: center; gap: 5px; border-bottom: 1px solid var(--paste-line); padding: 3px 6px 3px 10px; background: var(--paste-editor); }
+.paste-admin-select-all { width: 24px; min-width: 24px; height: 28px; flex: none; align-items: center; justify-content: flex-start; }
+.paste-admin-toolbar > strong { overflow: hidden; color: var(--paste-ink); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.paste-admin-selection-actions { display: flex; align-items: center; gap: 2px; margin-left: auto; }
+.paste-admin-search { min-width: 160px; max-width: 620px; flex: 1; }
+.paste-admin-search :deep(input) { font-size: 12px; }
+.paste-admin-search-key { border: 1px solid var(--paste-line); border-radius: 3px; padding: 0 5px; color: var(--paste-ink-dim); font-family: inherit; font-size: 10px; line-height: 18px; }
+.paste-admin-filter-panel { display: grid; width: 260px; gap: 14px; padding: 14px; }
+.paste-admin-workspace { display: grid; min-width: 0; min-height: 0; grid-template-columns: minmax(0, 1fr); overflow: hidden; }
+.paste-admin-workspace[data-inspecting="true"] { grid-template-columns: minmax(0, 1fr) minmax(290px, 340px); }
+.paste-admin-viewport { min-width: 0; min-height: 0; overflow: auto; background: var(--paste-editor); }
+.paste-admin-ledger { min-width: 760px; }
+.paste-admin-ledger-head, .paste-admin-row, .paste-admin-skeleton { display: grid; grid-template-columns: 32px minmax(240px, 1fr) minmax(130px, 180px) 112px 82px 110px; align-items: center; }
+.paste-admin-ledger-head { position: sticky; z-index: 2; top: 0; min-height: 30px; border-bottom: 1px solid var(--paste-line); padding: 0 12px; background: var(--paste-surface-muted); color: var(--paste-ink-dim); font-size: 11px; font-weight: 630; }
+.paste-admin-row { min-width: 0; min-height: 62px; border-bottom: 1px solid var(--paste-line); padding: 8px 12px; transition: background 120ms ease; }
+.paste-admin-row:hover, .paste-admin-row:focus-within { background: var(--paste-editor-active); }
+.paste-admin-row[data-selected="true"] { background: color-mix(in srgb, var(--paste-blue) 9%, var(--paste-editor)); }
+.paste-admin-row[data-inspected="true"] { box-shadow: inset 2px 0 var(--paste-blue); }
+.paste-admin-row-primary { display: grid; min-width: 0; gap: 5px; border: 0; padding: 0 14px 0 0; background: transparent; color: inherit; text-align: left; }
+.paste-admin-row-primary strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.paste-admin-row-primary > span { display: flex; min-width: 0; gap: 10px; overflow: hidden; color: var(--paste-ink-soft); font-size: 11px; white-space: nowrap; }
+.paste-admin-row-primary code { color: var(--paste-blue); font-weight: 680; }
+.paste-admin-owner, .paste-admin-access { display: flex; min-width: 0; align-items: center; gap: 5px; padding-right: 10px; color: var(--paste-ink-soft); font-size: 11px; }
+.paste-admin-owner span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.paste-admin-state-label { width: fit-content; border-radius: 3px; padding: 2px 5px; background: var(--paste-green-soft); color: var(--paste-green-ink); font-size: 10px; font-weight: 700; }
+.paste-admin-state-label[data-state="deleted"], .paste-admin-state-label[data-state="suspended"] { background: var(--paste-red-soft); color: var(--paste-red); }
+.paste-admin-row time { color: var(--paste-ink-soft); font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; }
+.paste-admin-loading { min-width: 760px; }
+.paste-admin-skeleton { min-height: 62px; border-bottom: 1px solid var(--paste-line); padding: 8px 12px; }
+.paste-admin-state { display: grid; min-height: 100%; place-content: center; justify-items: center; gap: 9px; padding: 28px; color: var(--paste-ink-soft); font-size: 12px; text-align: center; }
+.paste-admin-state strong { color: var(--paste-ink); font-size: 14px; }
+.paste-admin-state p { max-width: 52ch; margin: 0 0 3px; line-height: 1.6; }
+.paste-admin-inspector { min-width: 0; overflow-y: auto; border-left: 1px solid var(--paste-line); background: var(--paste-surface-muted); }
+.paste-admin-inspector > header { display: flex; min-height: 60px; align-items: flex-start; justify-content: space-between; gap: 10px; border-bottom: 1px solid var(--paste-line); padding: 12px; background: var(--paste-chrome); }
+.paste-admin-inspector small { color: var(--paste-ink-dim); font-size: 10px; }
+.paste-admin-inspector h2 { overflow-wrap: anywhere; margin: 3px 0 0; font-size: 14px; line-height: 1.35; }
+.paste-admin-inspector dl { margin: 0; }
+.paste-admin-inspector dl > div { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 10px; border-bottom: 1px solid var(--paste-line); padding: 10px 12px; font-size: 11px; }
+.paste-admin-inspector dt { color: var(--paste-ink-dim); }
+.paste-admin-inspector dd { min-width: 0; margin: 0; overflow-wrap: anywhere; color: var(--paste-ink); }
+.paste-admin-inspector-note { margin: 12px; color: var(--paste-ink-soft); font-size: 11px; line-height: 1.65; }
+.paste-admin-inspector-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px 16px; }
+.paste-admin-user-state-filter { width: 154px; flex: none; }
+.paste-admin-user-ledger, .paste-admin-user-skeleton { min-width: 800px; }
+.paste-admin-user-head, .paste-admin-user-row, .paste-admin-user-skeleton { display: grid; grid-template-columns: 32px minmax(230px, 1fr) 92px 110px 90px 112px 116px; align-items: center; }
+.paste-admin-user-head { position: sticky; z-index: 2; top: 0; min-height: 30px; border-bottom: 1px solid var(--paste-line); padding: 0 12px; background: var(--paste-surface-muted); color: var(--paste-ink-dim); font-size: 11px; font-weight: 630; }
+.paste-admin-user-row { min-width: 0; min-height: 62px; border-bottom: 1px solid var(--paste-line); padding: 8px 12px; transition: background 120ms ease; }
+.paste-admin-user-row:hover, .paste-admin-user-row:focus-within { background: var(--paste-editor-active); }
+.paste-admin-user-row[data-selected="true"] { background: color-mix(in srgb, var(--paste-blue) 9%, var(--paste-editor)); }
+.paste-admin-user-row[data-inspected="true"] { box-shadow: inset 2px 0 var(--paste-blue); }
+.paste-admin-user-select { width: 24px; justify-content: flex-start; }
+.paste-admin-user-primary { display: grid; min-width: 0; gap: 5px; border: 0; padding: 0 14px 0 0; background: transparent; color: inherit; text-align: left; }
+.paste-admin-user-primary strong { display: flex; min-width: 0; align-items: center; gap: 6px; overflow: hidden; color: var(--paste-blue); font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.paste-admin-user-primary span { overflow: hidden; color: var(--paste-ink-soft); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.paste-admin-user-usage, .paste-admin-user-count, .paste-admin-user-row time, .paste-admin-user-never { color: var(--paste-ink-soft); font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; }
+.paste-admin-user-usage[data-exhausted="true"] { color: var(--paste-red); font-weight: 720; }
+.paste-admin-user-inspector dl { border-bottom: 1px solid var(--paste-line); }
+.paste-admin-user-policy { display: grid; gap: 16px; padding: 14px 12px 18px; }
+.paste-admin-user-policy > footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.paste-admin-settings { min-width: 0; overflow: hidden; background: var(--paste-editor); color: var(--paste-ink); }
+.paste-admin-settings-catalog { width: 100%; min-width: 0; }
+.paste-admin-settings-group { display: grid; grid-template-columns: 220px minmax(0, 1fr); border-bottom: 1px solid var(--paste-line-strong); }
+.paste-admin-settings-group > header { display: flex; align-items: flex-start; gap: 10px; border-right: 1px solid var(--paste-line); padding: 28px 22px; background: var(--paste-surface-muted); }
+.paste-admin-settings-icon { display: grid; width: 32px; height: 32px; flex: none; place-items: center; border: 1px solid color-mix(in srgb, var(--paste-blue) 22%, var(--paste-line)); border-radius: 7px; background: var(--paste-blue-soft); color: var(--paste-blue); }
+.paste-admin-settings-group h2 { margin: 0; font-size: 15px; letter-spacing: -.02em; }
+.paste-admin-settings-group header p { margin: 7px 0 10px; color: var(--paste-ink-soft); font-size: 11px; line-height: 1.6; }
+.paste-admin-settings-group header code { color: var(--paste-ink-dim); font-size: 10px; }
+.paste-admin-settings-rows { min-width: 0; padding: 12px 26px 24px; }
+.paste-admin-setting-row { display: grid; grid-template-columns: minmax(230px, 1fr) minmax(220px, 360px); gap: 28px; align-items: center; border-bottom: 1px solid var(--paste-line); padding: 18px 0; }
+.paste-admin-setting-row label { color: var(--paste-ink); font-size: 12px; font-weight: 680; }
+.paste-admin-setting-row p { max-width: 58ch; margin: 5px 0 0; color: var(--paste-ink-soft); font-size: 11px; line-height: 1.55; }
+.paste-admin-settings-loading { display: grid; gap: 12px; padding: 18px 0; }
+.paste-admin-settings-note { display: flex; align-items: flex-start; gap: 7px; margin: 16px 0 0; color: var(--paste-ink-soft); font-size: 11px; line-height: 1.55; }
+.paste-admin-settings-error { margin-top: 16px; }
+.paste-admin-statusbar { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid var(--paste-status-border); padding: 0 8px; background: var(--paste-status); color: var(--paste-status-text-muted); font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; }
+.paste-admin-statusbar > span { display: flex; min-width: 0; align-items: center; gap: 7px; }
+.paste-admin-status-dot { width: 7px; height: 7px; flex: none; border-radius: 50%; background: var(--paste-green); }
+.paste-admin-page-range { overflow: hidden; max-width: 190px; text-overflow: ellipsis; white-space: nowrap; }
+.paste-admin-pagination { flex: none; }
+.paste-admin-pagination :deep([data-slot="list"]) { gap: 2px; }
+.paste-admin-pagination :deep(button) { min-width: 24px; min-height: 24px; border-radius: 3px; padding-inline: 6px; background: transparent; color: var(--paste-status-text-muted); box-shadow: none; }
+.paste-admin-pagination :deep(button:hover:not(:disabled)), .paste-admin-pagination :deep(button:focus-visible), .paste-admin-pagination :deep(button[data-selected="true"]) { background: color-mix(in srgb, var(--paste-status-text) 14%, transparent); color: var(--paste-status-text); }
+.paste-admin-pagination :deep(button[data-selected="true"]) { box-shadow: inset 0 -2px var(--paste-status-text); font-weight: 750; }
+.paste-admin-pagination :deep(button:disabled) { background: transparent; color: var(--paste-status-text-muted); opacity: .42; box-shadow: none; }
+.paste-admin-batch-fields { display: grid; gap: 18px; }
+.paste-admin-batch-fields p { margin: 0; color: var(--paste-ink-soft); font-size: 12px; line-height: 1.65; }
+.paste-admin-batch-footer { display: flex; width: 100%; justify-content: flex-end; gap: 7px; }
+@media (max-width: 900px) {
+  .paste-admin-workspace[data-inspecting="true"] { position: relative; grid-template-columns: minmax(0, 1fr); }
+  .paste-admin-inspector { position: absolute; z-index: 5; inset: 0 0 0 auto; width: min(100%, 380px); border-left: 1px solid var(--paste-line-strong); box-shadow: -18px 0 38px -30px rgb(15 23 42 / .62); }
+}
+@media (max-width: 720px) {
+  .paste-admin-content-surface { height: calc(100svh - 12rem); min-height: 30rem; }
+  .paste-admin-toolbar { gap: 3px; padding: 4px 5px; }
+  .paste-admin-select-all { width: 44px; min-width: 44px; height: 44px; justify-content: center; }
+  .paste-admin-search { min-width: 0; max-width: none; }
+  .paste-admin-search :deep(input), .paste-admin-toolbar :deep(button:not([role="checkbox"])) { min-height: 44px; }
+  .paste-admin-select-all :deep([role="checkbox"]) { position: relative; }
+  .paste-admin-select-all :deep([role="checkbox"])::before { position: absolute; inset: -15px; content: ""; }
+  .paste-admin-search-key { display: none; }
+  .paste-admin-selection-actions { margin-left: auto; }
+  .paste-admin-ledger, .paste-admin-loading { min-width: 0; }
+  .paste-admin-ledger-head { display: none; }
+  .paste-admin-row { grid-template-columns: 44px minmax(0, 1fr) auto; gap: 7px 8px; min-height: 112px; padding: 10px 8px; }
+  .paste-admin-row > :first-child { grid-column: 1; grid-row: 1 / 4; width: 44px; height: 44px; align-self: start; justify-content: center; margin: -7px 0 0 -8px; }
+  .paste-admin-row-primary { grid-column: 2 / -1; padding-right: 0; }
+  .paste-admin-owner { grid-column: 2; grid-row: 2; }
+  .paste-admin-access { grid-column: 2; grid-row: 3; }
+  .paste-admin-state-label { grid-column: 3; grid-row: 2; }
+  .paste-admin-row time { grid-column: 3; grid-row: 3; justify-self: end; }
+  .paste-admin-skeleton { grid-template-columns: 34px minmax(0, 1fr); }
+  .paste-admin-skeleton > :nth-child(n+3) { display: none; }
+  .paste-admin-user-state-filter { width: 128px; }
+  .paste-admin-user-ledger, .paste-admin-user-skeleton { min-width: 0; }
+  .paste-admin-user-head { display: none; }
+  .paste-admin-user-row { grid-template-columns: 44px minmax(0, 1fr) auto; gap: 8px 10px; min-height: 150px; padding: 11px 10px 11px 4px; }
+  .paste-admin-user-select { grid-column: 1; grid-row: 1 / 5; width: 44px; height: 44px; align-self: start; justify-content: center; margin-top: -7px; }
+  .paste-admin-user-select :deep([role="checkbox"]) { position: relative; }
+  .paste-admin-user-select :deep([role="checkbox"])::before { position: absolute; inset: -14px; content: ""; }
+  .paste-admin-user-primary { grid-column: 2 / -1; padding-right: 0; }
+  .paste-admin-user-row > .paste-admin-state-label { grid-column: 2; grid-row: 2; }
+  .paste-admin-user-usage { grid-column: 3; grid-row: 2; justify-self: end; }
+  .paste-admin-user-count { grid-column: 2; grid-row: 3; }
+  .paste-admin-user-row time, .paste-admin-user-never { grid-column: 3; grid-row: 3; justify-self: end; }
+  .paste-admin-user-row > :last-child { grid-column: 2 / -1; grid-row: 4; min-height: 44px; justify-self: end; }
+  .paste-admin-user-skeleton { grid-template-columns: minmax(0, 1fr) 70px; gap: 10px; min-height: 112px; padding: 12px; }
+  .paste-admin-user-skeleton > :nth-child(n+3) { display: none; }
+  .paste-admin-inspector { width: 100%; border-left: 0; }
+  .paste-admin-statusbar { min-height: 44px; justify-content: flex-end; overflow: hidden; padding-inline: 4px; }
+  .paste-admin-statusbar > span:first-child { display: none; }
+  .paste-admin-pagination :deep(button) { min-width: 44px; min-height: 44px; padding-inline: 7px; }
+  .paste-admin-settings-reset { width: 44px; min-width: 44px; padding-inline: 0; }
+  .paste-admin-settings-reset :deep([data-slot="label"]) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .paste-admin-settings-group { grid-template-columns: minmax(0, 1fr); }
+  .paste-admin-settings-group > header { border-right: 0; border-bottom: 1px solid var(--paste-line); padding: 18px 14px; }
+  .paste-admin-settings-rows { padding: 0 14px 20px; }
+  .paste-admin-setting-row { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 17px 0; }
+  .paste-admin-setting-row p { font-size: 11px; }
+  .paste-admin-statusbar { font-size: 11px; }
+  .paste-admin-page-range { display: none; }
+}
+</style>

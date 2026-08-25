@@ -13,6 +13,13 @@ definePageMeta({ middleware: "auth" });
 
 const api = usePasteApi();
 const toast = useToast();
+const { isAdmin } = useAuth();
+const { siteName } = useSiteSettings();
+const accountActions = computed(() => [
+  ...(isAdmin.value
+    ? [{ label: "管理后台", icon: "i-tabler-shield-cog", to: "/admin" }]
+    : []),
+]);
 const values = ref<PasteSummary[]>([]);
 const query = ref("");
 const loading = ref(true);
@@ -64,8 +71,8 @@ const batchBusy = computed(() => batchSaving.value || batchDeleting.value);
 const hasBatchChanges = computed(() => batchVisibility.value !== "keep" || batchExpiry.value !== "keep");
 
 useSeoMeta({
-  title: "我的 Paste",
-  description: "回看、编辑和删除你创建的 Paste。",
+  title: computed(() => `我的片段 · ${siteName.value}`),
+  description: "回看、编辑和删除你创建的代码片段。",
 });
 
 async function load() {
@@ -108,8 +115,9 @@ async function remove(value: PasteSummary) {
 
 function announce(message: string, color: "success" | "warning" | "error") {
   operationMessage.value = message;
+  if (color === "success") return;
   toast.add({
-    title: color === "success" ? "操作完成" : color === "warning" ? "部分操作未完成" : "操作失败",
+    title: color === "warning" ? "部分操作未完成" : "操作失败",
     description: message,
     color,
   });
@@ -211,13 +219,13 @@ async function applyBatchEdit() {
     return;
   }
   batchEditOpen.value = false;
-  announce(`已修改 ${result.succeeded.length} 个 Paste。`, "success");
+  announce(`已修改 ${result.succeeded.length} 个代码片段。`, "success");
 }
 
 async function removeSelected() {
   const targets = [...selectedValues.value];
   if (targets.length === 0) return;
-  if (!window.confirm(`删除选中的 ${targets.length} 个 Paste？这些链接将永久失效。`)) return;
+  if (!window.confirm(`删除选中的 ${targets.length} 个代码片段？这些链接将永久失效。`)) return;
 
   batchDeleting.value = true;
   const result = await runBounded(targets, (value) => api.remove(value.code, value.revision));
@@ -229,7 +237,7 @@ async function removeSelected() {
   if (result.failed.length > 0) {
     announce(`已删除 ${result.succeeded.length} 项，${result.failed.length} 项失败。失败项仍保持选中。`, "warning");
   } else {
-    announce(`已删除 ${result.succeeded.length} 个 Paste。`, "success");
+    announce(`已删除 ${result.succeeded.length} 个代码片段。`, "success");
   }
 }
 
@@ -254,22 +262,22 @@ onBeforeUnmount(() => window.removeEventListener("keydown", focusSearch));
 
 <template>
   <section class="paste-mine-shell" aria-labelledby="mine-title">
-    <header class="paste-mine-chrome" aria-label="Paste 工作区工具栏">
-      <NuxtLink to="/" class="paste-mine-brand" aria-label="Paste 首页">
+    <header class="paste-mine-chrome" aria-label="代码片段工作区工具栏">
+      <NuxtLink to="/" class="paste-mine-brand" :aria-label="`${siteName} 首页`">
         <span class="paste-mine-brand-mark" aria-hidden="true">
           <UIcon name="i-tabler-code-dots" class="size-4" />
         </span>
-        <span class="paste-mine-brand-label">Paste</span>
+        <span class="paste-mine-brand-label">{{ siteName }}</span>
       </NuxtLink>
 
       <div class="paste-mine-tab" aria-current="page">
         <UIcon name="i-tabler-folders" class="size-4 shrink-0" />
-        <h1 id="mine-title">我的 Paste</h1>
+        <h1 id="mine-title">我的片段</h1>
       </div>
       <div class="paste-mine-chrome-fill" aria-hidden="true" />
 
       <nav class="paste-mine-actions" aria-label="工作区操作">
-        <UTooltip text="新建 Paste">
+        <UTooltip text="新建片段">
           <UButton
             to="/"
             icon="i-tabler-file-plus"
@@ -277,7 +285,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", focusSearch));
             variant="ghost"
             size="sm"
             square
-            aria-label="新建 Paste"
+            aria-label="新建片段"
           />
         </UTooltip>
         <UTooltip text="切换颜色模式">
@@ -289,12 +297,12 @@ onBeforeUnmount(() => window.removeEventListener("keydown", focusSearch));
           />
         </UTooltip>
         <div class="paste-mine-account">
-          <ConsumerAccountControl trigger-mode="collapsed" />
+          <ConsumerAccountControl :context-actions="accountActions" trigger-mode="collapsed" />
         </div>
       </nav>
     </header>
 
-    <div class="paste-mine-toolbar" role="toolbar" aria-label="Paste 列表工具栏">
+    <div class="paste-mine-toolbar" role="toolbar" aria-label="代码片段列表工具栏">
       <UTooltip :text="selectionState === true ? '取消选择筛选结果' : '选择全部筛选结果'">
         <UCheckbox
           :model-value="selectionState"
@@ -352,7 +360,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", focusSearch));
           type="search"
           icon="i-tabler-search"
           placeholder="搜索标题、短码、语言或标签"
-          aria-label="搜索 Paste"
+          aria-label="搜索代码片段"
           variant="none"
           size="sm"
           class="paste-mine-search"
@@ -381,7 +389,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", focusSearch));
     </div>
 
     <div class="paste-mine-viewport" :aria-busy="loading">
-      <div v-if="loading" class="paste-ledger-loading" role="status" aria-label="正在读取 Paste">
+      <div v-if="loading" class="paste-ledger-loading" role="status" aria-label="正在读取代码片段">
         <div class="paste-ledger-head" aria-hidden="true">
           <span /><span>内容</span><span>访问</span><span>更新</span><span>操作</span>
         </div>
@@ -403,14 +411,14 @@ onBeforeUnmount(() => window.removeEventListener("keydown", focusSearch));
 
       <div v-else-if="values.length === 0" class="paste-mine-state">
         <UIcon name="i-tabler-file-code" class="size-7" />
-        <strong>还没有可管理的 Paste</strong>
+        <strong>还没有可管理的代码片段</strong>
         <p>登录状态下创建的内容会出现在这个工作区。</p>
-        <UButton to="/" label="新建 Paste" icon="i-tabler-file-plus" color="primary" />
+        <UButton to="/" label="新建片段" icon="i-tabler-file-plus" color="primary" />
       </div>
 
       <div v-else-if="filtered.length === 0" class="paste-mine-state">
         <UIcon name="i-tabler-file-search" class="size-7" />
-        <strong>没有匹配的 Paste</strong>
+        <strong>没有匹配的代码片段</strong>
         <p>换一个关键词，或清除当前搜索。</p>
         <UButton type="button" label="清除搜索" icon="i-tabler-x" color="neutral" variant="outline" @click="clearSearch" />
       </div>
@@ -419,7 +427,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", focusSearch));
         <div class="paste-ledger-head" aria-hidden="true">
           <span /><span>内容</span><span>访问</span><span>更新</span><span>操作</span>
         </div>
-        <div class="paste-ledger-rows" role="list" aria-label="我的 Paste">
+        <div class="paste-ledger-rows" role="list" aria-label="我的片段">
           <div
             v-for="value in filtered"
             :key="value.code"
@@ -455,10 +463,10 @@ onBeforeUnmount(() => window.removeEventListener("keydown", focusSearch));
                 <UButton type="button" :icon="copied === value.code ? 'i-tabler-check' : 'i-tabler-copy'" color="neutral" variant="ghost" size="sm" square aria-label="复制链接" :disabled="deleting === value.code || batchBusy" @click="copyLink(value)" />
               </UTooltip>
               <UTooltip text="编辑">
-                <UButton :to="`/?edit=${value.code}`" icon="i-tabler-edit" color="neutral" variant="ghost" size="sm" square aria-label="编辑 Paste" :disabled="deleting === value.code || batchBusy" />
+                <UButton :to="`/?edit=${value.code}`" icon="i-tabler-edit" color="neutral" variant="ghost" size="sm" square aria-label="编辑代码片段" :disabled="deleting === value.code || batchBusy" />
               </UTooltip>
               <UTooltip text="删除">
-                <UButton type="button" icon="i-tabler-trash" color="error" variant="ghost" size="sm" square aria-label="删除 Paste" :loading="deleting === value.code" :disabled="batchBusy" @click="remove(value)" />
+                <UButton type="button" icon="i-tabler-trash" color="error" variant="ghost" size="sm" square aria-label="删除代码片段" :loading="deleting === value.code" :disabled="batchBusy" @click="remove(value)" />
               </UTooltip>
             </div>
           </div>
@@ -469,7 +477,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", focusSearch));
     <footer class="paste-mine-statusbar" aria-label="工作区状态">
       <span class="paste-mine-status-primary">
         <span class="paste-mine-status-dot" aria-hidden="true" />
-        我的 Paste
+        我的片段
       </span>
       <span aria-live="polite">{{ selectedValues.length ? `已选择 ${selectedValues.length} 项` : query ? `筛选 ${filtered.length} / ${values.length}` : operationMessage || `${values.length} 条记录` }}</span>
     </footer>
@@ -477,7 +485,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", focusSearch));
     <USlideover
       v-model:open="batchEditOpen"
       title="批量修改"
-      :description="`为选中的 ${selectedValues.length} 个 Paste 统一修改访问设置。`"
+      :description="`为选中的 ${selectedValues.length} 个代码片段统一修改访问设置。`"
       :dismissible="!batchSaving"
       :close="!batchSaving"
       :ui="{ content: 'sm:max-w-sm' }"
@@ -506,7 +514,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", focusSearch));
               :disabled="batchSaving"
             />
           </UFormField>
-          <p class="paste-batch-note">“保持原设置”不会覆盖每个 Paste 当前不同的值；已有密码和文件内容不会改变。</p>
+          <p class="paste-batch-note">“保持原设置”不会覆盖每个代码片段当前不同的值；已有密码和文件内容不会改变。</p>
           <UAlert
             v-if="batchError"
             color="warning"

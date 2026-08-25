@@ -10,7 +10,8 @@ describe("Paste presentation rules", () => {
 
   it("uses the path before the generic untitled label", () => {
     expect(displayTitle("", "main.go")).toBe("main.go");
-    expect(displayTitle("", "")).toBe("未命名 Paste");
+    expect(displayTitle("", "")).toBe("未命名片段");
+    expect(displayTitle("未命名 Paste", "")).toBe("未命名片段");
   });
 
   it("keeps never-expiring Pastes explicit", () => {
@@ -37,5 +38,11 @@ describe("Paste presentation rules", () => {
       },
     };
     expect(pasteErrorMessage(caught)).toContain("单个文件不能超过 1 MiB");
+  });
+
+  it("explains product-local creation controls", () => {
+    expect(pasteErrorMessage({ message: "paste.creation_suspended" })).toContain("创建权限已被暂停");
+    expect(pasteErrorMessage({ message: "paste.anonymous_creation_disabled" })).toContain("停止匿名创建");
+    expect(pasteErrorMessage({ message: "common.rate_limited" })).toContain("创建额度已经用完");
   });
 });

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/yueli-official/paste/internal/governance"
 )
 
 var fixedNow = time.Date(2026, 8, 11, 10, 0, 0, 0, time.UTC)
@@ -60,6 +62,46 @@ func TestCreateKeepsEmptyCollectionsJSONAndDatabaseSafe(t *testing.T) {
 	}
 	if created.Tags == nil {
 		t.Fatal("empty tags must be represented as an empty collection, not null")
+	}
+}
+
+func TestCreateEnforcesSuccessfulDailyLimitsAndUserSuspension(t *testing.T) {
+	service, store := newTestService(t)
+	governanceService, err := governance.New(store, governance.Options{Now: func() time.Time { return fixedNow }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := governanceService.UpdateSettings(context.Background(), governance.UpdateSettingsInput{
+		UserDailyLimit: 1, AnonymousDailyLimit: 1, ExpectedRevision: 1, UpdatedBy: "usr_ADMIN",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	input := CreateInput{OwnerUserKey: "usr_LIMITED", Files: []File{{Path: "note.txt", Content: "hello"}}}
+	if _, err := service.Create(context.Background(), input); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Create(context.Background(), input); !errors.Is(err, governance.ErrDailyLimitReached) {
+		t.Fatalf("expected authenticated daily limit, got %v", err)
+	}
+	input.OwnerUserKey = "usr_OTHER"
+	if _, err := service.Create(context.Background(), input); err != nil {
+		t.Fatalf("another user should have an independent allowance: %v", err)
+	}
+	input.OwnerUserKey = ""
+	if _, err := service.Create(context.Background(), input); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Create(context.Background(), input); !errors.Is(err, governance.ErrDailyLimitReached) {
+		t.Fatalf("expected anonymous site-wide limit, got %v", err)
+	}
+	if _, err := governanceService.UpdateUser(context.Background(), governance.UpdateUserInput{
+		UserKey: "usr_SUSPENDED", State: governance.UserStateSuspended, ExpectedRevision: 0, UpdatedBy: "usr_ADMIN",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	input.OwnerUserKey = "usr_SUSPENDED"
+	if _, err := service.Create(context.Background(), input); !errors.Is(err, governance.ErrCreationSuspended) {
+		t.Fatalf("expected suspended creation, got %v", err)
 	}
 }
 
