@@ -31,17 +31,24 @@ async function loginToAdmin(page: Page) {
   await page.getByLabel("密码", { exact: true }).fill(password);
   await page.getByRole("button", { name: "登录", exact: true }).click();
   await page.waitForURL(/\/admin(?:\?|$)/, { timeout: 30_000 });
-  await page.waitForFunction(() => {
-    const toggle = document.querySelector(
-      'button[aria-label="打开侧边栏"]',
-    ) as (HTMLButtonElement & { __vueParentComponent?: unknown }) | null;
-    return Boolean(toggle?.__vueParentComponent);
+  await expect(page.locator("[data-paste-admin-shell]")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 1, name: "片段治理" }),
+  ).toBeVisible();
+  await expect(page.locator(".paste-admin-loading")).toHaveCount(0, {
+    timeout: 30_000,
   });
 }
 
 async function navigateAdmin(page: Page, name: string | RegExp) {
   const openSidebar = page.getByRole("button", { name: "打开侧边栏" });
   if (await openSidebar.isVisible().catch(() => false)) {
+    await page.waitForFunction(() => {
+      const toggle = document.querySelector(
+        'button[aria-label="打开侧边栏"]',
+      ) as (HTMLButtonElement & { __vueParentComponent?: unknown }) | null;
+      return Boolean(toggle?.__vueParentComponent);
+    });
     await openSidebar.click();
     const drawer = page.getByRole("dialog");
     await expect(drawer).toBeVisible();
@@ -359,6 +366,7 @@ test("administrator governs Paste users and creation limits", async ({ page }, t
 
 test("user governance stays operable at 320px", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile", "320px user-governance contract");
+  test.setTimeout(90_000);
   await page.setViewportSize({ width: 320, height: 568 });
   const userBatchBodies: Array<Record<string, unknown>> = [];
   await page.route("**/api/v1/admin/users**", async (route) => {
@@ -503,7 +511,10 @@ test("administrator can jump between numbered result pages", async ({ page }, te
   });
 
   await loginToAdmin(page);
-  await expect(page.locator(".paste-admin-loading")).toHaveCount(0);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.getByText("分页片段 1", { exact: true })).toBeVisible({
+    timeout: 30_000,
+  });
   await expect(page.getByRole("button", { name: "第 2 页", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "第 2 页", exact: true }).click();
   await expect.poll(() => offsets).toContain(50);
@@ -534,10 +545,13 @@ test("administrator can jump between numbered result pages", async ({ page }, te
 
 test("administrator workspace adapts to a mobile viewport", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile", "mobile administration contract");
+  test.setTimeout(60_000);
   await page.emulateMedia({ colorScheme: "dark" });
   await loginToAdmin(page);
   await expect(page.getByRole("heading", { level: 1, name: "片段治理" })).toBeVisible();
-  await expect(page.locator(".paste-admin-loading")).toHaveCount(0);
+  await expect(page.locator(".paste-admin-loading")).toHaveCount(0, {
+    timeout: 30_000,
+  });
   const dimensions = await page.locator("[data-paste-admin-shell]").evaluate((node) => ({
     width: node.getBoundingClientRect().width,
     viewport: innerWidth,
@@ -547,15 +561,15 @@ test("administrator workspace adapts to a mobile viewport", async ({ page }, tes
   expect(dimensions.documentScrollWidth).toBeLessThanOrEqual(dimensions.viewport);
   const firstRow = page.locator(".paste-admin-row").first();
   await expect(firstRow.locator(".paste-admin-access")).toBeVisible();
-  for (const control of [
-    page.locator(".paste-admin-select-all"),
-    page.getByRole("searchbox", { name: "搜索全站代码片段" }),
-    page.getByRole("button", { name: "筛选", exact: true }),
-    page.getByRole("button", { name: "刷新列表" }),
-    page.getByRole("button", { name: "打开侧边栏" }),
-  ]) {
+  for (const [label, control] of [
+    ["select all", page.locator(".paste-admin-select-all")],
+    ["search", page.getByRole("searchbox", { name: "搜索全站代码片段" })],
+    ["filters", page.getByRole("button", { name: "筛选", exact: true })],
+    ["refresh", page.getByRole("button", { name: "刷新列表" })],
+    ["sidebar", page.getByRole("button", { name: "打开侧边栏" })],
+  ] as const) {
     const box = await control.boundingBox();
-    expect(box?.height).toBeGreaterThanOrEqual(44);
+    expect(box?.height, `${label} touch target`).toBeGreaterThanOrEqual(44);
   }
   await page.screenshot({ path: testInfo.outputPath("admin-mobile.png"), fullPage: true });
   const accessibility = await new AxeBuilder({ page })

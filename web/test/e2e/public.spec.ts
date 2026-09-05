@@ -112,7 +112,12 @@ test("password access stays out of the URL", async ({ page, request }) => {
   const payload = await created.json();
   const code = payload.paste.code as string;
 
+  const lockedResponse = page.waitForResponse((response) =>
+    response.url().endsWith(`/api/v1/pastes/${code}`)
+      && response.request().method() === "GET",
+  );
   await page.goto(`/p/${code}`);
+  expect((await lockedResponse).status()).toBe(423);
   await expect(page.getByRole("heading", { level: 1, name: "需要访问密码" })).toBeVisible();
   await page.getByRole("textbox", { name: "访问密码", exact: true }).fill("wrong-pass");
   await page.getByRole("button", { name: "打开片段" }).click();

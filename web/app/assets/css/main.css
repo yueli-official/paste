@@ -31,7 +31,9 @@
   --paste-green: #1c8a61;
   --paste-green-ink: #116a48;
   --paste-green-soft: #e1f5ec;
-  --paste-shadow: 0 14px 34px -25px rgb(32 39 47 / 0.42), 0 3px 10px -8px rgb(32 39 47 / 0.22);
+  --paste-shadow:
+    0 14px 34px -25px rgb(32 39 47 / 0.42),
+    0 3px 10px -8px rgb(32 39 47 / 0.22);
   --ui-bg: var(--paste-surface);
   --ui-bg-muted: var(--paste-surface-muted);
   --ui-bg-elevated: var(--paste-editor-active);
@@ -73,7 +75,9 @@
   --paste-green: oklch(75% 0.11 155);
   --paste-green-ink: oklch(82% 0.105 155);
   --paste-green-soft: oklch(25% 0.045 155);
-  --paste-shadow: 0 18px 42px -24px rgb(0 0 0 / 0.7), 0 5px 14px -10px rgb(0 0 0 / 0.56);
+  --paste-shadow:
+    0 18px 42px -24px rgb(0 0 0 / 0.7),
+    0 5px 14px -10px rgb(0 0 0 / 0.56);
   --ui-bg: var(--paste-surface);
   --ui-bg-muted: var(--paste-surface-muted);
   --ui-bg-elevated: oklch(26.6% 0.027 257);
@@ -85,26 +89,19 @@
   --yueli-surface-card: var(--paste-surface);
 }
 
-html {
+html,
+body {
   min-width: 320px;
   background: var(--paste-page);
 }
 
 body {
-  min-width: 320px;
   margin: 0;
-  background: var(--paste-page);
   color: var(--paste-ink);
-  font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
+  font-family:
+    "Noto Sans SC", "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei",
+    system-ui, sans-serif;
   text-rendering: optimizeLegibility;
-}
-
-.paste-page-frame {
-  min-height: 100dvh;
-}
-
-.paste-page-frame > main {
-  min-width: 0;
 }
 
 ::selection {
@@ -115,137 +112,6 @@ body {
 :where(a, button):focus-visible {
   outline: 3px solid color-mix(in srgb, var(--paste-blue) 28%, transparent);
   outline-offset: 2px;
-}
-
-.paste-container {
-  width: min(1480px, calc(100% - 40px));
-  margin-inline: auto;
-}
-
-.paste-public-header {
-  position: relative;
-  z-index: 30;
-  border-bottom: 1px solid color-mix(in srgb, var(--paste-line) 76%, transparent);
-  background: var(--paste-surface);
-}
-
-.paste-public-nav {
-  display: flex;
-  width: 100%;
-  min-height: 48px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding-inline: 12px;
-}
-
-.paste-wordmark {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--paste-ink);
-  font-size: 15px;
-  font-weight: 730;
-  letter-spacing: -0.025em;
-  text-decoration: none;
-}
-
-.paste-wordmark-mark {
-  display: grid;
-  width: 24px;
-  height: 24px;
-  place-items: center;
-  border: 1px solid color-mix(in srgb, var(--paste-blue) 28%, var(--paste-line));
-  border-radius: 6px;
-  background: var(--paste-blue-soft);
-  color: var(--paste-blue);
-}
-
-.paste-nav-actions {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.paste-field-label {
-  display: block;
-  margin-bottom: 7px;
-  color: var(--paste-ink);
-  font-size: 12px;
-  font-weight: 680;
-}
-
-.paste-input,
-.paste-select,
-.paste-textarea {
-  width: 100%;
-  border: 1px solid var(--paste-line-strong);
-  border-radius: 9px;
-  background: var(--paste-surface);
-  color: var(--paste-ink);
-  font: inherit;
-  transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
-}
-
-.paste-input,
-.paste-select {
-  min-height: 42px;
-  padding: 0 11px;
-}
-
-.paste-textarea {
-  min-height: 76px;
-  padding: 10px 11px;
-  resize: vertical;
-}
-
-.paste-input::placeholder,
-.paste-textarea::placeholder {
-  color: var(--paste-ink-dim);
-}
-
-.paste-input:hover,
-.paste-select:hover,
-.paste-textarea:hover {
-  border-color: var(--paste-ink-soft);
-}
-
-.paste-input:focus,
-.paste-select:focus,
-.paste-textarea:focus {
-  border-color: var(--paste-blue);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--paste-blue) 13%, transparent);
-  outline: none;
-}
-
-.paste-help {
-  margin: 6px 0 0;
-  color: var(--paste-ink-soft);
-  font-size: 11px;
-  line-height: 1.55;
-}
-
-.paste-error {
-  color: var(--paste-red);
-  font-size: 13px;
-  line-height: 1.55;
-}
-
-.paste-button-primary {
-  border-color: transparent !important;
-  background: var(--paste-blue) !important;
-  color: white !important;
-}
-
-.paste-button-primary:hover:not(:disabled) {
-  background: var(--paste-blue-hover) !important;
-}
-
-.paste-code-editor {
-  min-width: 0;
-  max-width: 100%;
-  min-height: 0;
-  height: 100%;
 }
 
 .paste-code-editor .cm-editor {
@@ -265,21 +131,16 @@ body {
   color: var(--paste-ink);
 }
 
-@media (max-width: 720px) {
-  .paste-container {
-    width: min(100% - 24px, 1480px);
-  }
-
-  .paste-public-nav { min-height: 48px; padding-inline: 8px; }
-
-  .paste-public-nav :where(a, button) {
-    min-width: 44px;
-    min-height: 44px;
+@keyframes paste-reader-pulse {
+  to {
+    opacity: 0.45;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     scroll-behavior: auto !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;

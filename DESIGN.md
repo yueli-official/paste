@@ -82,3 +82,12 @@ Foundation supplies shared runtime, Identity integration and common UI primitive
 editor and product-specific states. Standard form controls—including inputs, textareas, tags and dropdowns—use Nuxt UI; custom
 controls are reserved for editor-native interactions such as the file explorer and code surface. New pages should reuse the
 established tokens and shell before introducing another card, navigation pattern or visual motif.
+
+## Implementation ownership
+
+- Ordinary layout, spacing, sizing, responsive behavior and component states belong in Vue template Tailwind utilities, Nuxt UI
+  configuration or shared Foundation modules. Paste pages and layouts do not own `<style>` blocks.
+- `web/app/assets/css/main.css` owns only semantic light/dark theme tokens, document-level base and focus behavior, the minimal
+  CodeMirror host adapter, the reader loading keyframe and the global reduced-motion fallback.
+- The CodeMirror adapter is restricted to editor height, scroller containment and tooltip theming. It must not grow into a second
+  page-layout system; new product UI should remain visible in the template where Tailwind ownership can be reviewed directly.

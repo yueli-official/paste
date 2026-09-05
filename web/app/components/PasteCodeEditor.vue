@@ -136,5 +136,10 @@ onBeforeUnmount(() => editor?.destroy());
 </script>
 
 <template>
-  <div ref="host" class="paste-code-editor" role="region" :aria-label="label" />
+  <div
+    ref="host"
+    class="paste-code-editor h-full min-h-0 min-w-0 max-w-full"
+    role="region"
+    :aria-label="label"
+  />
 </template>

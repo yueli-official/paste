@@ -300,26 +300,45 @@ onMounted(loadEdit);
 </script>
 
 <template>
-  <section class="paste-compose" aria-labelledby="compose-title">
+  <section
+    class="min-h-dvh bg-[var(--paste-editor)]"
+    aria-labelledby="compose-title"
+  >
     <form
       id="paste-compose-form"
-      class="paste-workbench"
+      class="paste-workbench grid h-dvh min-h-[360px] grid-rows-[40px_minmax(0,1fr)_28px] overflow-hidden bg-[var(--paste-surface)] max-[720px]:min-h-[320px] max-[720px]:grid-rows-[44px_minmax(0,1fr)_30px]"
       :aria-busy="saving || loadingEdit"
       @submit.prevent="submit"
     >
-      <header class="paste-editor-chrome" aria-label="代码片段编辑器工具栏">
-        <NuxtLink to="/" class="paste-editor-brand" :aria-label="`${siteName} 首页`">
-          <span class="paste-editor-brand-mark" aria-hidden="true">
+      <header
+        class="flex min-w-0 items-stretch border-b border-[var(--paste-line)] bg-[var(--paste-chrome)]"
+        aria-label="代码片段编辑器工具栏"
+      >
+        <NuxtLink
+          to="/"
+          class="flex shrink-0 items-center gap-[7px] border-r border-[var(--paste-line)] px-[11px] text-[var(--paste-ink)] no-underline max-[720px]:px-1.5"
+          :aria-label="`${siteName} 首页`"
+        >
+          <span
+            class="grid size-6 place-items-center rounded-md border border-[color-mix(in_srgb,var(--paste-blue)_28%,var(--paste-line))] bg-[var(--paste-blue-soft)] text-[var(--paste-blue)]"
+            aria-hidden="true"
+          >
             <UIcon name="i-tabler-code-dots" class="size-4" />
           </span>
-          <span class="paste-editor-brand-label">{{ siteName }}</span>
+          <span
+            class="paste-editor-brand-label text-[13px] font-[730] tracking-[-0.025em] max-[720px]:hidden"
+            >{{ siteName }}</span
+          >
         </NuxtLink>
 
-        <nav class="paste-file-tabs" aria-label="片段文件">
+        <nav
+          class="flex min-w-0 flex-1 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          aria-label="片段文件"
+        >
           <div
             v-for="(file, index) in files"
             :key="file.id"
-            class="paste-file-tab"
+            class="paste-file-tab group relative flex min-w-[108px] max-w-[220px] basis-44 items-center border-r border-[var(--paste-line)] text-[var(--paste-ink-soft)] opacity-100 data-[active=true]:bg-[var(--paste-editor)] data-[active=true]:text-[var(--paste-ink)] data-[active=true]:[box-shadow:inset_0_2px_var(--paste-blue)] data-[dragging=true]:opacity-50 data-[drop-position]:after:absolute data-[drop-position]:after:top-[3px] data-[drop-position]:after:bottom-[3px] data-[drop-position]:after:z-[2] data-[drop-position]:after:w-0.5 data-[drop-position]:after:rounded-[1px] data-[drop-position]:after:bg-[var(--paste-blue)] data-[drop-position]:after:content-[''] data-[drop-position=before]:after:-left-px data-[drop-position=after]:after:-right-px max-[720px]:min-w-[88px] max-[720px]:basis-[124px]"
             :data-active="activeFileID === file.id"
             :data-dragging="draggedFileID === file.id"
             :data-drop-position="dragOverFileID === file.id ? dragOverPosition : undefined"
@@ -337,7 +356,7 @@ onMounted(loadEdit);
               maxlength="180"
               spellcheck="false"
               aria-label="重命名文件"
-              class="paste-rename-input"
+              class="mx-1.5 h-[26px] min-w-0 flex-1 rounded-sm border border-[var(--paste-blue)] bg-[var(--paste-editor)] px-[5px] font-mono text-[11px] leading-6 text-[var(--paste-ink)] shadow-none outline-none selection:bg-[var(--paste-selection)]"
               @blur="commitRename(file)"
               @keyup.enter="commitRename(file)"
               @keyup.esc="cancelRename"
@@ -345,7 +364,7 @@ onMounted(loadEdit);
             <button
               v-else
               type="button"
-              class="paste-file-tab-button"
+              class="paste-file-tab-button flex h-full min-w-0 flex-1 items-center gap-[7px] border-0 bg-transparent py-0 pr-2 pl-[11px] text-left font-mono text-[11px] text-inherit focus-visible:outline-offset-[-3px]"
               :aria-pressed="activeFileID === file.id"
               :aria-label="`${file.path || `文件 ${index + 1}`}，双击重命名，Alt 加方向键移动`"
               @click="activeFileID = file.id"
@@ -365,7 +384,7 @@ onMounted(loadEdit);
               size="xs"
               square
               :aria-label="`删除 ${file.path}`"
-              class="paste-tab-close"
+              class="mr-1 opacity-0 transition-opacity duration-100 group-hover:opacity-100 group-focus-within:opacity-100 group-data-[active=true]:opacity-100"
               @click.stop="removeFile(file)"
             />
           </div>
@@ -378,14 +397,16 @@ onMounted(loadEdit);
               size="sm"
               square
               aria-label="添加文件"
-              class="paste-add-file"
+              class="w-8 min-w-8 shrink-0 rounded-none"
               :disabled="files.length >= 20"
               @click="addFile"
             />
           </UTooltip>
         </nav>
 
-        <div class="paste-editor-actions">
+        <div
+          class="flex shrink-0 items-center gap-0.5 bg-[var(--paste-chrome)] px-[5px] max-[720px]:px-1"
+        >
           <UTooltip text="分享">
             <UButton
               type="button"
@@ -398,7 +419,10 @@ onMounted(loadEdit);
               @click="openShare"
             />
           </UTooltip>
-          <span class="paste-editor-action-divider" aria-hidden="true" />
+          <span
+            class="mx-[3px] h-5 w-px bg-[var(--paste-line)] max-[720px]:hidden"
+            aria-hidden="true"
+          />
           <UTooltip text="我的片段">
             <UButton
               to="/mine"
@@ -407,7 +431,7 @@ onMounted(loadEdit);
               variant="ghost"
               size="sm"
               square
-              class="paste-editor-history"
+              class="max-[720px]:hidden"
               aria-label="我的片段"
             />
           </UTooltip>
@@ -420,7 +444,9 @@ onMounted(loadEdit);
               class="paste-editor-theme"
             />
           </UTooltip>
-          <div class="paste-editor-account">
+          <div
+            class="grid size-8 place-items-center [&_button]:size-[30px] [&_button]:min-h-[30px] [&_button]:min-w-[30px] [&_button]:p-0 [&_[data-slot=label]]:sr-only"
+          >
             <ConsumerAccountControl
               :context-actions="accountActions"
               trigger-mode="collapsed"
@@ -429,7 +455,10 @@ onMounted(loadEdit);
         </div>
       </header>
 
-      <section class="paste-editor-floor" aria-label="当前文件">
+      <section
+        class="min-h-0 min-w-0 bg-[var(--paste-editor)]"
+        aria-label="当前文件"
+      >
         <ClientOnly>
           <PasteCodeEditor
             v-model="activeFile.content"
@@ -437,17 +466,31 @@ onMounted(loadEdit);
             :label="`${activeFile.path} 代码编辑器`"
           />
           <template #fallback>
-            <textarea v-model="activeFile.content" class="paste-editor-fallback" aria-label="代码编辑器" />
+            <textarea
+              v-model="activeFile.content"
+              class="size-full resize-none border-0 bg-[var(--paste-editor)] px-5 py-[18px] font-mono leading-[1.72] text-[var(--paste-ink)] outline-0"
+              aria-label="代码编辑器"
+            />
           </template>
         </ClientOnly>
       </section>
 
-      <footer class="paste-statusbar" aria-label="编辑状态">
-        <span class="paste-status-primary">
-          <span class="paste-status-dot" aria-hidden="true" />
-          <h1 id="compose-title">{{ editCode ? "编辑片段" : "新建片段" }}</h1>
+      <footer
+        class="paste-statusbar flex min-w-0 items-center justify-between gap-5 border-t border-[var(--paste-status-border)] bg-[var(--paste-status)] px-[9px] font-mono text-xs text-[var(--paste-status-text-muted)]"
+        aria-label="编辑状态"
+      >
+        <span
+          class="flex min-w-0 items-center gap-3 whitespace-nowrap text-[var(--paste-status-text)]"
+        >
+          <span class="size-1.5 rounded-full bg-[var(--paste-green)]" aria-hidden="true" />
+          <h1 id="compose-title" class="font-[inherit] font-semibold">
+            {{ editCode ? "编辑片段" : "新建片段" }}
+          </h1>
         </span>
-        <span class="paste-status-meta" aria-live="polite">
+        <span
+          class="flex min-w-0 items-center justify-end gap-3 whitespace-nowrap max-[720px]:[&>span:first-child]:hidden"
+          aria-live="polite"
+        >
           <span>{{ visibilityLabel }}</span>
           <USelectMenu
             v-model="activeFile.language"
@@ -458,7 +501,7 @@ onMounted(loadEdit);
             :content="{ align: 'end', side: 'top', sideOffset: 6, collisionPadding: 8 }"
             variant="none"
             size="xs"
-            class="paste-status-language"
+            class="w-auto min-w-0"
             :ui="{
               base: 'min-h-0 rounded-none px-1.5 py-0 text-[12px] text-[var(--paste-status-text)] ring-0 hover:bg-[var(--paste-status-hover)]',
               content: 'w-52 min-w-52 rounded-md',
@@ -470,7 +513,7 @@ onMounted(loadEdit);
           />
           <span>{{ files.length }}/20 文件</span>
           <span
-            class="paste-status-size"
+            class="paste-status-size data-[over-limit=true]:font-bold data-[over-limit=true]:text-[var(--paste-status-error)]"
             :data-over-limit="activeFileBytes > maxFileBytes"
             :title="`当前文件 ${Math.ceil(activeFileBytes / 1024)}/1024 KiB；全部文件 ${Math.ceil(totalBytes / 1024)}/1024 KiB`"
           >{{ Math.ceil(activeFileBytes / 1024) }}/1024 KiB</span>
@@ -484,7 +527,7 @@ onMounted(loadEdit);
         :ui="{ content: 'sm:max-w-sm' }"
       >
         <template #body>
-          <div class="paste-share-fields">
+          <div class="grid gap-[18px] [&_label]:text-[11px] [&_label]:font-[680]">
             <UFormField name="title" label="标题">
               <UInput
                 v-model="title"
@@ -519,7 +562,7 @@ onMounted(loadEdit);
                 class="w-full"
               />
             </UFormField>
-            <div class="paste-setting-grid">
+            <div class="grid grid-cols-2 gap-2.5 max-[720px]:grid-cols-1">
               <UFormField label="可见性">
                 <USelect
                   v-model="visibility"
@@ -576,7 +619,7 @@ onMounted(loadEdit);
           </div>
         </template>
         <template #footer>
-          <div class="paste-share-footer">
+          <div class="flex w-full items-center justify-end gap-2">
             <UButton
               v-if="!loggedIn && !editCode"
               type="button"
@@ -590,7 +633,7 @@ onMounted(loadEdit);
               type="submit"
               :label="editCode ? '保存修改' : '生成分享链接'"
               :icon="editCode ? 'i-tabler-device-floppy' : 'i-tabler-send'"
-              class="paste-button-primary"
+              class="border-transparent bg-[var(--paste-blue)] text-white hover:bg-[var(--paste-blue-hover)]"
               :loading="saving || loadingEdit"
               :disabled="saving || loadingEdit"
             />
@@ -600,60 +643,3 @@ onMounted(loadEdit);
     </form>
   </section>
 </template>
-
-<style scoped>
-.paste-compose { min-height: 100dvh; background: var(--paste-editor); }
-.paste-workbench { display: grid; height: 100dvh; min-height: 360px; grid-template-rows: 40px minmax(0, 1fr) 28px; overflow: hidden; background: var(--paste-surface); }
-.paste-editor-chrome { display: flex; min-width: 0; align-items: stretch; border-bottom: 1px solid var(--paste-line); background: var(--paste-chrome); }
-.paste-editor-brand { display: flex; flex: none; align-items: center; gap: 7px; border-right: 1px solid var(--paste-line); padding: 0 11px; color: var(--paste-ink); text-decoration: none; }
-.paste-editor-brand-mark { display: grid; width: 24px; height: 24px; place-items: center; border: 1px solid color-mix(in srgb, var(--paste-blue) 28%, var(--paste-line)); border-radius: 6px; background: var(--paste-blue-soft); color: var(--paste-blue); }
-.paste-editor-brand-label { font-size: 13px; font-weight: 730; letter-spacing: -0.025em; }
-.paste-file-tabs { display: flex; min-width: 0; flex: 1; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
-.paste-file-tabs::-webkit-scrollbar { display: none; }
-.paste-file-tab { position: relative; display: flex; min-width: 108px; max-width: 220px; flex: 0 1 176px; align-items: center; border-right: 1px solid var(--paste-line); color: var(--paste-ink-soft); }
-.paste-file-tab[data-active="true"] { background: var(--paste-editor); box-shadow: inset 0 2px var(--paste-blue); color: var(--paste-ink); }
-.paste-file-tab[data-dragging="true"] { opacity: 0.48; }
-.paste-file-tab[data-drop-position]::after { position: absolute; z-index: 2; top: 3px; bottom: 3px; width: 2px; border-radius: 1px; background: var(--paste-blue); content: ""; }
-.paste-file-tab[data-drop-position="before"]::after { left: -1px; }
-.paste-file-tab[data-drop-position="after"]::after { right: -1px; }
-.paste-file-tab-button { display: flex; min-width: 0; height: 100%; flex: 1; align-items: center; gap: 7px; border: 0; padding: 0 8px 0 11px; background: transparent; color: inherit; font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; text-align: left; }
-.paste-file-tab-button:focus-visible { outline-offset: -3px; }
-.paste-rename-input { min-width: 0; height: 26px; flex: 1; margin: 0 6px; border: 1px solid var(--paste-blue); border-radius: 2px; padding: 0 5px; background: var(--paste-editor); color: var(--paste-ink); font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; line-height: 24px; outline: none; box-shadow: none; }
-.paste-rename-input::selection { background: var(--paste-selection); }
-.paste-tab-close { margin-right: 4px; opacity: 0; transition: opacity 120ms ease; }
-.paste-file-tab[data-active="true"] .paste-tab-close,
-.paste-file-tab:hover .paste-tab-close,
-.paste-file-tab:focus-within .paste-tab-close { opacity: 1; }
-.paste-add-file { width: 32px; min-width: 32px; flex: none; border-radius: 0; }
-.paste-editor-actions { display: flex; flex: none; align-items: center; gap: 2px; padding: 0 5px; background: var(--paste-chrome); }
-.paste-editor-action-divider { width: 1px; height: 20px; margin-inline: 3px; background: var(--paste-line); }
-.paste-editor-account { display: grid; width: 32px; height: 32px; place-items: center; }
-.paste-editor-account :deep(button) { width: 30px; min-width: 30px; height: 30px; min-height: 30px; padding: 0; }
-.paste-editor-account :deep([data-slot="label"]) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.paste-editor-floor { min-width: 0; min-height: 0; background: var(--paste-editor); }
-.paste-editor-fallback { width: 100%; height: 100%; resize: none; border: 0; padding: 18px 20px; background: var(--paste-editor); color: var(--paste-ink); font-family: "SFMono-Regular", Consolas, monospace; line-height: 1.72; outline: 0; }
-.paste-share-fields { display: grid; gap: 18px; }
-.paste-setting-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.paste-share-fields :deep(label) { font-size: 11px; font-weight: 680; }
-.paste-share-footer { display: flex; width: 100%; align-items: center; justify-content: flex-end; gap: 8px; }
-.paste-statusbar { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 20px; border-top: 1px solid var(--paste-status-border); padding: 0 9px; background: var(--paste-status); color: var(--paste-status-text-muted); font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; }
-.paste-status-primary, .paste-status-meta { display: flex; min-width: 0; align-items: center; gap: 12px; }
-.paste-status-primary { color: var(--paste-status-text); white-space: nowrap; }
-.paste-status-primary h1 { margin: 0; font: inherit; font-weight: 600; }
-.paste-status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--paste-green); }
-.paste-status-meta { justify-content: flex-end; white-space: nowrap; }
-.paste-status-language { width: auto; min-width: 0; }
-.paste-status-size[data-over-limit="true"] { color: var(--paste-status-error); font-weight: 700; }
-@media (max-width: 720px) {
-  .paste-compose, .paste-workbench { height: 100dvh; min-height: 320px; }
-  .paste-workbench { grid-template-rows: 44px minmax(0, 1fr) 30px; }
-  .paste-editor-brand { padding-inline: 6px; }
-  .paste-editor-brand-label { display: none; }
-  .paste-file-tab { min-width: 88px; flex-basis: 124px; }
-  .paste-editor-actions { gap: 2px; padding-inline: 4px; }
-  .paste-editor-action-divider { display: none; }
-  .paste-editor-history { display: none; }
-  .paste-status-meta > span:first-child { display: none; }
-  .paste-setting-grid { grid-template-columns: 1fr; }
-}
-</style>
