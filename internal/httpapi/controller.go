@@ -3,6 +3,8 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"github.com/gogf/gf/v2/net/ghttp"
+	"net/http"
 	"strings"
 
 	foundationauth "github.com/yueli-official/foundation/go/auth"
@@ -80,6 +82,7 @@ func (controller *Public) CreatePaste(ctx context.Context, request *v1.CreatePas
 	if err != nil {
 		return nil, pasteerr.Map(err)
 	}
+	writeSuccess(ctx, http.StatusCreated, "/api/v1/pastes/"+created.Code)
 	return &v1.CreatePasteRes{Paste: controller.core.view(created)}, nil
 }
 
@@ -115,20 +118,21 @@ func (controller *Public) GetSiteSettings(ctx context.Context, _ *v1.GetSiteSett
 	return &v1.GetSiteSettingsRes{Settings: siteSettingsView(value)}, nil
 }
 
-func (controller *Managed) ListMyPastes(ctx context.Context, _ *v1.ListMyPastesReq) (*v1.ListMyPastesRes, error) {
+func (controller *Managed) ListMyPastes(ctx context.Context, request *v1.ListMyPastesReq) (*v1.ListMyPastesRes, error) {
 	userKey, err := requiredUser(ctx)
 	if err != nil {
 		return nil, err
 	}
-	values, err := controller.core.pastes.ListMine(ctx, userKey)
+	pageNumber, size := pagination(request.Page, request.Size)
+	page, err := controller.core.pastes.ListMinePage(ctx, userKey, request.Query, size, (pageNumber-1)*size)
 	if err != nil {
 		return nil, pasteerr.Map(err)
 	}
-	result := make([]v1.PasteSummaryView, len(values))
-	for index, value := range values {
-		result[index] = controller.core.summary(value)
+	items := make([]v1.PasteSummaryView, 0, len(page.Items))
+	for _, value := range page.Items {
+		items = append(items, controller.core.summaryItem(value))
 	}
-	return &v1.ListMyPastesRes{Pastes: result}, nil
+	return &v1.ListMyPastesRes{Items: items, Total: page.Total, Page: pageNumber, Size: size}, nil
 }
 
 func (controller *Managed) GetMyPaste(ctx context.Context, request *v1.GetMyPasteReq) (*v1.GetMyPasteRes, error) {
@@ -187,16 +191,18 @@ func (controller *Managed) DeletePaste(ctx context.Context, request *v1.DeletePa
 	if err := controller.core.pastes.Delete(ctx, request.Code, userKey, request.ExpectedRevision); err != nil {
 		return nil, pasteerr.Map(err)
 	}
+	writeSuccess(ctx, http.StatusNoContent, "")
 	return &v1.DeletePasteRes{}, nil
 }
 
 func (controller *Administrator) ListPastes(ctx context.Context, request *v1.ListAdministrationPastesReq) (*v1.ListAdministrationPastesRes, error) {
+	pageNumber, size := pagination(request.Page, request.Size)
 	if _, err := controller.core.requiredAdministrator(ctx); err != nil {
 		return nil, err
 	}
 	page, err := controller.core.pastes.ListForAdministration(ctx, paste.AdministrationQuery{
 		Query: request.Query, Visibility: paste.Visibility(request.Visibility), State: paste.State(request.State),
-		Ownership: request.Ownership, Limit: request.Limit, Offset: request.Offset,
+		Ownership: request.Ownership, Limit: size, Offset: (pageNumber - 1) * size,
 	})
 	if err != nil {
 		return nil, pasteerr.Map(err)
@@ -205,7 +211,7 @@ func (controller *Administrator) ListPastes(ctx context.Context, request *v1.Lis
 	for index, value := range page.Items {
 		values[index] = controller.core.administrationView(value)
 	}
-	return &v1.ListAdministrationPastesRes{Pastes: values, Total: page.Total, Limit: page.Limit, Offset: page.Offset}, nil
+	return &v1.ListAdministrationPastesRes{Items: values, Total: page.Total, Size: size, Page: pageNumber}, nil
 }
 
 func (controller *Administrator) GetSession(ctx context.Context, _ *v1.GetAdministrationSessionReq) (*v1.GetAdministrationSessionRes, error) {
@@ -242,15 +248,17 @@ func (controller *Administrator) DeletePaste(ctx context.Context, request *v1.Ad
 	if err := controller.core.pastes.DeleteAsAdministrator(ctx, request.Code, request.ExpectedRevision); err != nil {
 		return nil, pasteerr.Map(err)
 	}
+	writeSuccess(ctx, http.StatusNoContent, "")
 	return &v1.AdministrationDeletePasteRes{}, nil
 }
 
 func (controller *Administrator) ListUsers(ctx context.Context, request *v1.ListAdministrationUsersReq) (*v1.ListAdministrationUsersRes, error) {
+	pageNumber, size := pagination(request.Page, request.Size)
 	if _, err := controller.core.requiredAdministrator(ctx); err != nil {
 		return nil, err
 	}
 	page, err := controller.core.governance.ListUsers(ctx, governance.UserQuery{
-		Query: request.Query, State: governance.UserState(request.State), Limit: request.Limit, Offset: request.Offset,
+		Query: request.Query, State: governance.UserState(request.State), Limit: size, Offset: (pageNumber - 1) * size,
 	})
 	if err != nil {
 		return nil, pasteerr.Map(err)
@@ -259,7 +267,7 @@ func (controller *Administrator) ListUsers(ctx context.Context, request *v1.List
 	for _, user := range page.Users {
 		users = append(users, administrationUserView(user))
 	}
-	return &v1.ListAdministrationUsersRes{Users: users, Total: page.Total, Limit: page.Limit, Offset: page.Offset}, nil
+	return &v1.ListAdministrationUsersRes{Items: users, Total: page.Total, Size: size, Page: pageNumber}, nil
 }
 
 func (controller *Administrator) UpdateUser(ctx context.Context, request *v1.UpdateAdministrationUserReq) (*v1.UpdateAdministrationUserRes, error) {
@@ -446,4 +454,28 @@ func mustProblem(descriptor problem.Descriptor) error {
 		return err
 	}
 	return mapped
+}
+
+func pagination(page, size int) (int, int) {
+	if page < 1 {
+		page = 1
+	}
+	if size < 1 {
+		size = 50
+	}
+	if size > 100 {
+		size = 100
+	}
+	return page, size
+}
+func writeSuccess(ctx context.Context, status int, location string) {
+	if r := ghttp.RequestFromCtx(ctx); r != nil {
+		if location != "" {
+			r.Response.Header().Set("Location", location)
+		}
+		r.Response.WriteHeader(status)
+	}
+}
+func (core *Core) summaryItem(value paste.AdministrationItem) v1.PasteSummaryView {
+	return v1.PasteSummaryView{Code: value.Code, ShareURL: core.shareURL(value.Code), Title: value.Title, Tags: append([]string{}, value.Tags...), FileCount: value.FileCount, PrimaryLanguage: value.PrimaryLanguage, Visibility: string(value.Visibility), PasswordProtected: value.PasswordProtected, State: string(value.State), Revision: value.Revision, CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt, ExpiresAt: value.ExpiresAt}
 }

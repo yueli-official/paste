@@ -55,7 +55,7 @@ test.beforeAll(async ({ browser }, testInfo) => {
   governedUserKey = ((await sessionResponse.json()) as { userKey: string }).userKey;
   const userResponse = await page.request.get(`/api/v1/admin/users?q=${encodeURIComponent(governedUserKey)}`);
   expect(userResponse.status()).toBe(200);
-  originalPolicy = ((await userResponse.json()).users as UserPolicySnapshot[])[0]
+  originalPolicy = ((await userResponse.json()).items as UserPolicySnapshot[])[0]
     || { state: "active", revision: 0 };
   const capacityResponse = await page.request.patch(`/api/v1/admin/users/${encodeURIComponent(governedUserKey)}`, {
     data: {
@@ -73,7 +73,7 @@ test.afterAll(async () => {
   const page = governanceContext.pages()[0] || await governanceContext.newPage();
   const currentResponse = await page.request.get(`/api/v1/admin/users?q=${encodeURIComponent(governedUserKey)}`);
   if (currentResponse.ok()) {
-    const current = ((await currentResponse.json()).users as UserPolicySnapshot[])[0];
+    const current = ((await currentResponse.json()).items as UserPolicySnapshot[])[0];
     if (current) {
       const restored = await page.request.patch(`/api/v1/admin/users/${encodeURIComponent(governedUserKey)}`, {
         data: {
@@ -132,7 +132,7 @@ test("signed-in owner can create, find, edit, and delete a private Paste", async
   const listed = await listResponse;
   expect(listed.status()).toBe(200);
   const listedPayload = await listed.json();
-  expect(listedPayload.pastes.map((value: { title: string }) => value.title)).toContain(originalTitle);
+  expect(listedPayload.items.map((value: { title: string }) => value.title)).toContain(originalTitle);
   const row = page.locator(".paste-ledger-row").filter({ hasText: originalTitle });
   await expect(row).toBeVisible();
   await expect(row).toContainText("仅自己");

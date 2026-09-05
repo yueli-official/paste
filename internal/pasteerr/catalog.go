@@ -11,28 +11,30 @@ import (
 	"github.com/yueli-official/paste/internal/site"
 )
 
-const typeRoot = "https://errors.yuelili.com/problems/"
-
 var (
 	RateLimited          = descriptor("common.rate_limited", http.StatusTooManyRequests)
-	Validation           = descriptor("validation.failed", http.StatusBadRequest)
+	Validation           = descriptor("common.validation_failed", http.StatusBadRequest)
+	DailyLimitReached    = descriptors[CodeDailyLimitReached]
 	Internal             = descriptor("common.internal", http.StatusInternalServerError)
-	Unauthorized         = descriptor("paste.not_authenticated", http.StatusUnauthorized)
-	Forbidden            = descriptor("paste.forbidden", http.StatusForbidden)
-	CreationSuspended    = descriptor("paste.creation_suspended", http.StatusForbidden)
-	AnonymousCreationOff = descriptor("paste.anonymous_creation_disabled", http.StatusForbidden)
-	NotFound             = descriptor("paste.not_found", http.StatusNotFound)
-	Gone                 = descriptor("paste.gone", http.StatusGone)
-	PasswordNeeded       = descriptor("paste.password_required", http.StatusLocked)
-	PasswordInvalid      = descriptor("paste.password_invalid", http.StatusForbidden)
-	Conflict             = descriptor("paste.conflict", http.StatusConflict)
+	Unauthorized         = descriptors[CodeUnauthorized]
+	Forbidden            = descriptors[CodeForbidden]
+	CreationSuspended    = descriptors[CodeCreationSuspended]
+	AnonymousCreationOff = descriptors[CodeAnonymousCreationOff]
+	NotFound             = descriptors[CodeNotFound]
+	Gone                 = descriptors[CodeGone]
+	PasswordNeeded       = descriptors[CodePasswordNeeded]
+	PasswordInvalid      = descriptors[CodePasswordInvalid]
+	Conflict             = descriptors[CodeConflict]
 )
 
-func descriptor(code string, status int) problem.Descriptor {
-	return problem.MustDescriptor(problem.MustKind(code, status), typeRoot+code)
-}
-
 func Map(err error) error {
+	if err == nil {
+		return nil
+	}
+	var existing *problem.Error
+	if errors.As(err, &existing) {
+		return err
+	}
 	var selected problem.Descriptor
 	var violations []problem.Violation
 	var validation paste.ValidationError
@@ -49,7 +51,7 @@ func Map(err error) error {
 		selected = Validation
 		violations = []problem.Violation{governanceValidationViolation(governanceValidation)}
 	case errors.Is(err, governance.ErrDailyLimitReached):
-		selected = RateLimited
+		selected = DailyLimitReached
 	case errors.Is(err, governance.ErrCreationSuspended):
 		selected = CreationSuspended
 	case errors.Is(err, governance.ErrAnonymousCreationOff):
@@ -80,7 +82,6 @@ func governanceValidationViolation(err governance.ValidationError) problem.Viola
 	violation := problem.Violation{
 		Pointer: "/" + err.Field,
 		Code:    "validation.invalid",
-		Params:  problem.Parameters{"detail": err.Message},
 	}
 	if err.Message == "is out of range" {
 		switch err.Field {
@@ -103,7 +104,6 @@ func siteValidationViolation(err site.ValidationError) problem.Violation {
 	violation := problem.Violation{
 		Pointer: "/" + err.Field,
 		Code:    "validation.invalid",
-		Params:  problem.Parameters{"detail": err.Message},
 	}
 	if err.Message == "is too long" && err.Field == "name" {
 		violation.Code = "validation.max_length"
@@ -122,7 +122,6 @@ func validationViolation(err paste.ValidationError) problem.Violation {
 	violation := problem.Violation{
 		Pointer: pointer,
 		Code:    "validation.invalid",
-		Params:  problem.Parameters{"detail": err.Message},
 	}
 	switch {
 	case err.Field == "files.content" && err.Message == "exceeds the per-file limit":

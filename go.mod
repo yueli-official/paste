@@ -1,11 +1,11 @@
 module github.com/yueli-official/paste
 
-go 1.25.12
+go 1.25.13
 
 require (
 	github.com/gogf/gf/v2 v2.10.2
 	github.com/lib/pq v1.10.9
-	github.com/yueli-official/foundation/go v0.2.1
+	github.com/yueli-official/foundation/go v0.4.1
 	golang.org/x/crypto v0.53.0
 )
 

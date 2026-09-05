@@ -45,10 +45,10 @@ export interface AdministrationPaste extends PasteSummary {
 }
 
 export interface AdministrationPastePage {
-  pastes: AdministrationPaste[];
+  items: AdministrationPaste[];
   total: number;
-  limit: number;
-  offset: number;
+  page: number;
+  size: number;
 }
 
 export interface AdministrationPasteQuery {
@@ -56,8 +56,8 @@ export interface AdministrationPasteQuery {
   visibility?: "" | PasteVisibility;
   state?: "" | "active" | "deleted";
   ownership?: "" | "anonymous" | "owned";
-  limit?: number;
-  offset?: number;
+  page?: number;
+  size?: number;
 }
 
 export type AdministrationUserState = "active" | "suspended";
@@ -77,17 +77,17 @@ export interface AdministrationUser {
 }
 
 export interface AdministrationUserPage {
-  users: AdministrationUser[];
+  items: AdministrationUser[];
   total: number;
-  limit: number;
-  offset: number;
+  page: number;
+  size: number;
 }
 
 export interface AdministrationUserQuery {
   q?: string;
   state?: "" | AdministrationUserState;
-  limit?: number;
-  offset?: number;
+  page?: number;
+  size?: number;
 }
 
 export interface AdministrationUserPolicyInput {

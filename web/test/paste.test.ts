@@ -20,7 +20,7 @@ describe("Paste presentation rules", () => {
   });
 
   it("recognizes transport-safe Problem codes", () => {
-    const caught = { message: "paste.password_required" };
+    const caught = remote("paste.password_required",423);
     expect(pasteProblemCode(caught)).toBe("paste.password_required");
     expect(pasteErrorMessage(caught)).toContain("需要密码");
   });
@@ -30,7 +30,7 @@ describe("Paste presentation rules", () => {
       failure: {
         kind: "remote",
         status: 400,
-        code: "validation.failed",
+        code: "common.validation_failed",
         params: {},
         violations: [{ pointer: "/files/content", code: "validation.max_bytes", params: { maxBytes: 1048576 } }],
         traceId: "test-trace",
@@ -41,8 +41,17 @@ describe("Paste presentation rules", () => {
   });
 
   it("explains product-local creation controls", () => {
-    expect(pasteErrorMessage({ message: "paste.creation_suspended" })).toContain("创建权限已被暂停");
-    expect(pasteErrorMessage({ message: "paste.anonymous_creation_disabled" })).toContain("停止匿名创建");
-    expect(pasteErrorMessage({ message: "common.rate_limited" })).toContain("创建额度已经用完");
+    expect(pasteErrorMessage(remote("paste.creation_suspended",403))).toContain("创建权限已被暂停");
+    expect(pasteErrorMessage(remote("paste.anonymous_creation_disabled",403))).toContain("停止匿名创建");
+    expect(pasteErrorMessage(remote("paste.daily_limit_reached",429))).toContain("创建额度已经用完");
   });
 });
+
+it("does not interpret thrown messages or disclose transport detail", () => {
+ const unsafe={message:"SQL password=secret",data:{detail:"private /server/path"}};
+ expect(pasteProblemCode({message:"paste.password_required"})).toBe("");
+ expect(pasteErrorMessage(unsafe)).toBe("请求没有完成，请稍后重试。");
+ expect(pasteErrorMessage(remote("common.rate_limited",429))).toContain("操作过于频繁");
+});
+
+function remote(code:string,status:number){return {failure:{kind:"remote",status,code,params:{},violations:[],traceId:"test",reauth:"not-attempted"}};}

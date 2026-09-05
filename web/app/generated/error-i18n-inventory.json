@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "errors.yueli.dev/i18n-inventory/v1",
+  "namespace": "paste",
+  "messages": [
+    {
+      "code": "paste.anonymous_creation_disabled",
+      "messageKey": "errors.paste.anonymous_creation_disabled"
+    },
+    {
+      "code": "paste.conflict",
+      "messageKey": "errors.paste.conflict"
+    },
+    {
+      "code": "paste.creation_suspended",
+      "messageKey": "errors.paste.creation_suspended"
+    },
+    {
+      "code": "paste.daily_limit_reached",
+      "messageKey": "errors.paste.daily_limit_reached"
+    },
+    {
+      "code": "paste.forbidden",
+      "messageKey": "errors.paste.forbidden"
+    },
+    {
+      "code": "paste.gone",
+      "messageKey": "errors.paste.gone"
+    },
+    {
+      "code": "paste.not_authenticated",
+      "messageKey": "errors.paste.not_authenticated"
+    },
+    {
+      "code": "paste.not_found",
+      "messageKey": "errors.paste.not_found"
+    },
+    {
+      "code": "paste.password_invalid",
+      "messageKey": "errors.paste.password_invalid"
+    },
+    {
+      "code": "paste.password_required",
+      "messageKey": "errors.paste.password_required"
+    }
+  ]
+}

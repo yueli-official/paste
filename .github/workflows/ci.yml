@@ -1,0 +1,65 @@
+name: CI
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go test ./...
+        env:
+          GOWORK: off
+      - run: go vet ./...
+      - name: OpenAPI freshness
+        run: |
+          go run ./cmd/paste
+          diff -u contracts/openapi/paste.json "$PASTE_OPENAPI_OUTPUT"
+        env:
+          PASTE_OPENAPI_OUTPUT: ${{ runner.temp }}/paste-openapi.json
+      - name: Generated catalog freshness
+        run: >-
+          go run github.com/yueli-official/foundation/go/httpcontract/cmd/httpcontract@v0.4.1
+          -errors contracts/http-result/error-catalog.json -operations contracts/http-result/operations.json
+          -generate-go internal/pasteerr/catalog_gen.go -package pasteerr
+          -generate-ts web/app/generated/pasteFailure.ts -ts-type PasteFailure
+          -generate-i18n web/app/generated/error-i18n-inventory.json -check
+      - name: HTTP Result compatibility
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          base_ref="${PR_BASE_SHA:-HEAD^}"
+          if git cat-file -e "${base_ref}:contracts/http-result/error-catalog.json"; then
+            temp_dir="$(mktemp -d)"
+            git show "${base_ref}:contracts/http-result/error-catalog.json" > "${temp_dir}/errors.json"
+            git show "${base_ref}:contracts/http-result/operations.json" > "${temp_dir}/operations.json"
+            go run github.com/yueli-official/foundation/go/httpcontract/cmd/httpcontract@v0.4.1 \
+              -errors contracts/http-result/error-catalog.json -operations contracts/http-result/operations.json \
+              -base-errors "${temp_dir}/errors.json" -base-operations "${temp_dir}/operations.json"
+          fi
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - run: pnpm typecheck
+      - run: pnpm build
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192

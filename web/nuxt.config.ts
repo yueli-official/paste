@@ -78,7 +78,7 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     downstreamBase:
-      process.env.NUXT_DOWNSTREAM_BASE || "http://127.0.0.1:8091/api/v1",
+      process.env.NUXT_DOWNSTREAM_BASE || "http://127.0.0.1:8091",
     identityBase: process.env.NUXT_IDENTITY_BASE || "http://127.0.0.1:8081",
     cookieSecure,
     authCookieSecure: cookieSecure,

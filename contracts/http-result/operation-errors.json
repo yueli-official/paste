@@ -1,0 +1,153 @@
+{
+  "schemaVersion": "http.yueli.dev/operation-errors/v1",
+  "namespace": "paste",
+  "operations": {
+    "POST /api/v1/pastes": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "paste.not_authenticated",
+      "paste.forbidden",
+      "paste.creation_suspended",
+      "paste.anonymous_creation_disabled",
+      "paste.daily_limit_reached",
+      "paste.conflict"
+    ],
+    "GET /api/v1/pastes/{code}": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "paste.not_authenticated",
+      "paste.not_found",
+      "paste.gone",
+      "paste.forbidden",
+      "paste.password_required",
+      "paste.password_invalid"
+    ],
+    "POST /api/v1/pastes/{code}/access": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "paste.not_authenticated",
+      "paste.not_found",
+      "paste.gone",
+      "paste.forbidden",
+      "paste.password_required",
+      "paste.password_invalid"
+    ],
+    "GET /api/v1/settings": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "paste.not_authenticated"
+    ],
+    "GET /api/v1/me/pastes": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "paste.not_authenticated",
+      "paste.forbidden"
+    ],
+    "GET /api/v1/me/pastes/{code}": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "paste.not_authenticated",
+      "paste.forbidden",
+      "paste.not_found",
+      "paste.gone"
+    ],
+    "PATCH /api/v1/me/pastes/{code}": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "paste.not_authenticated",
+      "paste.forbidden",
+      "paste.not_found",
+      "paste.gone",
+      "paste.conflict"
+    ],
+    "DELETE /api/v1/me/pastes/{code}": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "paste.not_authenticated",
+      "paste.forbidden",
+      "paste.not_found",
+      "paste.gone",
+      "paste.conflict"
+    ],
+    "GET /api/v1/admin/pastes": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "paste.not_authenticated",
+      "paste.forbidden"
+    ],
+    "GET /api/v1/admin/session": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "paste.not_authenticated",
+      "paste.forbidden"
+    ],
+    "PATCH /api/v1/admin/pastes/{code}": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "paste.not_authenticated",
+      "paste.forbidden",
+      "paste.not_found",
+      "paste.gone",
+      "paste.conflict"
+    ],
+    "DELETE /api/v1/admin/pastes/{code}": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "paste.not_authenticated",
+      "paste.forbidden",
+      "paste.not_found",
+      "paste.gone",
+      "paste.conflict"
+    ],
+    "GET /api/v1/admin/users": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "paste.not_authenticated",
+      "paste.forbidden"
+    ],
+    "PATCH /api/v1/admin/users/{userKey}": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "paste.not_authenticated",
+      "paste.forbidden",
+      "paste.conflict"
+    ],
+    "GET /api/v1/admin/governance-settings": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "paste.not_authenticated",
+      "paste.forbidden"
+    ],
+    "PATCH /api/v1/admin/governance-settings": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "paste.not_authenticated",
+      "paste.forbidden",
+      "paste.conflict"
+    ],
+    "PATCH /api/v1/admin/settings": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "paste.not_authenticated",
+      "paste.forbidden",
+      "paste.conflict"
+    ]
+  }
+}

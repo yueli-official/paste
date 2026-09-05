@@ -110,6 +110,9 @@ func (store *MemoryStore) ListForAdministration(ctx context.Context, query Admin
 	needle := strings.ToLower(query.Query)
 	values := make([]Paste, 0, len(store.values))
 	for _, value := range store.values {
+		if query.OwnerUserKey != "" && value.OwnerUserKey != query.OwnerUserKey {
+			continue
+		}
 		if query.Visibility != "" && value.Visibility != query.Visibility {
 			continue
 		}
@@ -158,6 +161,9 @@ func (store *MemoryStore) Update(ctx context.Context, value Paste, expectedRevis
 func administrationMatches(value Paste, needle string) bool {
 	values := []string{value.Code, value.OwnerUserKey, value.Title}
 	values = append(values, value.Tags...)
+	for _, file := range value.Files {
+		values = append(values, file.Language)
+	}
 	for _, candidate := range values {
 		if strings.Contains(strings.ToLower(candidate), needle) {
 			return true

@@ -37,7 +37,7 @@ func TestMapCreationGovernanceErrors(t *testing.T) {
 		code   string
 		status int
 	}{
-		{name: "daily limit", err: governance.ErrDailyLimitReached, code: "common.rate_limited", status: 429},
+		{name: "daily limit", err: governance.ErrDailyLimitReached, code: "paste.daily_limit_reached", status: 429},
 		{name: "creation suspended", err: governance.ErrCreationSuspended, code: "paste.creation_suspended", status: 403},
 		{name: "anonymous creation disabled", err: governance.ErrAnonymousCreationOff, code: "paste.anonymous_creation_disabled", status: 403},
 	}
@@ -59,5 +59,19 @@ func TestMapCreationGovernanceErrors(t *testing.T) {
 				t.Fatalf("mapped error no longer wraps %v", test.err)
 			}
 		})
+	}
+}
+
+func TestValidationNeverPublishesInternalMessages(t *testing.T) {
+	cause := paste.ValidationError{Field: "title", Message: "SQL password=secret /private/path"}
+	value, ok, err := problem.FromError(Map(cause), "safe-trace")
+	if err != nil || !ok {
+		t.Fatal(err)
+	}
+	if value.Code != "common.validation_failed" || len(value.Violations) != 1 || len(value.Violations[0].Params) != 0 {
+		t.Fatalf("unsafe validation: %#v", value)
+	}
+	if !errors.Is(Map(cause), paste.ErrInvalid) {
+		t.Fatal("typed cause lost")
 	}
 }

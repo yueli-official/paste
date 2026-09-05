@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "http.yueli.dev/project/v1",
+  "namespace": "paste",
+  "openapi": {
+    "output": "contracts/openapi/paste.json",
+    "producer": {
+      "command": ["go", "run", "github.com/yueli-official/paste/cmd/paste"],
+      "outputEnv": "PASTE_OPENAPI_OUTPUT"
+    }
+  },
+  "errorCatalog": "contracts/http-result/error-catalog.json",
+  "operations": {
+    "output": "contracts/http-result/operations.json",
+    "errorsFile": "contracts/http-result/operation-errors.json"
+  },
+  "generate": {
+    "goOutput": "internal/pasteerr/catalog_gen.go",
+    "goPackage": "pasteerr",
+    "tsOutput": "web/app/generated/pasteFailure.ts",
+    "tsType": "PasteFailure",
+    "i18nOutput": "web/app/generated/error-i18n-inventory.json"
+  }
+}

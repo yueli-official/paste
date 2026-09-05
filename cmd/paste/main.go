@@ -19,6 +19,10 @@ import (
 )
 
 func main() {
+	if output := os.Getenv("PASTE_OPENAPI_OUTPUT"); output != "" {
+		must(exportOpenAPI(output))
+		return
+	}
 	ctx := context.Background()
 	databaseURL := requiredEnvironment("PASTE_DATABASE_URL")
 	database, err := sql.Open("postgres", databaseURL)

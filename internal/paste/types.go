@@ -85,12 +85,13 @@ type UpdateInput struct {
 }
 
 type AdministrationQuery struct {
-	Query      string
-	Visibility Visibility
-	State      State
-	Ownership  string
-	Limit      int
-	Offset     int
+	OwnerUserKey string
+	Query        string
+	Visibility   Visibility
+	State        State
+	Ownership    string
+	Limit        int
+	Offset       int
 }
 
 type AdministrationItem struct {

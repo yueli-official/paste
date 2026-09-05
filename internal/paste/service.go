@@ -501,3 +501,12 @@ func clonePaste(value Paste) Paste {
 	}
 	return value
 }
+
+// ListMinePage applies the authenticated owner scope before the storage query.
+func (service *Service) ListMinePage(ctx context.Context, userKey, query string, limit, offset int) (AdministrationPage, error) {
+	userKey = strings.TrimSpace(userKey)
+	if userKey == "" {
+		return AdministrationPage{}, ErrForbidden
+	}
+	return service.ListForAdministration(ctx, AdministrationQuery{OwnerUserKey: userKey, Query: query, State: StateActive, Limit: limit, Offset: offset})
+}

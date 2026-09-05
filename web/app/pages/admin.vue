@@ -16,6 +16,8 @@ import type {
   PastePatchInput,
   PasteVisibility,
 } from "../types/paste";
+import type { FailureFeedback } from "@yueli/http-runtime";
+import { pasteFailureFeedback } from "../utils/pasteFailure";
 import { displayTitle, pasteErrorMessage } from "../utils/paste";
 
 definePageMeta({ layout: "admin", middleware: ["auth", "operator"] });
@@ -25,6 +27,8 @@ const route = useRoute();
 const toast = useToast();
 const { settings, siteName, adopt } = useSiteSettings();
 
+const settingsFailure = ref<FailureFeedback | null>(null);
+const governanceFailure = ref<FailureFeedback | null>(null);
 const section = computed<"pastes" | "users" | "settings">(() => {
   if (route.query.view === "users") return "users";
   if (route.query.view === "settings") return "settings";
@@ -220,11 +224,11 @@ async function loadPastes(reset = false) {
       visibility: visibility.value === "all" ? undefined : visibility.value,
       state: state.value === "all" ? undefined : state.value,
       ownership: ownership.value === "all" ? undefined : ownership.value,
-      limit,
-      offset: offset.value,
+      size: limit,
+      page: Math.floor(offset.value / limit) + 1,
     });
     if (sequence !== loadSequence) return;
-    values.value = page.pastes;
+    values.value = page.items;
     total.value = page.total;
     const available = new Set(values.value.map((value) => value.code));
     selectedCodes.value = selectedCodes.value.filter((code) => available.has(code));
@@ -246,11 +250,11 @@ async function loadUsers(reset = false) {
     const page = await api.listAdministrationUsers({
       q: userQuery.value.trim() || undefined,
       state: userState.value === "all" ? undefined : userState.value,
-      limit,
-      offset: userOffset.value,
+      size: limit,
+      page: Math.floor(userOffset.value / limit) + 1,
     });
     if (sequence !== loadUsersSequence) return;
-    users.value = page.users || [];
+    users.value = page.items || [];
     userTotal.value = page.total;
     const available = new Set(users.value.map((value) => value.userKey));
     selectedUserKeys.value = selectedUserKeys.value.filter((userKey) => available.has(userKey));
@@ -527,6 +531,7 @@ async function deleteTargets(targets: AdministrationPaste[]) {
 async function saveSettings(silent = false): Promise<boolean> {
   if (!settingsDirty.value) return true;
   settingsSaving.value = true;
+  settingsFailure.value = null;
   settingsError.value = "";
   try {
     const response = await api.updateSettings({
@@ -540,7 +545,7 @@ async function saveSettings(silent = false): Promise<boolean> {
     if (!silent) announce("站点展示设置已更新。", "success");
     return true;
   } catch (caught) {
-    settingsError.value = pasteErrorMessage(caught);
+    settingsFailure.value = pasteFailureFeedback(caught,"公开展示未保存，请检查后重试。",{"/name":"name","/description":"description"});
     return false;
   } finally {
     settingsSaving.value = false;
@@ -548,12 +553,14 @@ async function saveSettings(silent = false): Promise<boolean> {
 }
 
 function resetSettingsDraft() {
+  settingsFailure.value = null;
   settingsName.value = settings.value.name;
   settingsDescription.value = settings.value.description;
   settingsError.value = "";
 }
 
 function resetGovernanceSettingsDraft() {
+  governanceFailure.value = null;
   if (!governanceSettings.value) return;
   governanceUserLimit.value = governanceSettings.value.userDailyLimit;
   governanceAnonymousLimit.value = governanceSettings.value.anonymousDailyLimit;
@@ -571,6 +578,7 @@ async function saveGovernanceSettings(silent = false): Promise<boolean> {
   if (!governanceSettingsDirty.value) return true;
   if (!governanceSettings.value || governanceUserLimit.value === null || governanceAnonymousLimit.value === null) return false;
   governanceSettingsSaving.value = true;
+  governanceFailure.value = null;
   governanceSettingsError.value = "";
   try {
     const response = await api.updateGovernanceSettings({
@@ -584,7 +592,7 @@ async function saveGovernanceSettings(silent = false): Promise<boolean> {
     if (!silent) announce("创建限制已更新。", "success");
     return true;
   } catch (caught) {
-    governanceSettingsError.value = pasteErrorMessage(caught);
+    governanceFailure.value = pasteFailureFeedback(caught,"创建策略未保存，请检查后重试。",{"/userDailyLimit":"userDailyLimit","/anonymousDailyLimit":"anonymousDailyLimit"});
     return false;
   } finally {
     governanceSettingsSaving.value = false;
@@ -815,9 +823,9 @@ onBeforeUnmount(() => {
         <section class="grid grid-cols-[220px_minmax(0,1fr)] border-b border-[var(--paste-line-strong)] max-[720px]:grid-cols-[minmax(0,1fr)]" aria-labelledby="public-settings-title">
           <header class="flex items-start gap-2.5 border-r border-[var(--paste-line)] bg-[var(--paste-surface-muted)] px-[22px] py-7 max-[720px]:border-r-0 max-[720px]:border-b max-[720px]:px-3.5 max-[720px]:py-[18px] [&_h2]:text-[15px] [&_h2]:tracking-[-0.02em] [&_p]:mt-[7px] [&_p]:mb-2.5 [&_p]:text-[11px] [&_p]:leading-[1.6] [&_p]:text-[var(--paste-ink-soft)] [&_code]:text-[10px] [&_code]:text-[var(--paste-ink-dim)]"><span class="grid size-8 shrink-0 place-items-center rounded-[7px] border border-[color-mix(in_srgb,var(--paste-blue)_22%,var(--paste-line))] bg-[var(--paste-blue-soft)] text-[var(--paste-blue)]"><UIcon name="i-tabler-world" class="size-5" /></span><div><h2 id="public-settings-title">公开展示</h2><p>控制访客在编辑器、浏览器标题和分享页面看到的名称与说明。</p><code>r{{ settings.revision }}</code></div></header>
           <div class="min-w-0 px-[26px] pt-3 pb-6 max-[720px]:px-3.5 max-[720px]:pt-0 max-[720px]:pb-5 [&>div]:grid [&>div]:grid-cols-[minmax(230px,1fr)_minmax(220px,360px)] [&>div]:items-center [&>div]:gap-7 [&>div]:border-b [&>div]:border-[var(--paste-line)] [&>div]:py-[18px] max-[720px]:[&>div]:grid-cols-[minmax(0,1fr)] max-[720px]:[&>div]:gap-2.5 max-[720px]:[&>div]:py-[17px] [&_label]:text-xs [&_label]:font-[680] [&_p]:mt-[5px] [&_p]:max-w-[58ch] [&_p]:text-[11px] [&_p]:leading-[1.55] [&_p]:text-[var(--paste-ink-soft)]">
-            <div><div><label for="paste-site-name">站点名称</label><p>最多 40 个字符；不会改变服务地址、API 或已有链接。</p></div><UInput id="paste-site-name" v-model="settingsName" name="siteName" maxlength="40" autocomplete="off" aria-label="站点名称" class="w-full" /></div>
-            <div><div><label for="paste-site-description">站点说明</label><p>最多 160 个字符，用于搜索摘要和分享页面说明。</p></div><UTextarea id="paste-site-description" v-model="settingsDescription" name="siteDescription" maxlength="160" :rows="3" autoresize aria-label="站点说明" class="w-full" /></div>
-            <UAlert v-if="settingsError" class="mt-4" color="error" variant="subtle" icon="i-tabler-alert-circle" title="公开展示未保存" :description="settingsError" role="alert" />
+            <div><div><label for="paste-site-name">站点名称</label><p>最多 40 个字符；不会改变服务地址、API 或已有链接。</p></div><UInput id="paste-site-name" :aria-invalid="Boolean(settingsFailure?.fieldErrors.name)" :aria-describedby="settingsFailure?.fieldErrors.name ? 'paste-site-name-error' : undefined" v-model="settingsName" name="siteName" maxlength="40" autocomplete="off" aria-label="站点名称" class="w-full" /></div>
+            <div><div><label for="paste-site-description">站点说明</label><p>最多 160 个字符，用于搜索摘要和分享页面说明。</p></div><UTextarea id="paste-site-description" :aria-invalid="Boolean(settingsFailure?.fieldErrors.description)" :aria-describedby="settingsFailure?.fieldErrors.description ? 'paste-site-description-error' : undefined" v-model="settingsDescription" name="siteDescription" maxlength="160" :rows="3" autoresize aria-label="站点说明" class="w-full" /></div>
+            <FailureNotice :feedback="settingsFailure" /><p v-if="settingsFailure?.fieldErrors.name" id="paste-site-name-error" class="text-xs text-error">{{ settingsFailure.fieldErrors.name.join(" ") }}</p><p v-if="settingsFailure?.fieldErrors.description" id="paste-site-description-error" class="text-xs text-error">{{ settingsFailure.fieldErrors.description.join(" ") }}</p><UAlert v-if="settingsError" class="mt-4" color="error" variant="subtle" icon="i-tabler-alert-circle" title="公开展示未保存" :description="settingsError" role="alert" />
           </div>
         </section>
         <section class="grid grid-cols-[220px_minmax(0,1fr)] border-b border-[var(--paste-line-strong)] max-[720px]:grid-cols-[minmax(0,1fr)]" aria-labelledby="creation-settings-title">
@@ -825,11 +833,11 @@ onBeforeUnmount(() => {
           <div class="min-w-0 px-[26px] pt-3 pb-6 max-[720px]:px-3.5 max-[720px]:pt-0 max-[720px]:pb-5 [&>div]:grid [&>div]:grid-cols-[minmax(230px,1fr)_minmax(220px,360px)] [&>div]:items-center [&>div]:gap-7 [&>div]:border-b [&>div]:border-[var(--paste-line)] [&>div]:py-[18px] max-[720px]:[&>div]:grid-cols-[minmax(0,1fr)] max-[720px]:[&>div]:gap-2.5 max-[720px]:[&>div]:py-[17px] [&_label]:text-xs [&_label]:font-[680] [&_p]:mt-[5px] [&_p]:max-w-[58ch] [&_p]:text-[11px] [&_p]:leading-[1.55] [&_p]:text-[var(--paste-ink-soft)]">
             <div v-if="governanceSettingsLoading" class="grid gap-3 py-[18px]" role="status" aria-label="正在读取创建限制"><USkeleton class="h-14 w-full" /><USkeleton class="h-14 w-full" /></div>
             <template v-else>
-              <div><div><label for="paste-user-limit">登录用户默认额度</label><p>每位登录用户在一个 UTC 自然日内可成功创建 1–10,000 个片段；可在用户治理中单独覆盖。</p></div><UInputNumber id="paste-user-limit" v-model="governanceUserLimit" :min="1" :max="10000" aria-label="登录用户每日默认上限" class="w-full" @input="governanceUserLimit = numberInputValue($event)" /></div>
-              <div><div><label for="paste-anonymous-limit">匿名全站额度</label><p>所有匿名访客共享 0–100,000 的每日总额；设为 0 会暂停匿名创建。</p></div><UInputNumber id="paste-anonymous-limit" v-model="governanceAnonymousLimit" :min="0" :max="100000" aria-label="匿名创建每日全站总额" class="w-full" @input="governanceAnonymousLimit = numberInputValue($event)" /></div>
+              <div><div><label for="paste-user-limit">登录用户默认额度</label><p>每位登录用户在一个 UTC 自然日内可成功创建 1–10,000 个片段；可在用户治理中单独覆盖。</p></div><UInputNumber id="paste-user-limit" :aria-invalid="Boolean(governanceFailure?.fieldErrors.userDailyLimit)" :aria-describedby="governanceFailure?.fieldErrors.userDailyLimit ? 'paste-user-limit-error' : undefined" v-model="governanceUserLimit" :min="1" :max="10000" aria-label="登录用户每日默认上限" class="w-full" @input="governanceUserLimit = numberInputValue($event)" /></div>
+              <div><div><label for="paste-anonymous-limit">匿名全站额度</label><p>所有匿名访客共享 0–100,000 的每日总额；设为 0 会暂停匿名创建。</p></div><UInputNumber id="paste-anonymous-limit" :aria-invalid="Boolean(governanceFailure?.fieldErrors.anonymousDailyLimit)" :aria-describedby="governanceFailure?.fieldErrors.anonymousDailyLimit ? 'paste-anonymous-limit-error' : undefined" v-model="governanceAnonymousLimit" :min="0" :max="100000" aria-label="匿名创建每日全站总额" class="w-full" @input="governanceAnonymousLimit = numberInputValue($event)" /></div>
               <p class="mt-4 flex items-start gap-[7px] text-[11px] leading-[1.55] text-[var(--paste-ink-soft)]"><UIcon name="i-tabler-clock" class="size-4" />每天按 UTC 自然日重置。匿名额度是全站保护阀，不会把 IP 地址当成用户身份。</p>
             </template>
-            <UAlert v-if="governanceSettingsError" class="mt-4" color="error" variant="subtle" icon="i-tabler-alert-circle" title="创建策略未保存" :description="governanceSettingsError" role="alert" />
+            <p v-if="governanceFailure?.fieldErrors.userDailyLimit" id="paste-user-limit-error" class="text-xs text-error">{{ governanceFailure.fieldErrors.userDailyLimit.join(" ") }}</p><p v-if="governanceFailure?.fieldErrors.anonymousDailyLimit" id="paste-anonymous-limit-error" class="text-xs text-error">{{ governanceFailure.fieldErrors.anonymousDailyLimit.join(" ") }}</p><FailureNotice :feedback="governanceFailure" /><UAlert v-if="governanceSettingsError" class="mt-4" color="error" variant="subtle" icon="i-tabler-alert-circle" title="创建策略未保存" :description="governanceSettingsError" role="alert" />
           </div>
         </section>
       </form>

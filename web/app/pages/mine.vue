@@ -22,7 +22,12 @@ const accountActions = computed(() => [
 ]);
 const values = ref<PasteSummary[]>([]);
 const query = ref("");
+const page = ref(1);
+const pageSize = 50;
+const total = ref(0);
+let loadSequence = 0;
 const loading = ref(true);
+const loadingVisible = useMinimumLoading(loading);
 const deleting = ref("");
 const error = ref("");
 const copied = ref("");
@@ -49,16 +54,7 @@ const expiryItems: Array<{ label: string; value: "keep" | "1h" | "1d" | "7d" | "
   { label: "不过期", value: "never" },
 ];
 
-const filtered = computed(() => {
-  const needle = query.value.trim().toLowerCase();
-  if (!needle) return values.value;
-  return values.value.filter((value) =>
-    [value.title, value.code, value.primaryLanguage, ...value.tags]
-      .join(" ")
-      .toLowerCase()
-      .includes(needle),
-  );
-});
+const filtered = computed(() => values.value);
 const selectedCodeSet = computed(() => new Set(selectedCodes.value));
 const selectedValues = computed(() => values.value.filter((value) => selectedCodeSet.value.has(value.code)));
 const selectionState = computed<boolean | "indeterminate">(() => {
@@ -70,22 +66,31 @@ const selectionState = computed<boolean | "indeterminate">(() => {
 const batchBusy = computed(() => batchSaving.value || batchDeleting.value);
 const hasBatchChanges = computed(() => batchVisibility.value !== "keep" || batchExpiry.value !== "keep");
 
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
+watch(query, () => { if(searchTimer) clearTimeout(searchTimer); searchTimer=setTimeout(() => {if(page.value!==1) page.value=1; else void load();},250); });
+watch(page, () => {selectedCodes.value=[];void load();});
+onScopeDispose(() => {if(searchTimer) clearTimeout(searchTimer);});
 useSeoMeta({
   title: computed(() => `我的片段 · ${siteName.value}`),
   description: "回看、编辑和删除你创建的代码片段。",
 });
 
 async function load() {
+  const sequence = ++loadSequence;
   loading.value = true;
   error.value = "";
   try {
-    values.value = (await api.listMine()).pastes || [];
+    const result = await api.listMine({page: page.value, size: pageSize, q: query.value.trim() || undefined});
+    if(sequence !== loadSequence) return;
+    const lastPage = Math.max(1, Math.ceil(result.total / pageSize));
+    if(page.value > lastPage) { page.value = lastPage; return; }
+    values.value = result.items; total.value = result.total;
     const available = new Set(values.value.map((value) => value.code));
     selectedCodes.value = selectedCodes.value.filter((code) => available.has(code));
   } catch (caught) {
-    error.value = pasteErrorMessage(caught);
+    if(sequence === loadSequence) error.value = pasteErrorMessage(caught);
   } finally {
-    loading.value = false;
+    if(sequence === loadSequence) loading.value = false;
   }
 }
 
@@ -104,7 +109,7 @@ async function remove(value: PasteSummary) {
   deleting.value = value.code;
   try {
     await api.remove(value.code, value.revision);
-    values.value = values.value.filter((candidate) => candidate.code !== value.code);
+    await load();
     selectedCodes.value = selectedCodes.value.filter((code) => code !== value.code);
   } catch (caught) {
     announce(pasteErrorMessage(caught), "error");
@@ -381,7 +386,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", focusSearch));
             <kbd class="rounded-[3px] border border-[var(--paste-line)] px-[5px] text-[10px] leading-[18px] text-[var(--paste-ink-dim)] max-[760px]:hidden">/</kbd>
           </template>
         </UInput>
-        <span class="ml-auto whitespace-nowrap font-mono text-[11px] text-[var(--paste-ink-dim)] max-[760px]:hidden">{{ filtered.length }} / {{ values.length }}</span>
+        <span class="ml-auto whitespace-nowrap font-mono text-[11px] text-[var(--paste-ink-dim)] max-[760px]:hidden">{{ filtered.length }} / {{ total }}</span>
         <UTooltip text="刷新列表">
           <UButton
             type="button"
@@ -399,7 +404,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", focusSearch));
     </div>
 
     <div class="min-h-0 min-w-0 overflow-auto bg-[var(--paste-editor)]" :aria-busy="loading">
-      <div v-if="loading" class="paste-ledger-loading" role="status" aria-label="正在读取代码片段">
+      <div v-if="loadingVisible" class="paste-ledger-loading" role="status" aria-label="正在读取代码片段">
         <div class="sticky top-0 z-[2] grid min-h-[30px] grid-cols-[32px_minmax(240px,1fr)_132px_112px_120px] items-center border-b border-[var(--paste-line)] bg-[var(--paste-surface-muted)] px-3 text-[11px] font-[630] text-[var(--paste-ink-dim)] max-[760px]:hidden" aria-hidden="true">
           <span /><span>内容</span><span>访问</span><span>更新</span><span>操作</span>
         </div>
@@ -489,7 +494,8 @@ onBeforeUnmount(() => window.removeEventListener("keydown", focusSearch));
         <span class="size-[7px] rounded-full bg-[var(--paste-green)]" aria-hidden="true" />
         我的片段
       </span>
-      <span aria-live="polite">{{ selectedValues.length ? `已选择 ${selectedValues.length} 项` : query ? `筛选 ${filtered.length} / ${values.length}` : operationMessage || `${values.length} 条记录` }}</span>
+      <nav v-if="total > pageSize" aria-label="我的片段分页"><UPagination v-model:page="page" :total="total" :items-per-page="pageSize" size="xs" :sibling-count="0" :show-edges="false" /></nav>
+      <span aria-live="polite">{{ selectedValues.length ? `已选择 ${selectedValues.length} 项` : query ? `筛选 ${filtered.length} / ${total}` : operationMessage || `${total} 条记录` }}</span>
     </footer>
 
     <USlideover

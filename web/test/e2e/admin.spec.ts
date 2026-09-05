@@ -92,7 +92,7 @@ test.beforeAll(async ({ browser }, testInfo) => {
   governedUserKey = ((await sessionResponse.json()) as { userKey: string }).userKey;
   const userResponse = await page.request.get(`/api/v1/admin/users?q=${encodeURIComponent(governedUserKey)}`);
   expect(userResponse.status()).toBe(200);
-  originalPolicy = ((await userResponse.json()).users as UserPolicySnapshot[])[0]
+  originalPolicy = ((await userResponse.json()).items as UserPolicySnapshot[])[0]
     || { state: "active", revision: 0 };
   const capacityResponse = await page.request.patch(`/api/v1/admin/users/${encodeURIComponent(governedUserKey)}`, {
     data: {
@@ -110,7 +110,7 @@ test.afterAll(async () => {
   const page = governanceContext.pages()[0] || await governanceContext.newPage();
   const currentResponse = await page.request.get(`/api/v1/admin/users?q=${encodeURIComponent(governedUserKey)}`);
   if (currentResponse.ok()) {
-    const current = ((await currentResponse.json()).users as UserPolicySnapshot[])[0];
+    const current = ((await currentResponse.json()).items as UserPolicySnapshot[])[0];
     if (current) {
       const restored = await page.request.patch(`/api/v1/admin/users/${encodeURIComponent(governedUserKey)}`, {
         data: {
@@ -145,7 +145,7 @@ test("administrator governs snippets and updates public site settings", async ({
       visibility: "unlisted",
     },
   });
-  expect(createdResponse.status()).toBe(200);
+  expect(createdResponse.status()).toBe(201);
 
   const listResponse = page.waitForResponse((response) =>
     response.url().includes("/api/v1/admin/pastes") && response.request().method() === "GET",
@@ -220,7 +220,7 @@ test("administrator governs Paste users and creation limits", async ({ page }, t
   expect(sessionResponse.status()).toBe(200);
   const userKey = ((await sessionResponse.json()) as { userKey: string }).userKey;
   const original = await page.request.get(`/api/v1/admin/users?q=${encodeURIComponent(userKey)}`);
-  const originalUser = ((await original.json()).users as Array<{
+  const originalUser = ((await original.json()).items as Array<{
     state: "active" | "suspended";
     dailyLimitOverride?: number;
     reason?: string;
@@ -245,10 +245,10 @@ test("administrator governs Paste users and creation limits", async ({ page }, t
       visibility: "unlisted",
     },
   });
-  expect(createdResponse.status()).toBe(200);
+  expect(createdResponse.status()).toBe(201);
   const created = (await createdResponse.json()).paste as { code: string; revision: number };
   const baselineResponse = await page.request.get(`/api/v1/admin/users?q=${encodeURIComponent(userKey)}`);
-  const baselineUser = ((await baselineResponse.json()).users as Array<{
+  const baselineUser = ((await baselineResponse.json()).items as Array<{
     state: "active" | "suspended";
     dailyLimitOverride?: number;
     usedToday: number;
@@ -269,7 +269,7 @@ test("administrator governs Paste users and creation limits", async ({ page }, t
     data: { title: "quota blocked", files: [{ path: "quota.txt", content: "quota" }], visibility: "unlisted" },
   });
   expect(quotaBlocked.status()).toBe(429);
-  expect((await quotaBlocked.json()).code).toBe("common.rate_limited");
+  expect((await quotaBlocked.json()).code).toBe("paste.daily_limit_reached");
   const baselineRestored = await page.request.patch(`/api/v1/admin/users/${encodeURIComponent(userKey)}`, {
     data: {
       state: "active",
@@ -324,7 +324,7 @@ test("administrator governs Paste users and creation limits", async ({ page }, t
   await page.screenshot({ path: testInfo.outputPath("admin-users-desktop.png"), fullPage: true });
 
   const current = await page.request.get(`/api/v1/admin/users?q=${encodeURIComponent(userKey)}`);
-  const currentUser = ((await current.json()).users as Array<{ revision: number }>)[0]!;
+  const currentUser = ((await current.json()).items as Array<{ revision: number }>)[0]!;
   const restored = await page.request.patch(`/api/v1/admin/users/${encodeURIComponent(userKey)}`, {
     data: {
       state: originalUser.state,
@@ -336,7 +336,7 @@ test("administrator governs Paste users and creation limits", async ({ page }, t
   });
   expect(restored.status()).toBe(200);
   const removed = await page.request.delete(`/api/v1/admin/pastes/${created.code}?expectedRevision=${created.revision}`);
-  expect(removed.status()).toBe(200);
+  expect(removed.status()).toBe(204);
 
   const governanceResponse = await page.request.get("/api/v1/admin/governance-settings");
   expect(governanceResponse.status()).toBe(200);
@@ -384,13 +384,13 @@ test("user governance stays operable at 320px", async ({ page }, testInfo) => {
     if (route.request().method() !== "GET") return route.continue();
     await route.fulfill({
       json: {
-        users: [
+        items: [
           { userKey: "usr_ABUSE01", state: "active", effectiveDailyLimit: 50, usedToday: 48, totalPastes: 91, activePastes: 72, lastCreatedAt: "2026-08-11T09:30:00Z", revision: 0 },
           { userKey: "usr_SUSPEND", state: "suspended", dailyLimitOverride: 4, effectiveDailyLimit: 4, usedToday: 4, totalPastes: 14, activePastes: 9, lastCreatedAt: "2026-08-11T08:00:00Z", reason: "异常批量创建", revision: 2 },
         ],
         total: 2,
-        limit: 50,
-        offset: 0,
+        size: 50,
+        page: 1,
       },
     });
   });
@@ -487,7 +487,8 @@ test("administrator can jump between numbered result pages", async ({ page }, te
   await page.route("**/api/v1/admin/pastes**", async (route) => {
     if (route.request().method() !== "GET") return route.continue();
     const requestURL = new URL(route.request().url());
-    const offset = Number(requestURL.searchParams.get("offset") || 0);
+    const pageNumber = Number(requestURL.searchParams.get("page") || 1);
+    const offset = (pageNumber - 1) * 50;
     offsets.push(offset);
     const count = Math.min(50, Math.max(0, 121 - offset));
     const pastes = Array.from({ length: count }, (_, index) => {
@@ -507,7 +508,7 @@ test("administrator can jump between numbered result pages", async ({ page }, te
         updatedAt: "2026-08-11T00:00:00Z",
       };
     });
-    await route.fulfill({ json: { pastes, total: 121, limit: 50, offset } });
+    await route.fulfill({ json: { items: pastes, total: 121, size: 50, page: pageNumber } });
   });
 
   await loginToAdmin(page);

@@ -1,0 +1,321 @@
+{
+  "schemaVersion": "http.yueli.dev/operations/v1",
+  "namespace": "paste",
+  "operations": [
+    {
+      "id": "paste.delete.api.v1.admin.pastes.by-code",
+      "method": "DELETE",
+      "path": "/api/v1/admin/pastes/{code}",
+      "success": {
+        "status": 204,
+        "kind": "empty"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "paste.not_authenticated",
+        "paste.forbidden",
+        "paste.not_found",
+        "paste.gone",
+        "paste.conflict"
+      ]
+    },
+    {
+      "id": "paste.delete.api.v1.me.pastes.by-code",
+      "method": "DELETE",
+      "path": "/api/v1/me/pastes/{code}",
+      "success": {
+        "status": 204,
+        "kind": "empty"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "paste.not_authenticated",
+        "paste.forbidden",
+        "paste.not_found",
+        "paste.gone",
+        "paste.conflict"
+      ]
+    },
+    {
+      "id": "paste.get.api.v1.admin.governance-settings",
+      "method": "GET",
+      "path": "/api/v1/admin/governance-settings",
+      "success": {
+        "status": 200,
+        "kind": "resource",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.paste.api.v1.GetGovernanceSettingsRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "paste.not_authenticated",
+        "paste.forbidden"
+      ]
+    },
+    {
+      "id": "paste.get.api.v1.admin.pastes",
+      "method": "GET",
+      "path": "/api/v1/admin/pastes",
+      "success": {
+        "status": 200,
+        "kind": "page",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.paste.api.v1.ListAdministrationPastesRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "paste.not_authenticated",
+        "paste.forbidden"
+      ]
+    },
+    {
+      "id": "paste.get.api.v1.admin.session",
+      "method": "GET",
+      "path": "/api/v1/admin/session",
+      "success": {
+        "status": 200,
+        "kind": "resource",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.paste.api.v1.GetAdministrationSessionRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "paste.not_authenticated",
+        "paste.forbidden"
+      ]
+    },
+    {
+      "id": "paste.get.api.v1.admin.users",
+      "method": "GET",
+      "path": "/api/v1/admin/users",
+      "success": {
+        "status": 200,
+        "kind": "page",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.paste.api.v1.ListAdministrationUsersRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "paste.not_authenticated",
+        "paste.forbidden"
+      ]
+    },
+    {
+      "id": "paste.get.api.v1.me.pastes",
+      "method": "GET",
+      "path": "/api/v1/me/pastes",
+      "success": {
+        "status": 200,
+        "kind": "page",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.paste.api.v1.ListMyPastesRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "paste.not_authenticated",
+        "paste.forbidden"
+      ]
+    },
+    {
+      "id": "paste.get.api.v1.me.pastes.by-code",
+      "method": "GET",
+      "path": "/api/v1/me/pastes/{code}",
+      "success": {
+        "status": 200,
+        "kind": "resource",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.paste.api.v1.GetMyPasteRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "paste.not_authenticated",
+        "paste.forbidden",
+        "paste.not_found",
+        "paste.gone"
+      ]
+    },
+    {
+      "id": "paste.get.api.v1.pastes.by-code",
+      "method": "GET",
+      "path": "/api/v1/pastes/{code}",
+      "success": {
+        "status": 200,
+        "kind": "resource",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.paste.api.v1.GetPasteRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "paste.not_authenticated",
+        "paste.not_found",
+        "paste.gone",
+        "paste.forbidden",
+        "paste.password_required",
+        "paste.password_invalid"
+      ]
+    },
+    {
+      "id": "paste.get.api.v1.settings",
+      "method": "GET",
+      "path": "/api/v1/settings",
+      "success": {
+        "status": 200,
+        "kind": "resource",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.paste.api.v1.GetSiteSettingsRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "paste.not_authenticated"
+      ]
+    },
+    {
+      "id": "paste.patch.api.v1.admin.governance-settings",
+      "method": "PATCH",
+      "path": "/api/v1/admin/governance-settings",
+      "success": {
+        "status": 200,
+        "kind": "resource",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.paste.api.v1.UpdateGovernanceSettingsRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "paste.not_authenticated",
+        "paste.forbidden",
+        "paste.conflict"
+      ]
+    },
+    {
+      "id": "paste.patch.api.v1.admin.pastes.by-code",
+      "method": "PATCH",
+      "path": "/api/v1/admin/pastes/{code}",
+      "success": {
+        "status": 200,
+        "kind": "resource",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.paste.api.v1.GovernPasteRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "paste.not_authenticated",
+        "paste.forbidden",
+        "paste.not_found",
+        "paste.gone",
+        "paste.conflict"
+      ]
+    },
+    {
+      "id": "paste.patch.api.v1.admin.settings",
+      "method": "PATCH",
+      "path": "/api/v1/admin/settings",
+      "success": {
+        "status": 200,
+        "kind": "resource",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.paste.api.v1.UpdateSiteSettingsRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "paste.not_authenticated",
+        "paste.forbidden",
+        "paste.conflict"
+      ]
+    },
+    {
+      "id": "paste.patch.api.v1.admin.users.by-userKey",
+      "method": "PATCH",
+      "path": "/api/v1/admin/users/{userKey}",
+      "success": {
+        "status": 200,
+        "kind": "resource",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.paste.api.v1.UpdateAdministrationUserRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "paste.not_authenticated",
+        "paste.forbidden",
+        "paste.conflict"
+      ]
+    },
+    {
+      "id": "paste.patch.api.v1.me.pastes.by-code",
+      "method": "PATCH",
+      "path": "/api/v1/me/pastes/{code}",
+      "success": {
+        "status": 200,
+        "kind": "resource",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.paste.api.v1.UpdatePasteRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "paste.not_authenticated",
+        "paste.forbidden",
+        "paste.not_found",
+        "paste.gone",
+        "paste.conflict"
+      ]
+    },
+    {
+      "id": "paste.post.api.v1.pastes",
+      "method": "POST",
+      "path": "/api/v1/pastes",
+      "success": {
+        "status": 201,
+        "kind": "resource",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.paste.api.v1.CreatePasteRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "paste.not_authenticated",
+        "paste.forbidden",
+        "paste.creation_suspended",
+        "paste.anonymous_creation_disabled",
+        "paste.daily_limit_reached",
+        "paste.conflict"
+      ]
+    },
+    {
+      "id": "paste.post.api.v1.pastes.by-code.access",
+      "method": "POST",
+      "path": "/api/v1/pastes/{code}/access",
+      "success": {
+        "status": 200,
+        "kind": "resource",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.paste.api.v1.UnlockPasteRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "paste.not_authenticated",
+        "paste.not_found",
+        "paste.gone",
+        "paste.forbidden",
+        "paste.password_required",
+        "paste.password_invalid"
+      ]
+    }
+  ]
+}

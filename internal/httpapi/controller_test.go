@@ -106,7 +106,7 @@ func TestManagedLifecycleUsesAuthenticatedOwner(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(listed.Pastes) != 1 || listed.Pastes[0].Code != created.Paste.Code {
+	if len(listed.Items) != 1 || listed.Items[0].Code != created.Paste.Code {
 		t.Fatalf("unexpected owner list: %#v", listed)
 	}
 	managed, err := controller.Managed().GetMyPaste(ctx, &v1.GetMyPasteReq{Code: created.Paste.Code})
@@ -189,7 +189,7 @@ func TestAdministratorCanListGovernAndDeleteAcrossOwners(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if listed.Total != 1 || len(listed.Pastes) != 1 || listed.Pastes[0].OwnerUserKey != "usr_OWNER" {
+	if listed.Total != 1 || len(listed.Items) != 1 || listed.Items[0].OwnerUserKey != "usr_OWNER" {
 		t.Fatalf("unexpected administration list: %#v", listed)
 	}
 	visibility := "private"
@@ -211,7 +211,7 @@ func TestAdministratorCanListGovernAndDeleteAcrossOwners(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if deleted.Total != 1 || deleted.Pastes[0].State != "deleted" {
+	if deleted.Total != 1 || deleted.Items[0].State != "deleted" {
 		t.Fatalf("deleted Paste was not retained for governance: %#v", deleted)
 	}
 }
@@ -233,7 +233,7 @@ func TestAdministratorGovernsUsersAndCreationLimits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if users.Total != 1 || users.Users[0].UsedToday != 1 || users.Users[0].EffectiveDailyLimit != governance.DefaultUserDailyLimit {
+	if users.Total != 1 || users.Items[0].UsedToday != 1 || users.Items[0].EffectiveDailyLimit != governance.DefaultUserDailyLimit {
 		t.Fatalf("unexpected user governance list: %#v", users)
 	}
 	suspended, err := controller.Administrator().UpdateUser(administrator, &v1.UpdateAdministrationUserReq{
@@ -282,4 +282,31 @@ func problemCode(t *testing.T, err error) string {
 		t.Fatalf("error is not a public Problem: %v", err)
 	}
 	return value.Code
+}
+
+func TestMinePaginationScopesOwnerBeforeFiltering(t *testing.T) {
+	core := testController(t)
+	for _, owner := range []string{"usr_A", "usr_B"} {
+		for _, title := range []string{"match one", "match two", "other"} {
+			_, err := core.Public().CreatePaste(userContext(owner), &v1.CreatePasteReq{Title: title, Files: []v1.FileInput{{Path: "a.txt", Content: "private"}}})
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	page, err := core.Managed().ListMyPastes(userContext("usr_A"), &v1.ListMyPastesReq{Query: "match", Page: 2, Size: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Total != 2 || page.Page != 2 || page.Size != 1 || len(page.Items) != 1 {
+		t.Fatalf("unexpected page: %#v", page)
+	}
+	value, err := core.Managed().GetMyPaste(userContext("usr_A"), &v1.GetMyPasteReq{Code: page.Items[0].Code})
+	if err != nil || value == nil {
+		t.Fatalf("owner scope lost: %v", err)
+	}
+	empty, err := core.Managed().ListMyPastes(userContext("usr_C"), &v1.ListMyPastesReq{})
+	if err != nil || empty.Items == nil || len(empty.Items) != 0 {
+		t.Fatalf("empty collection: %#v %v", empty, err)
+	}
 }

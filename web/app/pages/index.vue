@@ -7,6 +7,8 @@ FORM: a single integrated editor shell with product, files, commands, navigation
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
 -->
 <script setup lang="ts">
+import type { FailureFeedback } from "@yueli/http-runtime";
+import { pasteFailureFeedback } from "../utils/pasteFailure";
 import type { AccountMenuAction } from "@yueli/ui/account-menu/pattern";
 import type { PasteFile, PasteVisibility } from "../types/paste";
 import {
@@ -54,6 +56,7 @@ const dragOverPosition = ref<"before" | "after">();
 const saving = ref(false);
 const loadingEdit = ref(false);
 const error = ref("");
+const failure = ref<FailureFeedback | null>(null);
 const editRevision = ref<number>();
 const editCode = computed(() =>
   typeof route.query.edit === "string" ? route.query.edit : "",
@@ -242,6 +245,7 @@ async function submit(event: SubmitEvent) {
   title.value = fieldValue(form, "title");
   description.value = fieldValue(form, "description");
   password.value = fieldValue(form, "password");
+  failure.value = null;
   error.value = validate();
   if (error.value) return;
   saving.value = true;
@@ -264,7 +268,7 @@ async function submit(event: SubmitEvent) {
     transfer.value[response.paste.code] = response.paste;
     await navigateTo(`/p/${response.paste.code}?${editCode.value ? "updated" : "created"}=1`);
   } catch (caught) {
-    error.value = pasteErrorMessage(caught);
+    failure.value = pasteFailureFeedback(caught, "分享未完成，请检查后重试。", {"/title":"title","/description":"description","/tags":"tags","/password":"password","/visibility":"visibility","/expiresAt":"expiry"});
   } finally {
     saving.value = false;
   }
@@ -528,7 +532,7 @@ onMounted(loadEdit);
       >
         <template #body>
           <div class="grid gap-[18px] [&_label]:text-[11px] [&_label]:font-[680]">
-            <UFormField name="title" label="标题">
+            <UFormField :error="failure?.fieldErrors.title?.join(' ')" name="title" label="标题">
               <UInput
                 v-model="title"
                 form="paste-compose-form"
@@ -538,7 +542,7 @@ onMounted(loadEdit);
                 class="w-full"
               />
             </UFormField>
-            <UFormField name="description" label="说明" hint="可选">
+            <UFormField :error="failure?.fieldErrors.description?.join(' ')" name="description" label="说明" hint="可选">
               <UTextarea
                 v-model="description"
                 form="paste-compose-form"
@@ -550,7 +554,7 @@ onMounted(loadEdit);
                 class="w-full"
               />
             </UFormField>
-            <UFormField name="tags" label="标签" hint="最多 8 个">
+            <UFormField :error="failure?.fieldErrors.tags?.join(' ')" name="tags" label="标签" hint="最多 8 个">
               <UInputTags
                 v-model="tags"
                 name="tags"
@@ -563,7 +567,7 @@ onMounted(loadEdit);
               />
             </UFormField>
             <div class="grid grid-cols-2 gap-2.5 max-[720px]:grid-cols-1">
-              <UFormField label="可见性">
+              <UFormField :error="failure?.fieldErrors.visibility?.join(' ')" label="可见性">
                 <USelect
                   v-model="visibility"
                   :items="visibilityItems"
@@ -573,7 +577,7 @@ onMounted(loadEdit);
                   aria-label="可见性"
                 />
               </UFormField>
-              <UFormField label="有效期">
+              <UFormField :error="failure?.fieldErrors.expiry?.join(' ')" label="有效期">
                 <USelect
                   v-model="expiry"
                   :items="expiryItems"
@@ -585,6 +589,7 @@ onMounted(loadEdit);
               </UFormField>
             </div>
             <UFormField
+              :error="failure?.fieldErrors.password?.join(' ')"
               name="password"
               label="访问密码"
               :hint="editCode ? '留空即移除' : '可选'"
@@ -600,6 +605,7 @@ onMounted(loadEdit);
                 class="w-full"
               />
             </UFormField>
+            <FailureNotice :feedback="failure" />
             <UAlert
               v-if="error"
               color="error"

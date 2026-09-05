@@ -108,7 +108,7 @@ test("password access stays out of the URL", async ({ page, request }) => {
       password: "safepass123",
     },
   });
-  expect(created.status()).toBe(200);
+  expect(created.status()).toBe(201);
   const payload = await created.json();
   const code = payload.paste.code as string;
 

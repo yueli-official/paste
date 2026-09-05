@@ -118,7 +118,8 @@ type CreatePasteReq struct {
 }
 
 type CreatePasteRes struct {
-	Paste PasteView `json:"paste"`
+	g.Meta `status:"201"`
+	Paste  PasteView `json:"paste"`
 }
 
 type GetPasteReq struct {
@@ -150,10 +151,16 @@ type GetSiteSettingsRes struct {
 
 type ListMyPastesReq struct {
 	g.Meta `path:"/api/v1/me/pastes" method:"get" tags:"My Pastes" summary:"List the current user's Pastes"`
+	Query  string `json:"q" in:"query"`
+	Page   int    `json:"page" in:"query" v:"min:0|max:1000000"`
+	Size   int    `json:"size" in:"query" v:"min:0|max:100"`
 }
 
 type ListMyPastesRes struct {
-	Pastes []PasteSummaryView `json:"pastes"`
+	Items []PasteSummaryView `json:"items"`
+	Page  int                `json:"page"`
+	Size  int                `json:"size"`
+	Total int                `json:"total"`
 }
 
 type GetMyPasteReq struct {
@@ -189,7 +196,9 @@ type DeletePasteReq struct {
 	ExpectedRevision int64  `json:"expectedRevision" in:"query" v:"required|min:1"`
 }
 
-type DeletePasteRes struct{}
+type DeletePasteRes struct {
+	g.Meta `status:"204"`
+}
 
 type ListAdministrationPastesReq struct {
 	g.Meta     `path:"/api/v1/admin/pastes" method:"get" tags:"Administration" summary:"List Pastes for site governance"`
@@ -197,8 +206,8 @@ type ListAdministrationPastesReq struct {
 	Visibility string `json:"visibility" in:"query"`
 	State      string `json:"state" in:"query"`
 	Ownership  string `json:"ownership" in:"query"`
-	Limit      int    `json:"limit" in:"query"`
-	Offset     int    `json:"offset" in:"query"`
+	Page       int    `json:"page" in:"query" v:"min:0|max:1000000"`
+	Size       int    `json:"size" in:"query" v:"min:0|max:100"`
 }
 
 type GetAdministrationSessionReq struct {
@@ -206,15 +215,15 @@ type GetAdministrationSessionReq struct {
 }
 
 type GetAdministrationSessionRes struct {
-	Allowed bool `json:"allowed"`
+	Allowed bool   `json:"allowed"`
 	UserKey string `json:"userKey"`
 }
 
 type ListAdministrationPastesRes struct {
-	Pastes []AdministrationPasteView `json:"pastes"`
-	Total  int                       `json:"total"`
-	Limit  int                       `json:"limit"`
-	Offset int                       `json:"offset"`
+	Items []AdministrationPasteView `json:"items"`
+	Total int                       `json:"total"`
+	Size  int                       `json:"size"`
+	Page  int                       `json:"page"`
 }
 
 type GovernPasteReq struct {
@@ -236,21 +245,23 @@ type AdministrationDeletePasteReq struct {
 	ExpectedRevision int64  `json:"expectedRevision" in:"query" v:"required|min:1"`
 }
 
-type AdministrationDeletePasteRes struct{}
+type AdministrationDeletePasteRes struct {
+	g.Meta `status:"204"`
+}
 
 type ListAdministrationUsersReq struct {
 	g.Meta `path:"/api/v1/admin/users" method:"get" tags:"Administration" summary:"List Paste users for product governance"`
 	Query  string `json:"q" in:"query"`
 	State  string `json:"state" in:"query"`
-	Limit  int    `json:"limit" in:"query"`
-	Offset int    `json:"offset" in:"query"`
+	Page   int    `json:"page" in:"query" v:"min:0|max:1000000"`
+	Size   int    `json:"size" in:"query" v:"min:0|max:100"`
 }
 
 type ListAdministrationUsersRes struct {
-	Users  []AdministrationUserView `json:"users"`
-	Total  int                      `json:"total"`
-	Limit  int                      `json:"limit"`
-	Offset int                      `json:"offset"`
+	Items []AdministrationUserView `json:"items"`
+	Total int                      `json:"total"`
+	Size  int                      `json:"size"`
+	Page  int                      `json:"page"`
 }
 
 type UpdateAdministrationUserReq struct {

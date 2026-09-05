@@ -67,11 +67,12 @@ export function usePasteApi() {
       );
       return { paste: normalizePaste(response.paste) };
     },
-    async listMine() {
-      const response = await api.request<{ pastes: PasteSummary[] }>("/api/v1/me/pastes", {
+    async listMine(query: { page?: number; size?: number; q?: string } = {}) {
+      const response = await api.request<{ items: PasteSummary[]; page: number; size: number; total: number }>("/api/v1/me/pastes", {
+        query,
         auth: "required",
       });
-      return { pastes: (response.pastes || []).map(normalizeSummary) };
+      return { ...response, items: response.items.map(normalizeSummary) };
     },
     async getSettings() {
       return api.request<{ settings: SiteSettings }>("/api/v1/settings", {
@@ -108,7 +109,7 @@ export function usePasteApi() {
       return { paste: normalizePaste(response.paste) };
     },
     remove(code: string, expectedRevision: number) {
-      return api.request<Record<string, never>>(
+      return api.request<void>(
         `/api/v1/me/pastes/${encodeURIComponent(code)}`,
         {
           method: "DELETE",
@@ -124,7 +125,7 @@ export function usePasteApi() {
       });
       return {
         ...response,
-        pastes: (response.pastes || []).map((value) => normalizeSummary(value) as AdministrationPaste),
+        items: response.items.map((value) => normalizeSummary(value) as AdministrationPaste),
       };
     },
     async govern(code: string, expectedRevision: number, input: PastePatchInput) {
@@ -139,7 +140,7 @@ export function usePasteApi() {
       return { paste: normalizeSummary(response.paste) as AdministrationPaste };
     },
     removeAdministration(code: string, expectedRevision: number) {
-      return api.request<Record<string, never>>(
+      return api.request<void>(
         `/api/v1/admin/pastes/${encodeURIComponent(code)}`,
         {
           method: "DELETE",
