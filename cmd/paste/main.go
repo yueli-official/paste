@@ -9,9 +9,12 @@ import (
 	"github.com/gogf/gf/v2/frame/g"
 	_ "github.com/lib/pq"
 	foundationauth "github.com/yueli-official/foundation/go/auth"
+	"github.com/yueli-official/foundation/go/authorization"
+	authorizationpostgres "github.com/yueli-official/foundation/go/authorization/postgres"
 	"github.com/yueli-official/paste/internal/governance"
 	"github.com/yueli-official/paste/internal/httpapi"
 	"github.com/yueli-official/paste/internal/paste"
+	"github.com/yueli-official/paste/internal/pasteauthz"
 	pastepostgres "github.com/yueli-official/paste/internal/postgres"
 	pasteruntime "github.com/yueli-official/paste/internal/runtime"
 	"github.com/yueli-official/paste/internal/server"
@@ -38,9 +41,17 @@ func main() {
 	must(err)
 	governanceService, err := governance.New(store, governance.Options{})
 	must(err)
+	definition, err := authorization.Compile(pasteauthz.Definition())
+	must(err)
+	subjects := []authorization.SubjectRef{}
+	for _, id := range commaSeparated(os.Getenv("PASTE_ADMIN_SUBS")) {
+		subjects = append(subjects, authorization.SubjectRef{Kind: authorization.SubjectUser, ID: id})
+	}
+	runtime, err := authorizationpostgres.New(ctx, definition, authorizationpostgres.Options{DB: database, InstanceKey: "paste:" + environment("PASTE_INSTANCE_ID", environment("PASTE_JWKS_AUDIENCE", "paste-api")), Memory: authorization.MemoryOptions{RootScopeID: pasteauthz.RootScopeID, ProtectedSubjects: subjects, AllowUnclaimed: len(subjects) == 0}})
+	must(err)
 	controller, err := httpapi.New(pastes, settings, governanceService, httpapi.Options{
-		PublicBase:            environment("PASTE_PUBLIC_BASE_URL", "http://localhost:3010"),
-		AdministratorSubjects: commaSeparated(os.Getenv("PASTE_ADMIN_SUBS")),
+		PublicBase:    environment("PASTE_PUBLIC_BASE_URL", "http://localhost:3010"),
+		Authorization: runtime,
 	})
 	must(err)
 

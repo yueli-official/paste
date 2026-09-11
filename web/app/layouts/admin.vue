@@ -14,8 +14,8 @@ const section = computed<"pastes" | "users" | "settings">(() => {
   return "pastes";
 });
 const currentLabel = computed(() => ({
-  pastes: "片段治理",
-  users: "用户治理",
+  pastes: "片段管理",
+  users: "用户管理",
   settings: "站点设置",
 })[section.value]);
 
@@ -28,13 +28,13 @@ const messages: AdminShellMessages = {
 
 const navigation = computed<readonly AdminNavigationItem[]>(() => [
   {
-    label: "片段治理",
+    label: "片段管理",
     icon: "i-tabler-files",
     to: "/admin",
     active: section.value === "pastes",
   },
   {
-    label: "用户治理",
+    label: "用户管理",
     icon: "i-tabler-users",
     to: "/admin?view=users",
     active: section.value === "users",
@@ -47,10 +47,6 @@ const navigation = computed<readonly AdminNavigationItem[]>(() => [
   },
 ]);
 
-const secondaryNavigation: readonly AdminNavigationItem[] = [
-  { label: "我的片段", icon: "i-tabler-folders", to: "/mine" },
-  { label: "返回首页", icon: "i-tabler-arrow-back-up", to: "/" },
-];
 
 const searchGroups = computed<readonly AdminSearchGroup[]>(() => [
   {
@@ -69,7 +65,6 @@ const searchGroups = computed<readonly AdminSearchGroup[]>(() => [
 <template>
   <YAdminConsoleLayout
     :navigation="navigation"
-    :secondary-navigation="secondaryNavigation"
     :search-groups="searchGroups"
     :messages="messages"
     storage-key="paste-admin"

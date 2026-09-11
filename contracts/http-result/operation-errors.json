@@ -148,6 +148,19 @@
       "paste.not_authenticated",
       "paste.forbidden",
       "paste.conflict"
+    ],
+    "GET /api/v1/authorization/setup": [
+      "common.internal",
+      "common.rate_limited",
+      "paste.not_authenticated",
+      "paste.forbidden"
+    ],
+    "POST /api/v1/authorization/setup/claim": [
+      "common.internal",
+      "common.rate_limited",
+      "paste.not_authenticated",
+      "paste.forbidden",
+      "paste.conflict"
     ]
   }
 }

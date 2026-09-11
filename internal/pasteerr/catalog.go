@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/yueli-official/foundation/go/authorization"
 	"github.com/yueli-official/foundation/go/problem"
 	"github.com/yueli-official/paste/internal/governance"
 	"github.com/yueli-official/paste/internal/paste"
@@ -41,6 +42,10 @@ func Map(err error) error {
 	var siteValidation site.ValidationError
 	var governanceValidation governance.ValidationError
 	switch {
+	case authorization.Is(err, authorization.ErrorConflict):
+		selected = Conflict
+	case authorization.Is(err, authorization.ErrorDenied):
+		selected = Forbidden
 	case errors.As(err, &validation):
 		selected = Validation
 		violations = []problem.Violation{validationViolation(validation)}

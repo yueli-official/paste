@@ -59,6 +59,18 @@ access, copy behavior and Identity-backed owner management.
 
 See [PRODUCT.md](PRODUCT.md) for product scope and [DESIGN.md](DESIGN.md) for the interface contract.
 
+## Administrator setup
+
+Administration is decided by Foundation's persistent site authorization, independently of Identity roles.
+On an unclaimed instance, sign in and open `/admin` (redirects to `/setup`), then explicitly claim the site.
+`PASTE_ADMIN_SUBS` seeds protected administrators only when initializing authorization; removing the environment value does not revoke an existing grant.
+Apply migrations 0004 (authorization) and 0005 (audit) before starting the updated API.
+`PASTE_INSTANCE_ID` identifies the authorization instance; keep it stable across restarts.
+
+The public setup endpoint is `GET /api/v1/authorization/setup`; claiming requires a real user at
+`POST /api/v1/authorization/setup/claim`. Public user profiles are read through the shared Identity BFF
+at `/identity-api/api/v1/users`; Paste stores no duplicate user directory.
+
 ## License
 
 Apache-2.0.

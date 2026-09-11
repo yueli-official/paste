@@ -10,6 +10,10 @@ export default defineNuxtConfig({
   yueliRuntime: {
     defaultTarget: "platform",
     targets: {
+      identity: {
+        path: "/identity-api",
+        ssr: { cookies: [], headers: ["accept-language", "user-agent"] },
+      },
       platform: {
         path: "/",
         ssr: {

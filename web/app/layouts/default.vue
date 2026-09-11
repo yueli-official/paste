@@ -2,7 +2,7 @@
 import type { AccountMenuAction } from "@yueli/ui/account-menu/pattern";
 
 const { siteName } = useSiteSettings();
-const { isAdmin } = useAuth();
+const { isAdmin } = usePasteAdministration();
 const accountActions = computed<readonly AccountMenuAction[]>(() => [
   { label: "我的片段", icon: "i-tabler-folders", to: "/mine" },
   ...(isAdmin.value

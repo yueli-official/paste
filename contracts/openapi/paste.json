@@ -166,6 +166,19 @@
         },
         "type": "object"
       },
+      "github.com.yueli-official.paste.api.v1.ClaimAdministratorReq": {
+        "properties": {},
+        "type": "object"
+      },
+      "github.com.yueli-official.paste.api.v1.ClaimAdministratorRes": {
+        "properties": {
+          "claimed": {
+            "format": "bool",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
       "github.com.yueli-official.paste.api.v1.CreatePasteReq": {
         "properties": {
           "description": {
@@ -295,6 +308,23 @@
           "userKey": {
             "format": "string",
             "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.paste.api.v1.GetAuthorizationSetupReq": {
+        "properties": {},
+        "type": "object"
+      },
+      "github.com.yueli-official.paste.api.v1.GetAuthorizationSetupRes": {
+        "properties": {
+          "canClaim": {
+            "format": "bool",
+            "type": "boolean"
+          },
+          "claimed": {
+            "format": "bool",
+            "type": "boolean"
           }
         },
         "type": "object"
@@ -1334,6 +1364,58 @@
         "summary": "Update a Paste user creation policy",
         "tags": [
           "Administration"
+        ]
+      }
+    },
+    "/api/v1/authorization/setup": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.GetAuthorizationSetupRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Read initial administrator claim status",
+        "tags": [
+          "Authorization"
+        ]
+      }
+    },
+    "/api/v1/authorization/setup/claim": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.ClaimAdministratorReq",
+                "description": ""
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.ClaimAdministratorRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Claim initial administrator",
+        "tags": [
+          "Authorization"
         ]
       }
     },

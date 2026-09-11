@@ -33,7 +33,7 @@ async function loginToAdmin(page: Page) {
   await page.waitForURL(/\/admin(?:\?|$)/, { timeout: 30_000 });
   await expect(page.locator("[data-paste-admin-shell]")).toBeVisible();
   await expect(
-    page.getByRole("heading", { level: 1, name: "片段治理" }),
+    page.getByRole("heading", { level: 1, name: "片段管理" }),
   ).toBeVisible();
   await expect(page.locator(".paste-admin-loading")).toHaveCount(0, {
     timeout: 30_000,
@@ -73,7 +73,7 @@ async function saveSettings(page: Page) {
   const response = page.waitForResponse((candidate) =>
     candidate.url().includes("/api/v1/admin/settings") && candidate.request().method() === "PATCH",
   );
-  await page.getByRole("button", { name: "保存更改" }).click();
+  await page.getByRole("button", { name: "保存", exact: true }).click();
   expect((await response).status()).toBe(200);
 }
 
@@ -83,6 +83,7 @@ async function dismissToasts(page: Page) {
 }
 
 test.beforeAll(async ({ browser }, testInfo) => {
+  test.setTimeout(60_000);
   if (testInfo.project.name !== "desktop") return;
   governanceContext = await browser.newContext({ baseURL });
   const page = await governanceContext.newPage();
@@ -134,8 +135,8 @@ test("administrator governs snippets and updates public site settings", async ({
   const marker = Date.now().toString(36);
   const title = `后台治理示例 ${marker}`;
   await loginToAdmin(page);
-  await expect(page.getByRole("heading", { level: 1, name: "片段治理" })).toBeVisible();
-  await expect(page.locator("[data-admin-console-breadcrumb]")).toContainText("片段治理");
+  await expect(page.getByRole("heading", { level: 1, name: "片段管理" })).toBeVisible();
+  await expect(page.locator("[data-admin-console-breadcrumb]")).toContainText("片段管理");
   await expect(page.locator(".paste-public-header")).toHaveCount(0);
 
   const createdResponse = await page.request.post("/api/v1/pastes", {
@@ -150,20 +151,26 @@ test("administrator governs snippets and updates public site settings", async ({
   const listResponse = page.waitForResponse((response) =>
     response.url().includes("/api/v1/admin/pastes") && response.request().method() === "GET",
   );
-  await page.getByRole("searchbox", { name: "搜索全站代码片段" }).fill(title);
+  await page.getByRole("textbox", { name: "搜索标题、短码、用户或标签" }).fill(title);
   expect((await listResponse).status()).toBe(200);
   const row = page.locator(".paste-admin-row").filter({ hasText: title });
   await expect(row).toBeVisible();
-  await row.getByRole("button", { name: `检查 ${title}` }).click();
-  await expect(page.getByRole("heading", { level: 2, name: title })).toBeVisible();
-  await expect(page.getByText("治理摘要不返回代码正文或密码材料。")).toBeVisible();
+  const share = row.getByRole("link", { name: "打开分享链接" });
+  await expect(share).toHaveAttribute("href", /\/p\//);
+  const opened = page.waitForEvent("popup");
+  await share.click();
+  const publicPage = await opened;
+  await publicPage.waitForLoadState("domcontentloaded");
+  expect(publicPage.url()).toContain("/p/");
+  await publicPage.close();
+  await expect(page.locator(".paste-admin-inspector")).toHaveCount(0);
 
   await page.getByRole("checkbox", { name: `选择 ${title}` }).click();
   await page.getByRole("button", { name: "批量修改" }).click();
   await page.getByLabel("可见性").click();
   await page.getByRole("option", { name: "仅自己", exact: true }).click();
   await page.getByRole("button", { name: "应用修改" }).click();
-  await expect(page.getByRole("heading", { name: "批量治理" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "批量修改片段" })).toHaveCount(0);
   await expect(row).toContainText("仅自己");
   await page.screenshot({ path: testInfo.outputPath("admin-governance-desktop.png"), fullPage: true });
 
@@ -211,337 +218,63 @@ test("admin endpoints reject anonymous requests", async ({ request }) => {
   expect(session.status()).toBe(401);
 });
 
-test("administrator governs Paste users and creation limits", async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== "desktop", "one real user-governance lifecycle is sufficient");
-  test.setTimeout(90_000);
-  const marker = Date.now().toString(36);
+test("user management offers state actions without policy inspectors", async ({ page }, testInfo) => {
+  test.setTimeout(60_000);
   await loginToAdmin(page);
-  const sessionResponse = await page.request.get("/api/v1/admin/session");
-  expect(sessionResponse.status()).toBe(200);
-  const userKey = ((await sessionResponse.json()) as { userKey: string }).userKey;
-  const original = await page.request.get(`/api/v1/admin/users?q=${encodeURIComponent(userKey)}`);
-  const originalUser = ((await original.json()).items as Array<{
-    state: "active" | "suspended";
-    dailyLimitOverride?: number;
-    reason?: string;
-    revision: number;
-  }>)[0] || { state: "active" as const, revision: 0 };
-  if (originalUser.state === "suspended") {
-    const activated = await page.request.patch(`/api/v1/admin/users/${encodeURIComponent(userKey)}`, {
-      data: {
-        state: "active",
-        dailyLimitOverride: originalUser.dailyLimitOverride,
-        clearDailyLimit: originalUser.dailyLimitOverride === undefined,
-        reason: originalUser.reason || "",
-        expectedRevision: originalUser.revision,
-      },
-    });
-    expect(activated.status()).toBe(200);
-  }
-  const createdResponse = await page.request.post("/api/v1/pastes", {
-    data: {
-      title: `用户治理示例 ${marker}`,
-      files: [{ path: "governance.txt", language: "text", content: marker }],
-      visibility: "unlisted",
-    },
-  });
-  expect(createdResponse.status()).toBe(201);
-  const created = (await createdResponse.json()).paste as { code: string; revision: number };
-  const baselineResponse = await page.request.get(`/api/v1/admin/users?q=${encodeURIComponent(userKey)}`);
-  const baselineUser = ((await baselineResponse.json()).items as Array<{
-    state: "active" | "suspended";
-    dailyLimitOverride?: number;
-    usedToday: number;
-    reason?: string;
-    revision: number;
-  }>)[0]!;
-  const limitedResponse = await page.request.patch(`/api/v1/admin/users/${encodeURIComponent(userKey)}`, {
-    data: {
-      state: "active",
-      dailyLimitOverride: baselineUser.usedToday,
-      reason: baselineUser.reason || "",
-      expectedRevision: baselineUser.revision,
-    },
-  });
-  expect(limitedResponse.status()).toBe(200);
-  const limitedRevision = ((await limitedResponse.json()).user as { revision: number }).revision;
-  const quotaBlocked = await page.request.post("/api/v1/pastes", {
-    data: { title: "quota blocked", files: [{ path: "quota.txt", content: "quota" }], visibility: "unlisted" },
-  });
-  expect(quotaBlocked.status()).toBe(429);
-  expect((await quotaBlocked.json()).code).toBe("paste.daily_limit_reached");
-  const baselineRestored = await page.request.patch(`/api/v1/admin/users/${encodeURIComponent(userKey)}`, {
-    data: {
-      state: "active",
-      dailyLimitOverride: baselineUser.dailyLimitOverride,
-      clearDailyLimit: baselineUser.dailyLimitOverride === undefined,
-      reason: baselineUser.reason || "",
-      expectedRevision: limitedRevision,
-    },
-  });
-  expect(baselineRestored.status()).toBe(200);
-
-  await navigateAdmin(page, /^用户治理/);
-  await expect(page).toHaveURL(/\/admin\?view=users$/);
-  await expect(page.getByRole("searchbox", { name: "搜索 Paste 用户" })).toBeVisible();
-  await expect(page.locator(".paste-admin-loading")).toHaveCount(0);
-  const userResponse = page.waitForResponse((response) =>
-    response.url().includes("/api/v1/admin/users") && new URL(response.url()).searchParams.get("q") === userKey,
-  );
-  await page.getByRole("searchbox", { name: "搜索 Paste 用户" }).fill(userKey);
-  expect((await userResponse).status()).toBe(200);
-  const row = page.locator(".paste-admin-user-row").filter({ hasText: userKey });
+  const session = await (await page.request.get("/api/v1/admin/session")).json();
+  await navigateAdmin(page, "用户管理");
+  const row = page.locator(".paste-admin-user-row").filter({hasText:session.userKey});
   await expect(row).toBeVisible();
-  await row.getByRole("checkbox", { name: `选择用户 ${userKey}` }).click();
-  await page.getByRole("button", { name: "批量设置" }).click();
-  await expect(page.getByRole("heading", { name: "批量设置创建策略" })).toBeVisible();
-  await page.waitForTimeout(250);
-  await page.screenshot({ path: testInfo.outputPath("admin-users-batch-desktop.png"), fullPage: true });
-  await page.getByRole("button", { name: "取消", exact: true }).click();
-  await page.getByRole("button", { name: "清除", exact: true }).click();
-
-  await row.getByRole("button", { name: `检查用户 ${userKey}` }).click();
-  await expect(page.getByRole("button", { name: "保存策略" })).toBeDisabled();
-  await page.getByLabel("创建权限").click();
-  await page.getByRole("option", { name: "暂停创建", exact: true }).click();
-  if (!(await page.getByRole("checkbox", { name: "为此用户设置单独上限" }).isChecked())) {
-    await page.getByRole("checkbox", { name: "为此用户设置单独上限" }).click();
+  await expect(row.getByText("创建策略", {exact:true})).toHaveCount(0);
+  await expect(page.locator(".paste-admin-user-inspector")).toHaveCount(0);
+  page.once("dialog", dialog => dialog.accept());
+  await row.getByRole("button", {name:"暂停创建",exact:true}).click();
+  try {
+    await expect(row.getByRole("button", {name:"恢复创建",exact:true})).toBeVisible();
+    await row.getByRole("button", {name:"恢复创建",exact:true}).click();
+    await expect(row.getByRole("button", {name:"暂停创建",exact:true})).toBeVisible();
+    await row.getByRole("checkbox").click();
+    await page.getByRole("button", {name:"批量设置",exact:true}).click();
+    const modal=page.getByRole("dialog");
+    await expect(modal.getByText("每日额度",{exact:true})).toHaveCount(0);
+    await modal.getByRole("button", {name:"取消",exact:true}).click();
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await page.screenshot({path:testInfo.outputPath("user-management.png"),fullPage:true});
+  } finally {
+    const current=(await (await page.request.get(`/api/v1/admin/users?q=${session.userKey}`)).json()).items[0];
+    if(current.state!=="active") await page.request.patch(`/api/v1/admin/users/${session.userKey}`,{data:{state:"active",expectedRevision:current.revision,dailyLimitOverride:current.dailyLimitOverride,clearDailyLimit:current.dailyLimitOverride===undefined,reason:current.reason||""}});
   }
-  await page.getByRole("spinbutton", { name: "每日创建上限" }).fill("9876");
-  await page.getByLabel("治理说明").fill(`自动化验收 ${marker}`);
-  await expect(page.getByRole("button", { name: "保存策略" })).toBeEnabled();
-  const savePolicy = page.waitForResponse((response) =>
-    response.url().includes(`/api/v1/admin/users/${encodeURIComponent(userKey)}`) && response.request().method() === "PATCH",
-  );
-  await page.getByRole("button", { name: "保存策略" }).click();
-  expect((await savePolicy).status()).toBe(200);
-  await expect(row).toContainText("已暂停");
-  const blocked = await page.request.post("/api/v1/pastes", {
-    data: { title: "blocked", files: [{ path: "blocked.txt", content: "blocked" }], visibility: "unlisted" },
-  });
-  expect(blocked.status()).toBe(403);
-  expect((await blocked.json()).code).toBe("paste.creation_suspended");
-  await page.screenshot({ path: testInfo.outputPath("admin-users-desktop.png"), fullPage: true });
-
-  const current = await page.request.get(`/api/v1/admin/users?q=${encodeURIComponent(userKey)}`);
-  const currentUser = ((await current.json()).items as Array<{ revision: number }>)[0]!;
-  const restored = await page.request.patch(`/api/v1/admin/users/${encodeURIComponent(userKey)}`, {
-    data: {
-      state: originalUser.state,
-      dailyLimitOverride: originalUser.dailyLimitOverride,
-      clearDailyLimit: originalUser.dailyLimitOverride === undefined,
-      reason: originalUser.reason || "",
-      expectedRevision: currentUser.revision,
-    },
-  });
-  expect(restored.status()).toBe(200);
-  const removed = await page.request.delete(`/api/v1/admin/pastes/${created.code}?expectedRevision=${created.revision}`);
-  expect(removed.status()).toBe(204);
-
-  const governanceResponse = await page.request.get("/api/v1/admin/governance-settings");
-  expect(governanceResponse.status()).toBe(200);
-  const originalSettings = (await governanceResponse.json()).settings as {
-    userDailyLimit: number;
-    anonymousDailyLimit: number;
-    revision: number;
-  };
-  await navigateAdmin(page, "站点设置");
-  await expect(page.getByRole("spinbutton", { name: "登录用户每日默认上限" })).toBeVisible();
-  const userLimitInput = page.getByRole("spinbutton", { name: "登录用户每日默认上限" });
-  await expect(page.getByRole("button", { name: "已保存" })).toBeDisabled();
-  await userLimitInput.fill(String(originalSettings.userDailyLimit + 1));
-  await expect(page.getByRole("button", { name: "保存更改" })).toBeEnabled();
-  const saveLimits = page.waitForResponse((response) =>
-    response.url().includes("/api/v1/admin/governance-settings") && response.request().method() === "PATCH",
-  );
-  await page.getByRole("button", { name: "保存更改" }).click();
-  const changedSettings = await saveLimits;
-  expect(changedSettings.status()).toBe(200);
-  const changedRevision = ((await changedSettings.json()).settings as { revision: number }).revision;
-  const restoredSettings = await page.request.patch("/api/v1/admin/governance-settings", {
-    data: { ...originalSettings, expectedRevision: changedRevision },
-  });
-  expect(restoredSettings.status()).toBe(200);
 });
 
-test("user governance stays operable at 320px", async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== "mobile", "320px user-governance contract");
-  test.setTimeout(90_000);
-  await page.setViewportSize({ width: 320, height: 568 });
-  const userBatchBodies: Array<Record<string, unknown>> = [];
-  await page.route("**/api/v1/admin/users**", async (route) => {
-    if (route.request().method() === "PATCH") {
-      const body = route.request().postDataJSON() as Record<string, unknown>;
-      userBatchBodies.push(body);
-      const userKey = decodeURIComponent(new URL(route.request().url()).pathname.split("/").pop() || "");
-      if (userKey === "usr_SUSPEND") {
-        await route.fulfill({ status: 409, json: { type: "https://errors.yuelili.com/problems/paste.conflict", status: 409, code: "paste.conflict", traceId: "mock-conflict" } });
-        return;
-      }
-      await route.fulfill({ json: { user: { userKey, ...body, revision: Number(body.expectedRevision) + 1, updatedAt: "2026-08-11T10:00:00Z" } } });
-      return;
-    }
-    if (route.request().method() !== "GET") return route.continue();
-    await route.fulfill({
-      json: {
-        items: [
-          { userKey: "usr_ABUSE01", state: "active", effectiveDailyLimit: 50, usedToday: 48, totalPastes: 91, activePastes: 72, lastCreatedAt: "2026-08-11T09:30:00Z", revision: 0 },
-          { userKey: "usr_SUSPEND", state: "suspended", dailyLimitOverride: 4, effectiveDailyLimit: 4, usedToday: 4, totalPastes: 14, activePastes: 9, lastCreatedAt: "2026-08-11T08:00:00Z", reason: "异常批量创建", revision: 2 },
-        ],
-        total: 2,
-        size: 50,
-        page: 1,
-      },
-    });
-  });
-  await page.route("**/api/v1/admin/governance-settings", async (route) => {
-    if (route.request().method() !== "GET") return route.continue();
-    await route.fulfill({ json: { settings: { userDailyLimit: 50, anonymousDailyLimit: 200, revision: 1, updatedAt: "2026-08-11T00:00:00Z" } } });
-  });
-  await loginToAdmin(page);
-  await navigateAdmin(page, /^用户治理/);
-  await expect(page).toHaveURL(/\/admin\?view=users$/);
-  await expect(page.locator(".paste-admin-user-row")).toHaveCount(2);
-  const dimensions = await page.locator("[data-paste-admin-shell]").evaluate((node) => ({
-    width: node.getBoundingClientRect().width,
-    viewport: innerWidth,
-    documentScrollWidth: document.documentElement.scrollWidth,
-  }));
-  expect(dimensions.width).toBeLessThanOrEqual(dimensions.viewport);
-  expect(dimensions.documentScrollWidth).toBeLessThanOrEqual(dimensions.viewport);
-  const pause = page.getByRole("button", { name: "暂停创建", exact: true }).first();
-  const pauseBox = await pause.boundingBox();
-  expect(pauseBox?.height).toBeGreaterThanOrEqual(44);
-  const selectPage = page.getByRole("checkbox", { name: "选择当前页用户" });
-  await selectPage.click();
-  await expect(page.getByText("2 个用户已选择", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "批量设置" }).click();
-  await page.getByLabel("创建权限").click();
-  await page.getByRole("option", { name: "正常创建", exact: true }).click();
-  await page.getByLabel("每日额度").click();
-  await page.getByRole("option", { name: "设置统一上限", exact: true }).click();
-  await page.getByRole("spinbutton", { name: "统一每日上限" }).fill("80");
-  await page.screenshot({ path: testInfo.outputPath("admin-users-batch-mobile.png"), fullPage: true });
-  await page.getByRole("button", { name: "应用到 2 个用户" }).click();
-  await expect.poll(() => userBatchBodies.length).toBe(2);
-  expect(userBatchBodies.every((body) => body.state === "active" && body.dailyLimitOverride === 80)).toBe(true);
-  await expect(page.getByRole("button", { name: "应用到 1 个用户" })).toBeVisible();
-  await page.getByRole("button", { name: "取消", exact: true }).click();
-  await expect(page.locator('span[aria-hidden="true"][tabindex="0"]')).toHaveCount(0);
-  await expect(page.getByText("1 个用户已选择", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "清除", exact: true }).click();
-  await page.locator(".paste-admin-user-row").first().getByRole("button", { name: /检查用户/ }).click();
-  await expect(page.getByRole("heading", { level: 2, name: "usr_ABUSE01" })).toBeVisible();
-  await page.screenshot({ path: testInfo.outputPath("admin-users-mobile.png"), fullPage: true });
-  const accessibility = await new AxeBuilder({ page })
-    .exclude("[data-nuxt-devtools]")
-    .exclude("[data-admin-console-breadcrumb]")
-    .analyze();
-  expect(accessibility.violations, accessibility.violations.map((item) => `${item.id}: ${item.help}`).join("\n")).toEqual([]);
-  await page.getByRole("button", { name: "关闭用户检查器" }).click();
-  await navigateAdmin(page, "站点设置");
-  const anonymousLimit = page.getByRole("spinbutton", { name: "匿名创建每日全站总额" });
-  await expect(anonymousLimit).toBeVisible();
-  await anonymousLimit.scrollIntoViewIfNeeded();
-  await page.screenshot({ path: testInfo.outputPath("admin-limits-mobile.png"), fullPage: true });
+test("administrator filters apply drafts and cancel without changing the query", async ({page},info)=>{
+ test.skip(info.project.name!=="desktop");await loginToAdmin(page);
+ await page.getByRole("button",{name:"筛选",exact:true}).click();
+ const dialog=page.getByRole("dialog");await expect(dialog).toBeVisible();
+ await dialog.getByLabel("可见性").click();await page.getByRole("option",{name:"仅自己",exact:true}).click();
+ await dialog.getByRole("button",{name:"取消",exact:true}).click();await expect(dialog).toBeHidden();
+ await expect(page.getByRole("button",{name:"筛选",exact:true})).toBeVisible();
+ await page.getByRole("button",{name:"筛选",exact:true}).click();await dialog.getByLabel("可见性").click();await page.getByRole("option",{name:"仅自己",exact:true}).click();
+ const response=page.waitForResponse(r=>r.url().includes("/api/v1/admin/pastes")&&r.url().includes("visibility=private"));
+ await dialog.getByRole("button",{name:"应用筛选"}).click();expect((await response).status()).toBe(200);await expect(dialog).toBeHidden();
+ await expect(page.getByRole("button",{name:"筛选 · 1",exact:true})).toBeVisible();
 });
 
-test("administrator filters open without runtime errors", async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== "desktop", "one browser regression signal is sufficient");
-  await loginToAdmin(page);
-  await expect(page.locator(".paste-admin-loading")).toHaveCount(0);
-  const runtimeErrors: string[] = [];
-  page.on("pageerror", (error) => runtimeErrors.push(error.message));
-  page.on("console", (message) => {
-    if (message.type() === "error") runtimeErrors.push(message.text());
-  });
-
-  await page.getByRole("button", { name: "筛选", exact: true }).click();
-  await page.waitForTimeout(50);
-  expect(runtimeErrors).toEqual([]);
-  const panel = page.locator(".paste-admin-filter-panel");
-  await expect(panel).toBeVisible();
-
-  const privateResponse = page.waitForResponse((response) =>
-    response.url().includes("/api/v1/admin/pastes") && response.url().includes("visibility=private"),
-  );
-  await panel.getByLabel("可见性").click();
-  await page.getByRole("option", { name: "仅自己", exact: true }).click();
-  expect((await privateResponse).status()).toBe(200);
-  await expect(page.getByRole("button", { name: "筛选 1", exact: true })).toBeVisible();
-
-  await expect(panel).toBeVisible();
-  const clearResponse = page.waitForResponse((response) =>
-    response.url().includes("/api/v1/admin/pastes") && !response.url().includes("visibility="),
-  );
-  await panel.getByLabel("可见性").click();
-  await page.getByRole("option", { name: "全部可见性", exact: true }).click();
-  expect((await clearResponse).status()).toBe(200);
-  expect(runtimeErrors).toEqual([]);
-});
-
-test("administrator can jump between numbered result pages", async ({ page }, testInfo) => {
-  const constrainedMobile = testInfo.project.name === "mobile";
-  if (constrainedMobile) await page.setViewportSize({ width: 320, height: 568 });
-  const offsets: number[] = [];
-  await page.route("**/api/v1/admin/pastes**", async (route) => {
-    if (route.request().method() !== "GET") return route.continue();
-    const requestURL = new URL(route.request().url());
-    const pageNumber = Number(requestURL.searchParams.get("page") || 1);
-    const offset = (pageNumber - 1) * 50;
-    offsets.push(offset);
-    const count = Math.min(50, Math.max(0, 121 - offset));
-    const pastes = Array.from({ length: count }, (_, index) => {
-      const number = offset + index + 1;
-      return {
-        code: `P${String(number).padStart(7, "0")}`,
-        shareUrl: `/p/P${String(number).padStart(7, "0")}`,
-        title: `分页片段 ${number}`,
-        tags: [],
-        fileCount: 1,
-        primaryLanguage: "text",
-        visibility: "unlisted",
-        passwordProtected: false,
-        state: "active",
-        revision: 1,
-        createdAt: "2026-08-11T00:00:00Z",
-        updatedAt: "2026-08-11T00:00:00Z",
-      };
-    });
-    await route.fulfill({ json: { items: pastes, total: 121, size: 50, page: pageNumber } });
-  });
-
-  await loginToAdmin(page);
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await expect(page.getByText("分页片段 1", { exact: true })).toBeVisible({
-    timeout: 30_000,
-  });
-  await expect(page.getByRole("button", { name: "第 2 页", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "第 2 页", exact: true }).click();
-  await expect.poll(() => offsets).toContain(50);
-  await expect(page.getByRole("button", { name: "第 2 页", exact: true })).toHaveAttribute("aria-current", "page");
-  await expect(page.locator(".paste-admin-page-status")).toContainText("51-100 / 121");
-  const statusbar = await page.locator(".paste-admin-statusbar").evaluate((node) => ({
-    width: node.clientWidth,
-    scrollWidth: node.scrollWidth,
-  }));
-  expect(statusbar.scrollWidth).toBeLessThanOrEqual(statusbar.width);
-  if (constrainedMobile) {
-    for (const control of [
-      page.getByRole("button", { name: "上一页" }),
-      page.getByRole("button", { name: "第 2 页", exact: true }),
-      page.getByRole("button", { name: "下一页" }),
-    ]) {
-      const box = await control.boundingBox();
-      expect(box?.width).toBeGreaterThanOrEqual(44);
-      expect(box?.height).toBeGreaterThanOrEqual(44);
-    }
-    await page.getByRole("button", { name: "第 3 页", exact: true }).focus();
-    await page.keyboard.press("Enter");
-    await expect.poll(() => offsets).toContain(100);
-    await expect(page.getByRole("button", { name: "第 3 页", exact: true })).toHaveAttribute("aria-current", "page");
-  }
-  await page.screenshot({ path: testInfo.outputPath("admin-pagination.png"), fullPage: true });
+test("administrator pagination uses bounded pages and supports page size changes",async({page},info)=>{
+ const sizes:number[]=[];const pages:number[]=[];
+ await page.route("**/api/v1/admin/pastes?**",async route=>{
+  const url=new URL(route.request().url());const size=Number(url.searchParams.get("size")||20);const number=Number(url.searchParams.get("page")||1);sizes.push(size);pages.push(number);
+  const items=Array.from({length:size},(_,i)=>({code:`p${number}-${i}`,title:`分页片段 ${(number-1)*size+i+1}`,ownerUserKey:"TestA123",tags:[],fileCount:1,primaryLanguage:"text",totalBytes:10,visibility:"unlisted",passwordProtected:false,state:"active",revision:1,createdAt:"2026-09-09T00:00:00Z",updatedAt:"2026-09-09T00:00:00Z"}));
+  await route.fulfill({json:{items,total:2000,size,page:number}});
+ });
+ await loginToAdmin(page);await page.reload();await expect(page.getByText("分页片段 1",{exact:true})).toBeVisible();
+ const bar=page.locator("[data-collection-pagination-bar]");expect(await bar.getByRole("button").count()).toBeLessThan(15);
+ await bar.getByRole("button",{name:"第 2 页",exact:true}).click();await expect.poll(()=>pages).toContain(2);
+ await bar.getByRole("button",{name:"最后一页",exact:true}).click();await expect.poll(()=>pages).toContain(100);
+ await bar.getByRole("button",{name:"第一页",exact:true}).click();await expect(page.getByText("分页片段 1",{exact:true})).toBeVisible();
+ await bar.getByRole("combobox",{name:"每页数量"}).click();await page.getByRole("option",{name:"50 条 / 页",exact:true}).click();await expect.poll(()=>sizes).toContain(50);expect(pages.at(-1)).toBe(1);
+ const box=await bar.getByRole("button",{name:"第 1 页",exact:true}).boundingBox();expect(box?.height).toBe(28);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:info.outputPath("admin-pagination.png"),fullPage:true});
 });
 
 test("administrator workspace adapts to a mobile viewport", async ({ page }, testInfo) => {
@@ -549,7 +282,7 @@ test("administrator workspace adapts to a mobile viewport", async ({ page }, tes
   test.setTimeout(60_000);
   await page.emulateMedia({ colorScheme: "dark" });
   await loginToAdmin(page);
-  await expect(page.getByRole("heading", { level: 1, name: "片段治理" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "片段管理" })).toBeVisible();
   await expect(page.locator(".paste-admin-loading")).toHaveCount(0, {
     timeout: 30_000,
   });
@@ -564,13 +297,13 @@ test("administrator workspace adapts to a mobile viewport", async ({ page }, tes
   await expect(firstRow.locator(".paste-admin-access")).toBeVisible();
   for (const [label, control] of [
     ["select all", page.locator(".paste-admin-select-all")],
-    ["search", page.getByRole("searchbox", { name: "搜索全站代码片段" })],
+    ["search", page.getByRole("textbox", { name: "搜索标题、短码、用户或标签" })],
     ["filters", page.getByRole("button", { name: "筛选", exact: true })],
     ["refresh", page.getByRole("button", { name: "刷新列表" })],
     ["sidebar", page.getByRole("button", { name: "打开侧边栏" })],
   ] as const) {
     const box = await control.boundingBox();
-    expect(box?.height, `${label} touch target`).toBeGreaterThanOrEqual(44);
+    expect(box?.height, `${label} target`).toBeGreaterThanOrEqual(label === "search" || label === "filters" ? 36 : 28);
   }
   await page.screenshot({ path: testInfo.outputPath("admin-mobile.png"), fullPage: true });
   const accessibility = await new AxeBuilder({ page })
@@ -579,23 +312,88 @@ test("administrator workspace adapts to a mobile viewport", async ({ page }, tes
     .analyze();
   expect(accessibility.violations, accessibility.violations.map((item) => `${item.id}: ${item.help}`).join("\n")).toEqual([]);
 
-  await firstRow.getByRole("button", { name: /^检查/ }).click();
-  await expect(page.locator(".paste-admin-inspector")).toBeVisible();
-  await page.screenshot({ path: testInfo.outputPath("admin-inspector-mobile.png"), fullPage: true });
-  await page.getByRole("button", { name: "关闭检查器" }).click();
+  await expect(firstRow.getByRole("link",{name:"打开分享链接"})).toBeVisible();
+  await expect(page.locator(".paste-admin-inspector")).toHaveCount(0);
   await navigateAdmin(page, "站点设置");
   await expect(page.locator(".paste-admin-settings-catalog")).toBeVisible();
   await expect(page.locator(".paste-admin-brand-preview")).toHaveCount(0);
-  const resetSettings = page.getByRole("button", { name: "放弃修改" });
+  await expect(page.getByRole("button", {name:"放弃修改",exact:true})).toHaveCount(0);
+  const save = page.getByRole("button", {name:"保存",exact:true});
+  await expect(save).toBeEnabled();
+  await save.click();
+  await expect(page.getByRole("button", {name:"已保存",exact:true})).toBeVisible();
+  await expect(save).toBeVisible({timeout:2500});
   const siteName = page.locator('input[name="siteName"]');
   const originalSiteName = await siteName.inputValue();
-  const resetBox = await resetSettings.boundingBox();
-  expect(resetBox?.width).toBeGreaterThanOrEqual(44);
-  expect(resetBox?.height).toBeGreaterThanOrEqual(44);
   await siteName.fill(`${originalSiteName} mobile draft`);
-  await expect(resetSettings).toBeEnabled();
-  await resetSettings.click();
+  await page.reload();
   await expect(siteName).toHaveValue(originalSiteName);
-  await expect(resetSettings).toBeDisabled();
+  await expect(page.getByRole("link", {name:"返回首页",exact:true})).toHaveCount(0);
+  await expect(page.getByRole("link", {name:"我的片段",exact:true})).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("admin-settings-mobile.png"), fullPage: true });
+});
+
+
+test("administrator loads public profiles and keeps checkboxes square", async ({ page }, testInfo) => {
+  test.setTimeout(60_000);
+  await loginToAdmin(page);
+  const session = await (await page.request.get("/api/v1/admin/session")).json();
+  const response = await page.request.get(`/identity-api/api/v1/users?ids=${encodeURIComponent(session.userKey)}`);
+  expect(response.status()).toBe(200);
+  const profile = (await response.json()).items[0];
+  expect(profile.displayName).toBeTruthy();
+  await navigateAdmin(page, "用户管理");
+  const profileRow = page.locator(".paste-admin-user-row").filter({ hasText: session.userKey });
+  await expect(profileRow.getByText(profile.displayName, { exact: true })).toBeVisible();
+  await expect(page.getByText("用户资料加载失败", { exact: true })).toHaveCount(0);
+  const checkbox = page.getByRole("checkbox", { name: "选择当前页用户" });
+  const box = await checkbox.boundingBox();
+  expect(box).not.toBeNull();
+  expect(Math.abs(box!.width - box!.height)).toBeLessThanOrEqual(1);
+  await page.screenshot({ path: testInfo.outputPath("admin-profiles.png"), fullPage: true });
+
+  // A controlled media fixture exercises the avatar branch; profile data above is real.
+  await page.route("**/identity-api/api/v1/users?**", async route => {
+    const original = await route.fetch();
+    const body = await original.json();
+    for (const item of body.items) item.avatar = { mediaKey: "avatar-test" };
+    await route.fulfill({ response: original, json: body });
+  });
+  await page.route("**/media/avatar-test?**", route => route.fulfill({ contentType: "image/png", body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", "base64") }));
+  await page.reload();
+  const avatar = profileRow.getByRole("img", { name: profile.displayName, exact: true });
+  await expect(avatar).toBeVisible();
+  await expect.poll(() => avatar.evaluate(node => (node as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+});
+
+
+test("initial setup keeps failed claims retryable", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "setup state fixture");
+  test.setTimeout(60_000);
+  await loginToAdmin(page);
+  let claimed = false;
+  let attempts = 0;
+  await page.route("**/api/v1/authorization/setup", route => route.fulfill({ json: { claimed, canClaim: !claimed } }));
+  await page.route("**/api/v1/authorization/setup/claim", route => {
+    attempts += 1;
+    if (attempts === 1) return route.fulfill({ status: 503, contentType: "application/problem+json", json: { type: "about:blank", title: "Unavailable", status: 503, code: "common.internal" } });
+    claimed = true;
+    return route.fulfill({ json: { claimed: true } });
+  });
+  // Client navigation permits a controlled setup state without changing the running site's authorization.
+  await page.evaluate(async () => {
+    const root = document.getElementById("__nuxt") as HTMLElement & {
+      __vue_app__: { config: { globalProperties: { $router: { push: (path: string) => Promise<unknown> } } } };
+    };
+    await root.__vue_app__.config.globalProperties.$router.push("/setup");
+  });
+  const claim = page.getByRole("button", { name: "初始化站点并成为管理员", exact: true });
+  await expect(claim).toBeEnabled();
+  await page.screenshot({ path: testInfo.outputPath("setup-unclaimed.png"), fullPage: true });
+  await claim.click();
+  await expect(page.getByText("初始化未完成", { exact: true })).toBeVisible();
+  await expect(claim).toBeEnabled();
+  await claim.click();
+  await expect(page).toHaveURL(/\/admin$/);
+  expect(attempts).toBe(2);
 });

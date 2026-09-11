@@ -1,0 +1,5 @@
+
+internal/postgres/migrations/0004_authorization.down.sql -text whitespace=cr-at-eol
+internal/postgres/migrations/0004_authorization.up.sql -text whitespace=cr-at-eol
+internal/postgres/migrations/0005_audit.down.sql -text whitespace=cr-at-eol
+internal/postgres/migrations/0005_audit.up.sql -text whitespace=cr-at-eol

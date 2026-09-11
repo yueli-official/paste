@@ -15,7 +15,7 @@ const route = useRoute();
 const api = usePasteApi();
 const transfer = usePasteTransfer();
 const toast = useToast();
-const { isAdmin } = useAuth();
+const { isAdmin } = usePasteAdministration();
 const { siteName, siteDescription } = useSiteSettings();
 const code = computed(() => String(route.params.code || ""));
 const value = ref<Paste>();

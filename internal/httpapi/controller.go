@@ -8,25 +8,28 @@ import (
 	"strings"
 
 	foundationauth "github.com/yueli-official/foundation/go/auth"
+	"github.com/yueli-official/foundation/go/authorization"
 	"github.com/yueli-official/foundation/go/problem"
 	v1 "github.com/yueli-official/paste/api/v1"
 	"github.com/yueli-official/paste/internal/governance"
 	"github.com/yueli-official/paste/internal/paste"
+	"github.com/yueli-official/paste/internal/pasteauthz"
 	"github.com/yueli-official/paste/internal/pasteerr"
 	"github.com/yueli-official/paste/internal/site"
 )
 
 type Core struct {
-	pastes         *paste.Service
-	settings       *site.Service
-	governance     *governance.Service
-	publicBase     string
-	administrators map[string]struct{}
+	pastes        *paste.Service
+	settings      *site.Service
+	governance    *governance.Service
+	publicBase    string
+	authorization *pasteauthz.Service
 }
 
 type Options struct {
 	PublicBase            string
 	AdministratorSubjects []string
+	Authorization         pasteauthz.Runtime
 }
 
 func New(pastes *paste.Service, settings *site.Service, governanceService *governance.Service, options Options) (*Core, error) {
@@ -39,16 +42,27 @@ func New(pastes *paste.Service, settings *site.Service, governanceService *gover
 	if governanceService == nil {
 		return nil, errors.New("paste/httpapi: Governance service is required")
 	}
-	administrators := make(map[string]struct{}, len(options.AdministratorSubjects))
-	for _, raw := range options.AdministratorSubjects {
-		if subject := strings.TrimSpace(raw); subject != "" {
-			administrators[subject] = struct{}{}
+	runtime := options.Authorization
+	if runtime == nil {
+		definition, err := authorization.Compile(pasteauthz.Definition())
+		if err != nil {
+			return nil, err
+		}
+		subjects := []authorization.SubjectRef{}
+		for _, id := range options.AdministratorSubjects {
+			if id = strings.TrimSpace(id); id != "" {
+				subjects = append(subjects, authorization.SubjectRef{Kind: authorization.SubjectUser, ID: id})
+			}
+		}
+		runtime, err = authorization.NewMemory(definition, authorization.MemoryOptions{RootScopeID: pasteauthz.RootScopeID, ProtectedSubjects: subjects, AllowUnclaimed: len(subjects) == 0})
+		if err != nil {
+			return nil, err
 		}
 	}
 	return &Core{
 		pastes: pastes, settings: settings, governance: governanceService,
-		publicBase:     strings.TrimRight(strings.TrimSpace(options.PublicBase), "/"),
-		administrators: administrators,
+		publicBase:    strings.TrimRight(strings.TrimSpace(options.PublicBase), "/"),
+		authorization: pasteauthz.New(runtime),
 	}, nil
 }
 
@@ -442,8 +456,8 @@ func (core *Core) requiredAdministrator(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if _, ok := core.administrators[userKey]; !ok {
-		return "", mustProblem(pasteerr.Forbidden)
+	if err := core.authorization.RequireManage(ctx); err != nil {
+		return "", pasteerr.Map(err)
 	}
 	return userKey, nil
 }

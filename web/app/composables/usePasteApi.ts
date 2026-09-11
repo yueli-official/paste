@@ -24,6 +24,7 @@ function jsonBody(value: unknown): JsonValue {
 
 function normalizePaste(value: Paste): Paste {
   return {
+
     ...value,
     tags: Array.isArray(value.tags) ? value.tags : [],
     files: Array.isArray(value.files) ? value.files : [],
@@ -38,6 +39,8 @@ export function usePasteApi() {
   const api = useFoundationApi("platform");
 
   return {
+    getSetup: () => api.request<{claimed:boolean;canClaim:boolean}>("/api/v1/authorization/setup", {auth:"optional"}),
+    claimAdministrator: () => api.request<{claimed:boolean}>("/api/v1/authorization/setup/claim", {method:"POST",auth:"required"}),
     getAdministrationSession() {
       return api.request<{ allowed: boolean; userKey: string }>("/api/v1/admin/session", { auth: "required" });
     },

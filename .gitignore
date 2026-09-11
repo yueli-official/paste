@@ -12,4 +12,4 @@ playwright-report/
 test-results/
 web/.env
 manifest/config/config.yaml
-
+/web/.nuxt-acceptance/

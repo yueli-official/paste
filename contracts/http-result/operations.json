@@ -109,6 +109,22 @@
       ]
     },
     {
+      "id": "paste.get.api.v1.authorization.setup",
+      "method": "GET",
+      "path": "/api/v1/authorization/setup",
+      "success": {
+        "status": 200,
+        "kind": "resource",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.paste.api.v1.GetAuthorizationSetupRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "paste.not_authenticated",
+        "paste.forbidden"
+      ]
+    },
+    {
       "id": "paste.get.api.v1.me.pastes",
       "method": "GET",
       "path": "/api/v1/me/pastes",
@@ -272,6 +288,23 @@
         "paste.forbidden",
         "paste.not_found",
         "paste.gone",
+        "paste.conflict"
+      ]
+    },
+    {
+      "id": "paste.post.api.v1.authorization.setup.claim",
+      "method": "POST",
+      "path": "/api/v1/authorization/setup/claim",
+      "success": {
+        "status": 200,
+        "kind": "resource",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.paste.api.v1.ClaimAdministratorRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "paste.not_authenticated",
+        "paste.forbidden",
         "paste.conflict"
       ]
     },

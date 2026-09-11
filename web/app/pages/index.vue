@@ -24,7 +24,8 @@ interface LocalFile extends PasteFile { id: number }
 const route = useRoute();
 const api = usePasteApi();
 const transfer = usePasteTransfer();
-const { loggedIn, login, isAdmin } = useAuth();
+const { loggedIn, login } = useAuth();
+const { isAdmin } = usePasteAdministration();
 const { siteName, siteDescription } = useSiteSettings();
 let nextFileID = 1;
 const maxFileBytes = 1024 * 1024;

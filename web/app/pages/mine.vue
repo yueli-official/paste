@@ -6,6 +6,7 @@ FIRST VIEWPORT: one 40px titlebar, a compact search toolbar, the ledger, and a r
 FORM: fixed-height application shell with one internally scrolling content plane.
 -->
 <script setup lang="ts">
+import { CollectionPaginationBar } from "@yueli/ui/collection/pattern";
 import type { Paste, PastePatchInput, PasteSummary, PasteVisibility } from "../types/paste";
 import { displayTitle, pasteErrorMessage } from "../utils/paste";
 
@@ -13,7 +14,7 @@ definePageMeta({ middleware: "auth" });
 
 const api = usePasteApi();
 const toast = useToast();
-const { isAdmin } = useAuth();
+const { isAdmin } = usePasteAdministration();
 const { siteName } = useSiteSettings();
 const accountActions = computed(() => [
   ...(isAdmin.value
@@ -23,7 +24,7 @@ const accountActions = computed(() => [
 const values = ref<PasteSummary[]>([]);
 const query = ref("");
 const page = ref(1);
-const pageSize = 50;
+const pageSize = ref(20);
 const total = ref(0);
 let loadSequence = 0;
 const loading = ref(true);
@@ -80,9 +81,9 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
-    const result = await api.listMine({page: page.value, size: pageSize, q: query.value.trim() || undefined});
+    const result = await api.listMine({page: page.value, size: pageSize.value, q: query.value.trim() || undefined});
     if(sequence !== loadSequence) return;
-    const lastPage = Math.max(1, Math.ceil(result.total / pageSize));
+    const lastPage = Math.max(1, Math.ceil(result.total / pageSize.value));
     if(page.value > lastPage) { page.value = lastPage; return; }
     values.value = result.items; total.value = result.total;
     const available = new Set(values.value.map((value) => value.code));
@@ -267,7 +268,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", focusSearch));
 
 <template>
   <section
-    class="paste-mine-shell grid h-dvh min-h-[360px] w-full min-w-0 grid-rows-[40px_38px_minmax(0,1fr)_28px] overflow-hidden bg-[var(--paste-editor)] max-[760px]:min-h-[320px] max-[760px]:grid-rows-[44px_44px_minmax(0,1fr)_30px]"
+    class="paste-mine-shell grid h-dvh min-h-[360px] w-full min-w-0 grid-rows-[40px_38px_minmax(0,1fr)_auto] overflow-hidden bg-[var(--paste-editor)] max-[760px]:min-h-[320px] max-[760px]:grid-rows-[44px_44px_minmax(0,1fr)_auto]"
     aria-labelledby="mine-title"
   >
     <header
@@ -489,13 +490,9 @@ onBeforeUnmount(() => window.removeEventListener("keydown", focusSearch));
       </div>
     </div>
 
-    <footer class="paste-mine-statusbar flex min-w-0 items-center justify-between gap-4 border-t border-[var(--paste-status-border)] bg-[var(--paste-status)] px-2.5 pb-[env(safe-area-inset-bottom)] font-mono text-xs text-[var(--paste-status-text-muted)]" aria-label="工作区状态">
-      <span class="flex items-center gap-[7px] whitespace-nowrap text-[var(--paste-status-text)]">
-        <span class="size-[7px] rounded-full bg-[var(--paste-green)]" aria-hidden="true" />
-        我的片段
-      </span>
-      <nav v-if="total > pageSize" aria-label="我的片段分页"><UPagination v-model:page="page" :total="total" :items-per-page="pageSize" size="xs" :sibling-count="0" :show-edges="false" /></nav>
-      <span aria-live="polite">{{ selectedValues.length ? `已选择 ${selectedValues.length} 项` : query ? `筛选 ${filtered.length} / ${total}` : operationMessage || `${total} 条记录` }}</span>
+    <footer class="paste-mine-statusbar min-w-0 border-t border-default bg-default px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] text-xs text-muted" aria-label="工作区状态">
+      <CollectionPaginationBar :page="page" :page-size="pageSize" :page-sizes="[20, 50, 100]" @page-size-change="pageSize = $event; page = 1; load()" :total="total" @page-change="page = $event" />
+      <span class="sr-only" aria-live="polite">{{ operationMessage }}</span>
     </footer>
 
     <USlideover

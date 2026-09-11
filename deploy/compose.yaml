@@ -1,0 +1,87 @@
+name: paste
+services:
+  paste-db:
+    image: postgres:18.4-bookworm
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: paste
+      POSTGRES_USER: paste_app
+      POSTGRES_PASSWORD: ${PASTE_DB_PASSWORD:?set PASTE_DB_PASSWORD}
+    volumes: ['./data/postgres:/var/lib/postgresql']
+    networks: [private]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U paste_app -d paste']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 512m
+    logging: {driver: json-file, options: {max-size: 10m, max-file: '3'}}
+  paste-migrate:
+    image: ${PASTE_API_IMAGE:?set PASTE_API_IMAGE}
+    pull_policy: never
+    restart: 'no'
+    entrypoint: [/usr/local/bin/migrate]
+    environment:
+      PASTE_DATABASE_URL: ${PASTE_DATABASE_URL:?set PASTE_DATABASE_URL}
+    networks: [private]
+    depends_on:
+      paste-db: {condition: service_healthy}
+  paste-api:
+    image: ${PASTE_API_IMAGE:?set PASTE_API_IMAGE}
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      PASTE_DATABASE_URL: ${PASTE_DATABASE_URL:?set PASTE_DATABASE_URL}
+      PASTE_INSTANCE_ID: paste-production
+      PASTE_API_ADDRESS: 0.0.0.0:8091
+      PASTE_PUBLIC_BASE_URL: https://paste.yuelili.com
+      PASTE_JWKS_URL: https://account.yuelili.com/oauth2/jwks.json
+      PASTE_JWKS_ISSUER: https://account.yuelili.com
+      PASTE_JWKS_AUDIENCE: paste-api
+      PASTE_JWKS_ALLOW_LOOPBACK_HTTP: 'false'
+    ports: ['127.0.0.1:18291:8091']
+    networks: [services, private]
+    depends_on:
+      paste-migrate: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD, /usr/local/bin/paste-healthcheck]
+      interval: 10s
+      timeout: 4s
+      retries: 12
+      start_period: 10s
+    mem_limit: 384m
+    logging: {driver: json-file, options: {max-size: 10m, max-file: '3'}}
+  paste-web:
+    image: ${PASTE_WEB_IMAGE:?set PASTE_WEB_IMAGE}
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      NUXT_DOWNSTREAM_BASE: http://paste-api:8091
+      NUXT_IDENTITY_BASE: http://identity:8081
+      NUXT_SEAL_SECRET: ${PASTE_SEAL_SECRET:?set PASTE_SEAL_SECRET}
+      NUXT_COOKIE_SECURE: 'true'
+      NUXT_AUTH_COOKIE_SECURE: 'true'
+      NUXT_PUBLIC_OIDC_ISSUER: https://account.yuelili.com
+      NUXT_PUBLIC_OIDC_CLIENT_ID: paste-yueli-web
+      NUXT_PUBLIC_OIDC_REDIRECT_URI: https://paste.yuelili.com/auth/callback
+      NUXT_PUBLIC_OIDC_POST_LOGOUT_REDIRECT_URI: https://paste.yuelili.com/
+      NUXT_PUBLIC_OIDC_SCOPES: openid profile email roles offline_access
+      NUXT_PUBLIC_ACCOUNT_URL: https://account.yuelili.com
+      NUXT_PUBLIC_PASTE_BASE: https://paste.yuelili.com
+      NODE_OPTIONS: --max-old-space-size=512
+    ports: ['127.0.0.1:13010:3000']
+    networks: [services]
+    depends_on:
+      paste-api: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/healthz').then(r=>{if(r.status!==200)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    mem_limit: 768m
+    logging: {driver: json-file, options: {max-size: 10m, max-file: '3'}}
+networks:
+  services: {external: true, name: yueli-services}
+  private: {internal: true}

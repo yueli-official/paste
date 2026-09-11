@@ -91,3 +91,17 @@ established tokens and shell before introducing another card, navigation pattern
   CodeMirror host adapter, the reader loading keyframe and the global reduced-motion fallback.
 - The CodeMirror adapter is restricted to editor height, scroller containment and tooltip theming. It must not grow into a second
   page-layout system; new product UI should remain visible in the template where Tailwind ownership can be reviewed directly.
+
+## Admin acceptance refinement (2026-09-10)
+
+Admin collections follow the shared compact header and pagination contract: title-aligned search/filter,
+content-driven list height, page size on the left and bounded first/previous/pages/next/last controls on the right.
+Keep the pagination inside the list surface. Mobile toolbar button sizing must not stretch checkbox glyphs.
+User rows use Foundation AuthorizationUser and Identity public profiles, with a retry action for failed enrichment.
+Administrator setup requires explicit confirmation and uses the existing tokens and Nuxt UI controls.
+
+## Save and pagination refinement (2026-09-10)
+
+Paste settings expose one fixed primary Save button. Successful saves show 已保存 in that button for 1000ms using Foundation action feedback, then return to 保存. No discard action; reload abandons unsaved input.
+Admin secondary navigation omits 我的片段/返回首页 because the brand already links home.
+The My Pastes pagination uses a neutral theme-aware footer with page size left and page navigation right; it is not embedded in the editor's blue 28px status strip.
