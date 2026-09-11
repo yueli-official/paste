@@ -33,3 +33,7 @@ Open
 ## Runtime and limits
 - 当前 Session 20260909T170917Z-48556，Web http://paste.dev.yuelili.test:3010 ，API 回环8291。
 - Foundation/Identity 明确本地源码 overlay；正式包发布与源码组合部署分开记录；本次源码组合的正式部署已通过上述验收，其他站点和 Provider 未变动。
+
+## 当前重部署（2026-09-11）
+
+用户授权的其他改版已提交，本产品已切换至 `server-20260911-redeploy-1`，健康与线上 CLI Playwright 复验通过，原配置和引用保留。见[本轮部署](deployment-redeploy-20260911.md)。
