@@ -66,8 +66,15 @@ func main() {
 	}
 
 	httpServer := g.Server()
+	personalSite := strings.TrimSpace(os.Getenv("PASTE_PERSONAL_TOKEN_SITE_ID"))
+	var personalVerifier *foundationauth.PersonalTokenVerifier
+	if personalSite != "" {
+		personalVerifier, err = foundationauth.NewPersonalTokenVerifier(requiredEnvironment("PASTE_PERSONAL_TOKEN_VERIFY_URL"), personalSite, nil,
+			foundationauth.PersonalTransportOptions{AllowHTTP: environment("PASTE_PERSONAL_TOKEN_ALLOW_HTTP", "false") == "true"})
+		must(err)
+	}
 	httpServer.SetAddr(environment("PASTE_API_ADDRESS", "127.0.0.1:8091"))
-	server.Configure(httpServer, server.Dependencies{Controller: controller, Verifier: verifier, Database: database})
+	server.Configure(httpServer, server.Dependencies{Controller: controller, Verifier: verifier, PersonalVerifier: personalVerifier, PersonalSite: personalSite, Database: database})
 	httpServer.Run()
 }
 

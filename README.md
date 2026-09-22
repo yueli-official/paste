@@ -3,6 +3,8 @@
 Paste is the Yueli site group's anonymous-first, multi-file code sharing product. It uses a Go API, a Nuxt Web app, Foundation
 contracts and Identity for optional authenticated ownership.
 
+Developer tokens and automated Paste workflows: [开发者令牌 API](docs/developer-tokens.md).
+
 The repository is being rebuilt from the useful product behavior in the legacy CodeShare implementation. Rust, SQLite, local
 password handling and the old visual treatment are not compatibility contracts.
 

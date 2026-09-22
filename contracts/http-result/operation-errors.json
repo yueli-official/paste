@@ -2,6 +2,13 @@
   "schemaVersion": "http.yueli.dev/operation-errors/v1",
   "namespace": "paste",
   "operations": {
+    "GET /api/v1/internal/personal-token/permissions": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "paste.not_authenticated",
+      "paste.forbidden"
+    ],
     "POST /api/v1/pastes": [
       "common.internal",
       "common.rate_limited",

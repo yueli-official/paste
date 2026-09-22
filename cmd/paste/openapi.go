@@ -15,6 +15,7 @@ func exportOpenAPI(output string) error {
 		group.Bind(core.Public())
 		group.Bind(core.Managed())
 		group.Bind(core.Administrator())
+		group.Bind(core.PersonalPermissions("paste-yueli-web"))
 	})
 	return foundationopenapi.Export(foundationopenapi.ExportConfig{Server: s, Output: output, Overwrite: true})
 }

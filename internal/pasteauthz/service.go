@@ -59,3 +59,18 @@ func (service *Service) RequireManage(ctx context.Context) error {
 	}
 	return nil
 }
+
+// CheckCapability intersects a selected PAT scope with the user's current
+// Paste authorization. Browser sessions have no PAT scope restriction.
+func (service *Service) CheckCapability(ctx context.Context, capability authorization.CapabilityKey) (bool, error) {
+	if service == nil || service.runtime == nil {
+		return false, &authorization.Error{Kind: authorization.ErrorUnavailable, Field: "runtime", Message: "is not configured"}
+	}
+	if !foundationauth.AllowsPersonalCapability(ctx, string(capability)) {
+		return false, nil
+	}
+	decision, err := service.runtime.Decide(ctx, authorization.DecisionRequest{
+		Subject: service.Subject(ctx), Capability: capability, ScopeID: RootScopeID,
+	})
+	return decision.Allowed, err
+}
