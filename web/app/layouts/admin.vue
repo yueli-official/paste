@@ -75,13 +75,14 @@ const searchGroups = computed<readonly AdminSearchGroup[]>(() => [
     :context-label="siteName"
     :current-label="currentLabel"
     back-to-top-label="返回顶部"
+    class="yueli-admin-branded"
     data-paste-admin-shell
   >
-    <template #account="{ collapsed }">
+    <template #topbar-right>
       <ConsumerManageAccountControl
         home-to=""
         show-appearance
-        :trigger-mode="collapsed ? 'collapsed' : 'sidebar'"
+        trigger-mode="inline"
       />
     </template>
     <slot />
