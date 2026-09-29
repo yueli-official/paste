@@ -1,7 +1,0 @@
-# Context
-
-Workspace基础服务发布加固P6队首为Paste。用户已授权继续并提交，Gallery移动导航新Work仅排期，不在本站加底部导航。
-
-保留已验收的紧凑编辑器和Tailwind迁移。错误使用产品catalog与Foundation resolver，前端不解析或展示thrown message。业务每日额度与HTTP频率限制分开。DB迁移字节不变。登录/Cookie由Identity拥有。
-
-本地运行由Workspace paste-local管理；当前Session与验收入口记录在index及本轮报告，后端只监听回环。正式依赖URL与本地overlay验收分开记录；2026-09-10 用户已授权并完成正式服务器部署，见references/server-deployment.md；本轮未执行Git push/tag或上游包release。
