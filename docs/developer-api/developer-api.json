@@ -1,0 +1,218 @@
+{
+  "authorization": {
+    "scopeSemantics": "OR across branches; AND within each branch; current account/resource authorization also required",
+    "siteHeader": "X-Yueli-Token-Site",
+    "tokenHeader": "Authorization: Bearer <PAT>"
+  },
+  "deployment": {
+    "status": "unknown"
+  },
+  "liveVerification": {
+    "status": "unknown"
+  },
+  "mediaProfiles": [],
+  "operations": [
+    {
+      "authentication": "pat",
+      "id": "get_api_v1_admin_pastes",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1admin~1pastes/get",
+      "path": "/api/v1/admin/pastes",
+      "scopeAnyOf": [
+        [
+          "paste.paste.moderate"
+        ]
+      ],
+      "summary": "List Pastes for site governance"
+    },
+    {
+      "authentication": "pat",
+      "id": "delete_api_v1_admin_pastes_code",
+      "method": "DELETE",
+      "openapiPointer": "#/paths/~1api~1v1~1admin~1pastes~1{code}/delete",
+      "path": "/api/v1/admin/pastes/{code}",
+      "scopeAnyOf": [
+        [
+          "paste.paste.moderate"
+        ]
+      ],
+      "summary": "Delete a Paste as site administrator"
+    },
+    {
+      "authentication": "pat",
+      "id": "patch_api_v1_admin_pastes_code",
+      "method": "PATCH",
+      "openapiPointer": "#/paths/~1api~1v1~1admin~1pastes~1{code}/patch",
+      "path": "/api/v1/admin/pastes/{code}",
+      "scopeAnyOf": [
+        [
+          "paste.paste.moderate"
+        ]
+      ],
+      "summary": "Govern a Paste"
+    },
+    {
+      "authentication": "pat",
+      "id": "patch_api_v1_admin_settings",
+      "method": "PATCH",
+      "openapiPointer": "#/paths/~1api~1v1~1admin~1settings/patch",
+      "path": "/api/v1/admin/settings",
+      "scopeAnyOf": [
+        [
+          "paste.settings.manage"
+        ]
+      ],
+      "summary": "Update public site settings"
+    },
+    {
+      "authentication": "pat",
+      "id": "get_api_v1_me_pastes",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1me~1pastes/get",
+      "path": "/api/v1/me/pastes",
+      "scopeAnyOf": [
+        [
+          "paste.paste.read"
+        ]
+      ],
+      "summary": "List the current user's Pastes"
+    },
+    {
+      "authentication": "pat",
+      "id": "delete_api_v1_me_pastes_code",
+      "method": "DELETE",
+      "openapiPointer": "#/paths/~1api~1v1~1me~1pastes~1{code}/delete",
+      "path": "/api/v1/me/pastes/{code}",
+      "scopeAnyOf": [
+        [
+          "paste.paste.delete"
+        ]
+      ],
+      "summary": "Delete an owned Paste"
+    },
+    {
+      "authentication": "pat",
+      "id": "get_api_v1_me_pastes_code",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1me~1pastes~1{code}/get",
+      "path": "/api/v1/me/pastes/{code}",
+      "scopeAnyOf": [
+        [
+          "paste.paste.read"
+        ]
+      ],
+      "summary": "Get an owned Paste for management"
+    },
+    {
+      "authentication": "pat",
+      "id": "patch_api_v1_me_pastes_code",
+      "method": "PATCH",
+      "openapiPointer": "#/paths/~1api~1v1~1me~1pastes~1{code}/patch",
+      "path": "/api/v1/me/pastes/{code}",
+      "scopeAnyOf": [
+        [
+          "paste.paste.update"
+        ]
+      ],
+      "summary": "Update an owned Paste"
+    },
+    {
+      "authentication": "pat",
+      "id": "post_api_v1_pastes",
+      "method": "POST",
+      "openapiPointer": "#/paths/~1api~1v1~1pastes/post",
+      "path": "/api/v1/pastes",
+      "scopeAnyOf": [
+        [
+          "paste.paste.create"
+        ]
+      ],
+      "summary": "Create an anonymous or user-owned Paste"
+    },
+    {
+      "authentication": "pat",
+      "id": "get_api_v1_pastes_code",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1pastes~1{code}/get",
+      "path": "/api/v1/pastes/{code}",
+      "scopeAnyOf": [
+        [
+          "paste.paste.read"
+        ]
+      ],
+      "summary": "Open a Paste that does not require a password"
+    },
+    {
+      "authentication": "pat",
+      "id": "post_api_v1_pastes_code_access",
+      "method": "POST",
+      "openapiPointer": "#/paths/~1api~1v1~1pastes~1{code}~1access/post",
+      "path": "/api/v1/pastes/{code}/access",
+      "scopeAnyOf": [
+        [
+          "paste.paste.read"
+        ]
+      ],
+      "summary": "Open a password-protected Paste"
+    },
+    {
+      "authentication": "pat",
+      "id": "get_api_v1_settings",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1settings/get",
+      "path": "/api/v1/settings",
+      "scopeAnyOf": [
+        [
+          "paste.paste.read"
+        ]
+      ],
+      "summary": "Read public site settings"
+    }
+  ],
+  "permissions": [
+    {
+      "capability": "paste.paste.create",
+      "description": "以当前账号身份创建多文件代码片段，仍受账号创建状态与每日额度限制。",
+      "key": "paste.paste.create",
+      "label": "创建片段"
+    },
+    {
+      "capability": "paste.paste.delete",
+      "description": "删除当前账号拥有的片段，继续遵守修订号并发保护。",
+      "key": "paste.paste.delete",
+      "label": "删除自己的片段"
+    },
+    {
+      "capability": "paste.paste.moderate",
+      "description": "查询、修改和删除站内片段；仍需当前 Paste 管理员权限。",
+      "key": "paste.paste.moderate",
+      "label": "治理站内片段"
+    },
+    {
+      "capability": "paste.paste.read",
+      "description": "列出并读取当前账号拥有的片段，不包含其他用户或匿名片段的后台治理。",
+      "key": "paste.paste.read",
+      "label": "读取自己的片段"
+    },
+    {
+      "capability": "paste.paste.update",
+      "description": "编辑当前账号拥有的片段，继续遵守修订号并发保护。",
+      "key": "paste.paste.update",
+      "label": "编辑自己的片段"
+    },
+    {
+      "capability": "paste.settings.manage",
+      "description": "修改 Paste 名称与公开说明；仍需当前 Paste 管理员权限。",
+      "key": "paste.settings.manage",
+      "label": "管理公开站点设置"
+    }
+  ],
+  "product": {
+    "guide": "../developer-tokens.md",
+    "id": "paste",
+    "name": "Paste",
+    "openapi": "../../contracts/openapi/paste.json"
+  },
+  "schemaVersion": 1,
+  "sourceDigest": "4f0844f14f610c7bb2d5ecb536c93d1fff49580e331e64a75a3cf878ad302bb2"
+}

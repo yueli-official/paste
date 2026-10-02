@@ -1,0 +1,170 @@
+{
+  "mediaProfiles": [],
+  "permissions": [
+    {
+      "capability": "paste.paste.create",
+      "description": "以当前账号身份创建多文件代码片段，仍受账号创建状态与每日额度限制。",
+      "key": "paste.paste.create",
+      "label": "创建片段"
+    },
+    {
+      "capability": "paste.paste.read",
+      "description": "列出并读取当前账号拥有的片段，不包含其他用户或匿名片段的后台治理。",
+      "key": "paste.paste.read",
+      "label": "读取自己的片段"
+    },
+    {
+      "capability": "paste.paste.update",
+      "description": "编辑当前账号拥有的片段，继续遵守修订号并发保护。",
+      "key": "paste.paste.update",
+      "label": "编辑自己的片段"
+    },
+    {
+      "capability": "paste.paste.delete",
+      "description": "删除当前账号拥有的片段，继续遵守修订号并发保护。",
+      "key": "paste.paste.delete",
+      "label": "删除自己的片段"
+    },
+    {
+      "capability": "paste.paste.moderate",
+      "description": "查询、修改和删除站内片段；仍需当前 Paste 管理员权限。",
+      "key": "paste.paste.moderate",
+      "label": "治理站内片段"
+    },
+    {
+      "capability": "paste.settings.manage",
+      "description": "修改 Paste 名称与公开说明；仍需当前 Paste 管理员权限。",
+      "key": "paste.settings.manage",
+      "label": "管理公开站点设置"
+    }
+  ],
+  "product": {
+    "guide": "../developer-tokens.md",
+    "id": "paste",
+    "name": "Paste",
+    "openapi": "../../contracts/openapi/paste.json"
+  },
+  "routes": [
+    {
+      "authentication": "pat",
+      "method": "POST",
+      "path": "/api/v1/pastes",
+      "scopeAnyOf": [
+        [
+          "paste.paste.create"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "GET",
+      "path": "/api/v1/pastes/{code}",
+      "scopeAnyOf": [
+        [
+          "paste.paste.read"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "POST",
+      "path": "/api/v1/pastes/{code}/access",
+      "scopeAnyOf": [
+        [
+          "paste.paste.read"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "GET",
+      "path": "/api/v1/settings",
+      "scopeAnyOf": [
+        [
+          "paste.paste.read"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "GET",
+      "path": "/api/v1/me/pastes",
+      "scopeAnyOf": [
+        [
+          "paste.paste.read"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "GET",
+      "path": "/api/v1/me/pastes/{code}",
+      "scopeAnyOf": [
+        [
+          "paste.paste.read"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "PATCH",
+      "path": "/api/v1/me/pastes/{code}",
+      "scopeAnyOf": [
+        [
+          "paste.paste.update"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "DELETE",
+      "path": "/api/v1/me/pastes/{code}",
+      "scopeAnyOf": [
+        [
+          "paste.paste.delete"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "GET",
+      "path": "/api/v1/admin/pastes",
+      "scopeAnyOf": [
+        [
+          "paste.paste.moderate"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "PATCH",
+      "path": "/api/v1/admin/pastes/{code}",
+      "scopeAnyOf": [
+        [
+          "paste.paste.moderate"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "DELETE",
+      "path": "/api/v1/admin/pastes/{code}",
+      "scopeAnyOf": [
+        [
+          "paste.paste.moderate"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "PATCH",
+      "path": "/api/v1/admin/settings",
+      "scopeAnyOf": [
+        [
+          "paste.settings.manage"
+        ]
+      ]
+    }
+  ],
+  "schemaVersion": 1
+}

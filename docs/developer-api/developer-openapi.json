@@ -1,0 +1,1176 @@
+{
+  "components": {
+    "schemas": {
+      "github.com.yueli-official.paste.api.v1.AdministrationDeletePasteRes": {
+        "properties": {},
+        "type": "object"
+      },
+      "github.com.yueli-official.paste.api.v1.AdministrationPasteView": {
+        "properties": {
+          "code": {
+            "format": "string",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "time.Time",
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "*time.Time",
+            "type": "string"
+          },
+          "fileCount": {
+            "format": "int",
+            "type": "integer"
+          },
+          "ownerUserKey": {
+            "format": "string",
+            "type": "string"
+          },
+          "passwordProtected": {
+            "format": "bool",
+            "type": "boolean"
+          },
+          "primaryLanguage": {
+            "format": "string",
+            "type": "string"
+          },
+          "revision": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "shareUrl": {
+            "format": "string",
+            "type": "string"
+          },
+          "state": {
+            "format": "string",
+            "type": "string"
+          },
+          "tags": {
+            "format": "[]string",
+            "items": {
+              "format": "string",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": {
+            "format": "string",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "time.Time",
+            "type": "string"
+          },
+          "visibility": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.paste.api.v1.CreatePasteReq": {
+        "properties": {
+          "description": {
+            "format": "string",
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "*time.Time",
+            "type": "string"
+          },
+          "files": {
+            "format": "[]v1.FileInput",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.FileInput",
+              "description": ""
+            },
+            "type": "array"
+          },
+          "password": {
+            "format": "string",
+            "type": "string"
+          },
+          "tags": {
+            "format": "[]string",
+            "items": {
+              "format": "string",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": {
+            "format": "string",
+            "type": "string"
+          },
+          "visibility": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "required": [
+          "files"
+        ],
+        "type": "object"
+      },
+      "github.com.yueli-official.paste.api.v1.CreatePasteRes": {
+        "properties": {
+          "paste": {
+            "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.PasteView",
+            "description": ""
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.paste.api.v1.DeletePasteRes": {
+        "properties": {},
+        "type": "object"
+      },
+      "github.com.yueli-official.paste.api.v1.FileInput": {
+        "properties": {
+          "content": {
+            "format": "string",
+            "type": "string"
+          },
+          "language": {
+            "format": "string",
+            "type": "string"
+          },
+          "path": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      },
+      "github.com.yueli-official.paste.api.v1.FileView": {
+        "properties": {
+          "content": {
+            "format": "string",
+            "type": "string"
+          },
+          "language": {
+            "format": "string",
+            "type": "string"
+          },
+          "order": {
+            "format": "int",
+            "type": "integer"
+          },
+          "path": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.paste.api.v1.GetMyPasteRes": {
+        "properties": {
+          "paste": {
+            "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.PasteView",
+            "description": ""
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.paste.api.v1.GetPasteRes": {
+        "properties": {
+          "paste": {
+            "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.PasteView",
+            "description": ""
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.paste.api.v1.GetSiteSettingsRes": {
+        "properties": {
+          "settings": {
+            "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.SiteSettingsView",
+            "description": ""
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.paste.api.v1.GovernPasteRes": {
+        "properties": {
+          "paste": {
+            "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.AdministrationPasteView",
+            "description": ""
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.paste.api.v1.ListAdministrationPastesRes": {
+        "properties": {
+          "items": {
+            "format": "[]v1.AdministrationPasteView",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.AdministrationPasteView",
+              "description": ""
+            },
+            "type": "array"
+          },
+          "page": {
+            "format": "int",
+            "type": "integer"
+          },
+          "size": {
+            "format": "int",
+            "type": "integer"
+          },
+          "total": {
+            "format": "int",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.paste.api.v1.ListMyPastesRes": {
+        "properties": {
+          "items": {
+            "format": "[]v1.PasteSummaryView",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.PasteSummaryView",
+              "description": ""
+            },
+            "type": "array"
+          },
+          "page": {
+            "format": "int",
+            "type": "integer"
+          },
+          "size": {
+            "format": "int",
+            "type": "integer"
+          },
+          "total": {
+            "format": "int",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.paste.api.v1.PasteSummaryView": {
+        "properties": {
+          "code": {
+            "format": "string",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "time.Time",
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "*time.Time",
+            "type": "string"
+          },
+          "fileCount": {
+            "format": "int",
+            "type": "integer"
+          },
+          "passwordProtected": {
+            "format": "bool",
+            "type": "boolean"
+          },
+          "primaryLanguage": {
+            "format": "string",
+            "type": "string"
+          },
+          "revision": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "shareUrl": {
+            "format": "string",
+            "type": "string"
+          },
+          "state": {
+            "format": "string",
+            "type": "string"
+          },
+          "tags": {
+            "format": "[]string",
+            "items": {
+              "format": "string",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": {
+            "format": "string",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "time.Time",
+            "type": "string"
+          },
+          "visibility": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.paste.api.v1.PasteView": {
+        "properties": {
+          "code": {
+            "format": "string",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "time.Time",
+            "type": "string"
+          },
+          "description": {
+            "format": "string",
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "*time.Time",
+            "type": "string"
+          },
+          "files": {
+            "format": "[]v1.FileView",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.FileView",
+              "description": ""
+            },
+            "type": "array"
+          },
+          "id": {
+            "format": "string",
+            "type": "string"
+          },
+          "passwordProtected": {
+            "format": "bool",
+            "type": "boolean"
+          },
+          "revision": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "shareUrl": {
+            "format": "string",
+            "type": "string"
+          },
+          "state": {
+            "format": "string",
+            "type": "string"
+          },
+          "tags": {
+            "format": "[]string",
+            "items": {
+              "format": "string",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": {
+            "format": "string",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "time.Time",
+            "type": "string"
+          },
+          "visibility": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.paste.api.v1.SiteSettingsView": {
+        "properties": {
+          "description": {
+            "format": "string",
+            "type": "string"
+          },
+          "name": {
+            "format": "string",
+            "type": "string"
+          },
+          "revision": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "updatedAt": {
+            "format": "time.Time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.paste.api.v1.UnlockPasteRes": {
+        "properties": {
+          "paste": {
+            "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.PasteView",
+            "description": ""
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.paste.api.v1.UpdatePasteRes": {
+        "properties": {
+          "paste": {
+            "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.PasteView",
+            "description": ""
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.paste.api.v1.UpdateSiteSettingsReq": {
+        "properties": {
+          "description": {
+            "format": "string",
+            "type": "string"
+          },
+          "expectedRevision": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "name": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expectedRevision"
+        ],
+        "type": "object"
+      },
+      "github.com.yueli-official.paste.api.v1.UpdateSiteSettingsRes": {
+        "properties": {
+          "settings": {
+            "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.SiteSettingsView",
+            "description": ""
+          }
+        },
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "DeveloperSite": {
+        "in": "header",
+        "name": "X-Yueli-Token-Site",
+        "type": "apiKey"
+      },
+      "DeveloperToken": {
+        "bearerFormat": "PAT",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "title": "Paste Developer API",
+    "version": "1"
+  },
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/v1/admin/pastes": {
+      "get": {
+        "operationId": "get_api_v1_admin_pastes",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "visibility",
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "ownership",
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "format": "int",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "schema": {
+              "format": "int",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.ListAdministrationPastesRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "DeveloperSite": [],
+            "DeveloperToken": []
+          }
+        ],
+        "summary": "List Pastes for site governance",
+        "tags": [
+          "Administration"
+        ],
+        "x-yueli-pat-scope-any-of": [
+          [
+            "paste.paste.moderate"
+          ]
+        ]
+      }
+    },
+    "/api/v1/admin/pastes/{code}": {
+      "delete": {
+        "operationId": "delete_api_v1_admin_pastes_code",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expectedRevision",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.AdministrationDeletePasteRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "DeveloperSite": [],
+            "DeveloperToken": []
+          }
+        ],
+        "summary": "Delete a Paste as site administrator",
+        "tags": [
+          "Administration"
+        ],
+        "x-yueli-pat-scope-any-of": [
+          [
+            "paste.paste.moderate"
+          ]
+        ]
+      },
+      "patch": {
+        "operationId": "patch_api_v1_admin_pastes_code",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "clearExpiry": {
+                    "format": "bool",
+                    "type": "boolean"
+                  },
+                  "expectedRevision": {
+                    "format": "int64",
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "expiresAt": {
+                    "format": "*time.Time",
+                    "type": "string"
+                  },
+                  "visibility": {
+                    "format": "*string",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "expectedRevision"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.GovernPasteRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "DeveloperSite": [],
+            "DeveloperToken": []
+          }
+        ],
+        "summary": "Govern a Paste",
+        "tags": [
+          "Administration"
+        ],
+        "x-yueli-pat-scope-any-of": [
+          [
+            "paste.paste.moderate"
+          ]
+        ]
+      }
+    },
+    "/api/v1/admin/settings": {
+      "patch": {
+        "operationId": "patch_api_v1_admin_settings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.UpdateSiteSettingsReq",
+                "description": ""
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.UpdateSiteSettingsRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "DeveloperSite": [],
+            "DeveloperToken": []
+          }
+        ],
+        "summary": "Update public site settings",
+        "tags": [
+          "Administration"
+        ],
+        "x-yueli-pat-scope-any-of": [
+          [
+            "paste.settings.manage"
+          ]
+        ]
+      }
+    },
+    "/api/v1/me/pastes": {
+      "get": {
+        "operationId": "get_api_v1_me_pastes",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "format": "int",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "schema": {
+              "format": "int",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.ListMyPastesRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "DeveloperSite": [],
+            "DeveloperToken": []
+          }
+        ],
+        "summary": "List the current user's Pastes",
+        "tags": [
+          "My Pastes"
+        ],
+        "x-yueli-pat-scope-any-of": [
+          [
+            "paste.paste.read"
+          ]
+        ]
+      }
+    },
+    "/api/v1/me/pastes/{code}": {
+      "delete": {
+        "operationId": "delete_api_v1_me_pastes_code",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expectedRevision",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.DeletePasteRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "DeveloperSite": [],
+            "DeveloperToken": []
+          }
+        ],
+        "summary": "Delete an owned Paste",
+        "tags": [
+          "My Pastes"
+        ],
+        "x-yueli-pat-scope-any-of": [
+          [
+            "paste.paste.delete"
+          ]
+        ]
+      },
+      "get": {
+        "operationId": "get_api_v1_me_pastes_code",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.GetMyPasteRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "DeveloperSite": [],
+            "DeveloperToken": []
+          }
+        ],
+        "summary": "Get an owned Paste for management",
+        "tags": [
+          "My Pastes"
+        ],
+        "x-yueli-pat-scope-any-of": [
+          [
+            "paste.paste.read"
+          ]
+        ]
+      },
+      "patch": {
+        "operationId": "patch_api_v1_me_pastes_code",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "clearExpiry": {
+                    "format": "bool",
+                    "type": "boolean"
+                  },
+                  "description": {
+                    "format": "*string",
+                    "type": "string"
+                  },
+                  "expectedRevision": {
+                    "format": "int64",
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "expiresAt": {
+                    "format": "*time.Time",
+                    "type": "string"
+                  },
+                  "files": {
+                    "format": "*[]v1.FileInput",
+                    "items": {
+                      "format": "[]v1.FileInput",
+                      "items": {
+                        "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.FileInput",
+                        "description": ""
+                      },
+                      "type": "array"
+                    },
+                    "type": "array"
+                  },
+                  "password": {
+                    "format": "*string",
+                    "type": "string"
+                  },
+                  "tags": {
+                    "format": "*[]string",
+                    "items": {
+                      "format": "[]string",
+                      "items": {
+                        "format": "string",
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "type": "array"
+                  },
+                  "title": {
+                    "format": "*string",
+                    "type": "string"
+                  },
+                  "visibility": {
+                    "format": "*string",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "expectedRevision"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.UpdatePasteRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "DeveloperSite": [],
+            "DeveloperToken": []
+          }
+        ],
+        "summary": "Update an owned Paste",
+        "tags": [
+          "My Pastes"
+        ],
+        "x-yueli-pat-scope-any-of": [
+          [
+            "paste.paste.update"
+          ]
+        ]
+      }
+    },
+    "/api/v1/pastes": {
+      "post": {
+        "operationId": "post_api_v1_pastes",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.CreatePasteReq",
+                "description": ""
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.CreatePasteRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "DeveloperSite": [],
+            "DeveloperToken": []
+          }
+        ],
+        "summary": "Create an anonymous or user-owned Paste",
+        "tags": [
+          "Pastes"
+        ],
+        "x-yueli-pat-scope-any-of": [
+          [
+            "paste.paste.create"
+          ]
+        ]
+      }
+    },
+    "/api/v1/pastes/{code}": {
+      "get": {
+        "operationId": "get_api_v1_pastes_code",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.GetPasteRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "DeveloperSite": [],
+            "DeveloperToken": []
+          }
+        ],
+        "summary": "Open a Paste that does not require a password",
+        "tags": [
+          "Pastes"
+        ],
+        "x-yueli-pat-scope-any-of": [
+          [
+            "paste.paste.read"
+          ]
+        ]
+      }
+    },
+    "/api/v1/pastes/{code}/access": {
+      "post": {
+        "operationId": "post_api_v1_pastes_code_access",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "password": {
+                    "format": "string",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "password"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.UnlockPasteRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "DeveloperSite": [],
+            "DeveloperToken": []
+          }
+        ],
+        "summary": "Open a password-protected Paste",
+        "tags": [
+          "Pastes"
+        ],
+        "x-yueli-pat-scope-any-of": [
+          [
+            "paste.paste.read"
+          ]
+        ]
+      }
+    },
+    "/api/v1/settings": {
+      "get": {
+        "operationId": "get_api_v1_settings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.GetSiteSettingsRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "DeveloperSite": [],
+            "DeveloperToken": []
+          }
+        ],
+        "summary": "Read public site settings",
+        "tags": [
+          "Site"
+        ],
+        "x-yueli-pat-scope-any-of": [
+          [
+            "paste.paste.read"
+          ]
+        ]
+      }
+    }
+  },
+  "x-yueli-deployment-status": "unknown",
+  "x-yueli-source-digest": "4f0844f14f610c7bb2d5ecb536c93d1fff49580e331e64a75a3cf878ad302bb2"
+}

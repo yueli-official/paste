@@ -1,5 +1,7 @@
 # 开发者令牌 API
 
+当前源码允许 PAT 调用的完整范围见 [开发者 API 目录](developer-api/index.md)、[机器能力目录](developer-api/developer-api.json) 和 [PAT OpenAPI](developer-api/developer-openapi.json)。
+
 Paste 复用 Identity 的开发者令牌。账户中心实时查询当前账号在 Paste 的权限；脚本向 Paste API 发送 `Authorization: Bearer <PAT>`，不复制浏览器 Cookie。
 
 ## 权限
