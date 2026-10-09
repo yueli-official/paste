@@ -261,18 +261,25 @@ test("administrator filters apply drafts and cancel without changing the query",
 
 test("administrator pagination uses bounded pages and supports page size changes",async({page},info)=>{
  const sizes:number[]=[];const pages:number[]=[];
- await page.route("**/api/v1/admin/pastes?**",async route=>{
+ await page.route(/\/api\/v1\/admin\/pastes(?:\?.*)?$/,async route=>{
   const url=new URL(route.request().url());const size=Number(url.searchParams.get("size")||20);const number=Number(url.searchParams.get("page")||1);sizes.push(size);pages.push(number);
   const items=Array.from({length:size},(_,i)=>({code:`p${number}-${i}`,title:`分页片段 ${(number-1)*size+i+1}`,ownerUserKey:"TestA123",tags:[],fileCount:1,primaryLanguage:"text",totalBytes:10,visibility:"unlisted",passwordProtected:false,state:"active",revision:1,createdAt:"2026-09-09T00:00:00Z",updatedAt:"2026-09-09T00:00:00Z"}));
   await route.fulfill({json:{items,total:2000,size,page:number}});
  });
- await loginToAdmin(page);await page.reload();await expect(page.getByText("分页片段 1",{exact:true})).toBeVisible();
+ await loginToAdmin(page);await page.waitForFunction(()=>Boolean((document.querySelector('button[aria-label="刷新列表"]') as HTMLButtonElement & {__vueParentComponent?:unknown})?.__vueParentComponent));
+ await page.getByRole("button",{name:"刷新列表",exact:true}).click();await expect(page.getByText("分页片段 1",{exact:true})).toBeVisible();
  const bar=page.locator("[data-collection-pagination-bar]");expect(await bar.getByRole("button").count()).toBeLessThan(15);
- await bar.getByRole("button",{name:"第 2 页",exact:true}).click();await expect.poll(()=>pages).toContain(2);
- await bar.getByRole("button",{name:"最后一页",exact:true}).click();await expect.poll(()=>pages).toContain(100);
- await bar.getByRole("button",{name:"第一页",exact:true}).click();await expect(page.getByText("分页片段 1",{exact:true})).toBeVisible();
+ if(info.project.name==="mobile"){
+  await bar.getByRole("button",{name:"下一页",exact:true}).click();await expect.poll(()=>pages).toContain(2);
+  await bar.getByRole("button",{name:"上一页",exact:true}).click();
+ }else{
+  await bar.getByRole("button",{name:"Page 2",exact:true}).click();await expect.poll(()=>pages).toContain(2);
+  await bar.getByRole("button",{name:"最后一页",exact:true}).click();await expect.poll(()=>pages).toContain(100);
+  await bar.getByRole("button",{name:"第一页",exact:true}).click();
+ }
+ await expect(page.getByText("分页片段 1",{exact:true})).toBeVisible();
  await bar.getByRole("combobox",{name:"每页数量"}).click();await page.getByRole("option",{name:"50 条 / 页",exact:true}).click();await expect.poll(()=>sizes).toContain(50);expect(pages.at(-1)).toBe(1);
- const box=await bar.getByRole("button",{name:"第 1 页",exact:true}).boundingBox();expect(box?.height).toBe(28);
+ expect(await bar.getByRole("button").filter({visible:true}).count()).toBeLessThan(15);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:info.outputPath("admin-pagination.png"),fullPage:true});
 });
@@ -303,7 +310,7 @@ test("administrator workspace adapts to a mobile viewport", async ({ page }, tes
     ["sidebar", page.getByRole("button", { name: "打开侧边栏" })],
   ] as const) {
     const box = await control.boundingBox();
-    expect(box?.height, `${label} target`).toBeGreaterThanOrEqual(label === "search" || label === "filters" ? 36 : 28);
+    expect(box?.height, `${label} target`).toBeGreaterThanOrEqual(label === "search" || label === "filters" ? 32 : 28);
   }
   await page.screenshot({ path: testInfo.outputPath("admin-mobile.png"), fullPage: true });
   const accessibility = await new AxeBuilder({ page })

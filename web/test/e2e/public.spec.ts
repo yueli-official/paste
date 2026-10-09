@@ -75,11 +75,31 @@ test("editor-first composer works at desktop and mobile widths", async ({ page }
   expect(readerDimensions.width).toBeLessThanOrEqual(readerDimensions.viewport);
   expect(readerDimensions.scrollWidth).toBeLessThanOrEqual(readerDimensions.viewport);
   await page.screenshot({ path: testInfo.outputPath(`reader-${testInfo.project.name}.png`), fullPage: true });
+  // HTTP named development origins do not expose Clipboard API. The optional
+  // loopback entry tests the same reader with the browser's native clipboard.
+  if (process.env.PASTE_E2E_CLIPBOARD_ORIGIN && !await page.evaluate(() => isSecureContext)) {
+    const readerURL = new URL(page.url());
+    const clipboardOrigin = process.env.PASTE_E2E_CLIPBOARD_ORIGIN;
+    // Workspace canonically redirects localhost. Replay actual readonly server
+    // responses through the loopback origin; no clipboard or data is mocked.
+    await page.route(`${clipboardOrigin}/**`, async route => {
+      const requested = new URL(route.request().url());
+      const response = await route.fetch({ url: new URL(requested.pathname + requested.search, readerURL.origin).toString() });
+      await route.fulfill({ response });
+    });
+    await page.goto(new URL(readerURL.pathname + readerURL.search, clipboardOrigin).toString());
+    expect(await page.evaluate(() => isSecureContext)).toBe(true);
+  }
   await page.getByRole("button", { name: "查看片段信息" }).click();
   await expect(page.getByRole("heading", { name: "片段信息" })).toBeVisible();
   await expect(page.getByRole("button", { name: "复制当前文件" })).toBeVisible();
   await expect(page.getByRole("button", { name: "复制全部文件" })).toBeVisible();
   const infoPanel = page.getByRole("dialog", { name: "片段信息" });
+  await infoPanel.getByRole("button", { name: "复制当前文件", exact: true }).click();
+  await expect(infoPanel.getByRole("button", { name: "已复制当前", exact: true })).toBeVisible();
+  await infoPanel.getByRole("button", { name: "复制分享链接", exact: true }).click();
+  await expect(infoPanel.getByRole("button", { name: "链接已复制", exact: true })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain(new URL(page.url()).pathname);
   await expect.poll(async () => {
     const box = await infoPanel.boundingBox();
     return box ? Math.round(box.x + box.width) : 0;

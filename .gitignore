@@ -15,3 +15,4 @@ manifest/config/config.yaml
 /web/.nuxt-acceptance/
 
 /flightdeck/
+/web/.task/
