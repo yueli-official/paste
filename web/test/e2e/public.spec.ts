@@ -99,7 +99,11 @@ test("editor-first composer works at desktop and mobile widths", async ({ page }
   await expect(infoPanel.getByRole("button", { name: "已复制当前", exact: true })).toBeVisible();
   await infoPanel.getByRole("button", { name: "复制分享链接", exact: true }).click();
   await expect(infoPanel.getByRole("button", { name: "链接已复制", exact: true })).toBeVisible();
-  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain(new URL(page.url()).pathname);
+  // Named HTTP Workspace origins exercise the execCommand fallback above.
+  // Reading the native clipboard additionally requires a secure browser origin.
+  if (await page.evaluate(() => Boolean(navigator.clipboard?.readText))) {
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain(new URL(page.url()).pathname);
+  }
   await expect.poll(async () => {
     const box = await infoPanel.boundingBox();
     return box ? Math.round(box.x + box.width) : 0;

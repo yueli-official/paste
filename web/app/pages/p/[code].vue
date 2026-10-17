@@ -110,7 +110,7 @@ async function unlock() {
 
 async function copy(text: string, key: string) {
   try {
-    await navigator.clipboard.writeText(text);
+    await copyPasteText(text);
     copied.value = key;
     window.setTimeout(() => {
       if (copied.value === key) copied.value = "";

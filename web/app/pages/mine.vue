@@ -97,7 +97,7 @@ async function load() {
 
 async function copyLink(value: PasteSummary) {
   try {
-    await navigator.clipboard.writeText(value.shareUrl);
+    await copyPasteText(value.shareUrl);
     copied.value = value.code;
     window.setTimeout(() => { if (copied.value === value.code) copied.value = ""; }, 1800);
   } catch {

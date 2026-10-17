@@ -32,3 +32,5 @@ Focus 是 Open Work 的恢复优先级，可有多个；未聚焦的 Open Work �
 新建工作台或完成升级验证后，在 deck 标题下写入实际加载的完整 Flightdeck 版本；普通保存与新建 Work 不刷新版本。
 `flightdeck/` 仅作本地记录：`.gitignore` 包含 `/flightdeck/`；已有跟踪记录保留本地文件并从 Git 索引移除。
 只维护工作台不代表执行 Work 下一步、提交、推送或发布。
+
+- 生产部署必须先读取[前后端配套发布合同](../docs/docs/deployment-policy.md)，以 API/Web 同一源码快照、双端清单和 `deploy/verify_release.py` 完成门禁。
