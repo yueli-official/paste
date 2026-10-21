@@ -11,7 +11,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version: 1.26.10
       - run: go test ./...
         env:
           GOWORK: off
@@ -54,7 +54,7 @@ jobs:
           version: 10.28.2
       - uses: actions/setup-node@v4
         with:
-          node-version: 24.18.0
+          node-version: 24.22.1
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile

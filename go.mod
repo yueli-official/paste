@@ -2,6 +2,8 @@ module github.com/yueli-official/paste
 
 go 1.25.13
 
+toolchain go1.26.10
+
 require (
 	github.com/gogf/gf/v2 v2.10.2
 	github.com/lib/pq v1.10.9
