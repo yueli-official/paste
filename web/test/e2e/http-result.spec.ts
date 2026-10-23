@@ -70,11 +70,11 @@ test("field feedback keeps editor content and hides raw server detail", async ({
   page,
 }, info) => {
   await page.goto("/");
-  const editor = page.getByRole("textbox", { name: "main.go 代码编辑器" });
+  const editor = page.getByRole("textbox", { name: "untitled.txt 代码编辑器" });
   await expect(editor).toBeVisible();
   await editor.fill("package main // keep this draft");
-  await page.getByRole("button", { name: "打开分享设置" }).click();
   await page.getByLabel("标题", { exact: true }).fill("保留标题");
+  await page.getByRole("button", { name: "打开分享设置" }).click();
   await page.route("**/api/v1/pastes", (route) =>
     route.fulfill({
       status: 400,
@@ -94,6 +94,7 @@ test("field feedback keeps editor content and hides raw server detail", async ({
     }),
   );
   await page.getByRole("button", { name: "生成分享链接", exact: true }).click();
+  await expect(page.getByRole("dialog")).toBeHidden();
   await expect(page.getByLabel("标题", { exact: true })).toHaveAttribute(
     "aria-invalid",
     "true",
@@ -109,4 +110,5 @@ test("field feedback keeps editor content and hides raw server detail", async ({
   await page.screenshot({ path: info.outputPath("field-failure.png") });
   await page.keyboard.press("Escape");
   await expect(editor).toContainText("keep this draft");
+  await expect(page.getByLabel("标题", { exact: true })).toHaveValue("保留标题");
 });

@@ -1,28 +1,22 @@
-<!--
-THESIS: Paste history is another editor workspace, not an administrative card page.
-OWN-WORLD: The same flat Yueli editor chrome frames a dense, readable file ledger.
-STORY: search the workspace, open a Paste, act on the row, and keep moving.
-FIRST VIEWPORT: one 40px titlebar, a compact search toolbar, the ledger, and a readable statusbar.
-FORM: fixed-height application shell with one internally scrolling content plane.
--->
 <script setup lang="ts">
 import { CollectionPaginationBar } from "@yueli/ui/collection/pattern";
-import type { Paste, PastePatchInput, PasteSummary, PasteVisibility } from "../types/paste";
+import type {
+  Paste,
+  PastePatchInput,
+  PasteSummary,
+  PasteVisibility,
+} from "../types/paste";
 import { displayTitle, pasteErrorMessage } from "../utils/paste";
 
 definePageMeta({ middleware: "auth" });
 
 const api = usePasteApi();
-const toast = useToast();
-const { isAdmin } = usePasteAdministration();
+const libraryVersion = useState("paste-library-version", () => 0);
 const { siteName } = useSiteSettings();
-const accountActions = computed(() => [
-  ...(isAdmin.value
-    ? [{ label: "管理后台", icon: "i-tabler-shield-cog", to: "/admin" }]
-    : []),
-]);
+const toast = useToast();
 const values = ref<PasteSummary[]>([]);
-const query = ref("");
+const route = useRoute();
+const query = ref(typeof route.query.q === "string" ? route.query.q : "");
 const page = ref(1);
 const pageSize = ref(20);
 const total = ref(0);
@@ -41,12 +35,18 @@ const batchDeleting = ref(false);
 const batchError = ref("");
 const operationMessage = ref("");
 
-const visibilityItems: Array<{ label: string; value: "keep" | PasteVisibility }> = [
+const visibilityItems: Array<{
+  label: string;
+  value: "keep" | PasteVisibility;
+}> = [
   { label: "保持原设置", value: "keep" },
   { label: "持链访问", value: "unlisted" },
   { label: "仅自己", value: "private" },
 ];
-const expiryItems: Array<{ label: string; value: "keep" | "1h" | "1d" | "7d" | "30d" | "never" }> = [
+const expiryItems: Array<{
+  label: string;
+  value: "keep" | "1h" | "1d" | "7d" | "30d" | "never";
+}> = [
   { label: "保持原设置", value: "keep" },
   { label: "1 小时后", value: "1h" },
   { label: "1 天后", value: "1d" },
@@ -57,22 +57,39 @@ const expiryItems: Array<{ label: string; value: "keep" | "1h" | "1d" | "7d" | "
 
 const filtered = computed(() => values.value);
 const selectedCodeSet = computed(() => new Set(selectedCodes.value));
-const selectedValues = computed(() => values.value.filter((value) => selectedCodeSet.value.has(value.code)));
+const selectedValues = computed(() =>
+  values.value.filter((value) => selectedCodeSet.value.has(value.code)),
+);
 const selectionState = computed<boolean | "indeterminate">(() => {
   if (filtered.value.length === 0) return false;
-  const count = filtered.value.filter((value) => selectedCodeSet.value.has(value.code)).length;
+  const count = filtered.value.filter((value) =>
+    selectedCodeSet.value.has(value.code),
+  ).length;
   if (count === 0) return false;
   return count === filtered.value.length ? true : "indeterminate";
 });
 const batchBusy = computed(() => batchSaving.value || batchDeleting.value);
-const hasBatchChanges = computed(() => batchVisibility.value !== "keep" || batchExpiry.value !== "keep");
+const hasBatchChanges = computed(
+  () => batchVisibility.value !== "keep" || batchExpiry.value !== "keep",
+);
 
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
-watch(query, () => { if(searchTimer) clearTimeout(searchTimer); searchTimer=setTimeout(() => {if(page.value!==1) page.value=1; else void load();},250); });
-watch(page, () => {selectedCodes.value=[];void load();});
-onScopeDispose(() => {if(searchTimer) clearTimeout(searchTimer);});
+watch(query, () => {
+  if (searchTimer) clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    if (page.value !== 1) page.value = 1;
+    else void load();
+  }, 250);
+});
+watch(page, () => {
+  selectedCodes.value = [];
+  void load();
+});
+onScopeDispose(() => {
+  if (searchTimer) clearTimeout(searchTimer);
+});
 useSeoMeta({
-  title: computed(() => `我的片段 · ${siteName.value}`),
+  title: computed(() => `内容库 · ${siteName.value}`),
   description: "回看、编辑和删除你创建的代码片段。",
 });
 
@@ -81,17 +98,27 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
-    const result = await api.listMine({page: page.value, size: pageSize.value, q: query.value.trim() || undefined});
-    if(sequence !== loadSequence) return;
+    const result = await api.listMine({
+      page: page.value,
+      size: pageSize.value,
+      q: query.value.trim() || undefined,
+    });
+    if (sequence !== loadSequence) return;
     const lastPage = Math.max(1, Math.ceil(result.total / pageSize.value));
-    if(page.value > lastPage) { page.value = lastPage; return; }
-    values.value = result.items; total.value = result.total;
+    if (page.value > lastPage) {
+      page.value = lastPage;
+      return;
+    }
+    values.value = result.items;
+    total.value = result.total;
     const available = new Set(values.value.map((value) => value.code));
-    selectedCodes.value = selectedCodes.value.filter((code) => available.has(code));
+    selectedCodes.value = selectedCodes.value.filter((code) =>
+      available.has(code),
+    );
   } catch (caught) {
-    if(sequence === loadSequence) error.value = pasteErrorMessage(caught);
+    if (sequence === loadSequence) error.value = pasteErrorMessage(caught);
   } finally {
-    if(sequence === loadSequence) loading.value = false;
+    if (sequence === loadSequence) loading.value = false;
   }
 }
 
@@ -99,19 +126,29 @@ async function copyLink(value: PasteSummary) {
   try {
     await copyPasteText(value.shareUrl);
     copied.value = value.code;
-    window.setTimeout(() => { if (copied.value === value.code) copied.value = ""; }, 1800);
+    window.setTimeout(() => {
+      if (copied.value === value.code) copied.value = "";
+    }, 1800);
   } catch {
     announce("复制失败，请手动复制分享链接。", "error");
   }
 }
 
 async function remove(value: PasteSummary) {
-  if (!window.confirm(`删除“${displayTitle(value.title)}”？链接将永久返回已失效。`)) return;
+  if (
+    !window.confirm(
+      `删除“${displayTitle(value.title)}”？链接将永久返回已失效。`,
+    )
+  )
+    return;
   deleting.value = value.code;
   try {
     await api.remove(value.code, value.revision);
+    libraryVersion.value++;
     await load();
-    selectedCodes.value = selectedCodes.value.filter((code) => code !== value.code);
+    selectedCodes.value = selectedCodes.value.filter(
+      (code) => code !== value.code,
+    );
   } catch (caught) {
     announce(pasteErrorMessage(caught), "error");
   } finally {
@@ -161,21 +198,27 @@ function closeBatchEdit() {
   batchError.value = "";
 }
 
-async function runBounded<T, R>(items: T[], operation: (item: T) => Promise<R>) {
+async function runBounded<T, R>(
+  items: T[],
+  operation: (item: T) => Promise<R>,
+) {
   const succeeded: Array<{ item: T; value: R }> = [];
   const failed: T[] = [];
   let cursor = 0;
-  const workers = Array.from({ length: Math.min(4, items.length) }, async () => {
-    while (cursor < items.length) {
-      const item = items[cursor++];
-      if (!item) continue;
-      try {
-        succeeded.push({ item, value: await operation(item) });
-      } catch {
-        failed.push(item);
+  const workers = Array.from(
+    { length: Math.min(4, items.length) },
+    async () => {
+      while (cursor < items.length) {
+        const item = items[cursor++];
+        if (!item) continue;
+        try {
+          succeeded.push({ item, value: await operation(item) });
+        } catch {
+          failed.push(item);
+        }
       }
-    }
-  });
+    },
+  );
   await Promise.all(workers);
   return { succeeded, failed };
 }
@@ -198,20 +241,28 @@ async function applyBatchEdit() {
   if (targets.length === 0 || !hasBatchChanges.value) return;
 
   const patch: PastePatchInput = {};
-  if (batchVisibility.value !== "keep") patch.visibility = batchVisibility.value;
+  if (batchVisibility.value !== "keep")
+    patch.visibility = batchVisibility.value;
   if (batchExpiry.value === "never") {
     patch.clearExpiry = true;
   } else if (batchExpiry.value !== "keep") {
-    const hours = { "1h": 1, "1d": 24, "7d": 168, "30d": 720 }[batchExpiry.value];
-    patch.expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
+    const hours = { "1h": 1, "1d": 24, "7d": 168, "30d": 720 }[
+      batchExpiry.value
+    ];
+    patch.expiresAt = new Date(
+      Date.now() + hours * 60 * 60 * 1000,
+    ).toISOString();
   }
 
   batchSaving.value = true;
   batchError.value = "";
-  const result = await runBounded(targets, async (value) =>
-    (await api.patch(value.code, value.revision, patch)).paste,
+  const result = await runBounded(
+    targets,
+    async (value) => (await api.patch(value.code, value.revision, patch)).paste,
   );
-  const updated = new Map(result.succeeded.map(({ item, value }) => [item.code, value]));
+  const updated = new Map(
+    result.succeeded.map(({ item, value }) => [item.code, value]),
+  );
   values.value = values.value.map((value) => {
     const paste = updated.get(value.code);
     return paste ? updateSummary(value, paste) : value;
@@ -231,24 +282,39 @@ async function applyBatchEdit() {
 async function removeSelected() {
   const targets = [...selectedValues.value];
   if (targets.length === 0) return;
-  if (!window.confirm(`删除选中的 ${targets.length} 个代码片段？这些链接将永久失效。`)) return;
+  if (
+    !window.confirm(
+      `删除选中的 ${targets.length} 个代码片段？这些链接将永久失效。`,
+    )
+  )
+    return;
 
   batchDeleting.value = true;
-  const result = await runBounded(targets, (value) => api.remove(value.code, value.revision));
+  const result = await runBounded(targets, (value) =>
+    api.remove(value.code, value.revision),
+  );
   const removed = new Set(result.succeeded.map(({ item }) => item.code));
   values.value = values.value.filter((value) => !removed.has(value.code));
   selectedCodes.value = result.failed.map((value) => value.code);
   batchDeleting.value = false;
+  if (removed.size) {
+    libraryVersion.value++;
+    await load();
+  }
 
   if (result.failed.length > 0) {
-    announce(`已删除 ${result.succeeded.length} 项，${result.failed.length} 项失败。失败项仍保持选中。`, "warning");
+    announce(
+      `已删除 ${result.succeeded.length} 项，${result.failed.length} 项失败。失败项仍保持选中。`,
+      "warning",
+    );
   } else {
     announce(`已删除 ${result.succeeded.length} 个代码片段。`, "success");
   }
 }
 
 function focusSearch(event: KeyboardEvent) {
-  if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
+  if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey)
+    return;
   const target = event.target as HTMLElement | null;
   if (target?.matches("input, textarea, [contenteditable='true']")) return;
   event.preventDefault();
@@ -259,6 +325,14 @@ function clearSearch() {
   query.value = "";
 }
 
+watch(
+  () => route.query.q,
+  (value) => {
+    query.value = typeof value === "string" ? value : "";
+    page.value = 1;
+    load();
+  },
+);
 onMounted(() => {
   load();
   window.addEventListener("keydown", focusSearch);
@@ -267,300 +341,157 @@ onBeforeUnmount(() => window.removeEventListener("keydown", focusSearch));
 </script>
 
 <template>
-  <section
-    class="paste-mine-shell grid h-dvh min-h-[360px] w-full min-w-0 grid-rows-[40px_38px_minmax(0,1fr)_auto] overflow-hidden bg-[var(--paste-editor)] max-[760px]:min-h-[320px] max-[760px]:grid-rows-[44px_44px_minmax(0,1fr)_auto]"
-    aria-labelledby="mine-title"
-  >
-    <header
-      class="flex min-w-0 items-stretch border-b border-[var(--paste-line)] bg-[var(--paste-chrome)]"
-      aria-label="代码片段工作区工具栏"
-    >
-      <NuxtLink
-        to="/"
-        class="flex shrink-0 items-center gap-[7px] border-r border-[var(--paste-line)] px-[11px] text-[var(--paste-ink)] no-underline max-[760px]:px-1.5"
-        :aria-label="`${siteName} 首页`"
-      >
-        <span class="grid size-6 place-items-center rounded-md border border-[color-mix(in_srgb,var(--paste-blue)_28%,var(--paste-line))] bg-[var(--paste-blue-soft)] text-[var(--paste-blue)]" aria-hidden="true">
-          <UIcon name="i-tabler-code-dots" class="size-4" />
-        </span>
-        <span class="text-[13px] font-[730] tracking-[-0.025em] max-[760px]:hidden">{{ siteName }}</span>
-      </NuxtLink>
-
-      <div class="flex min-w-[156px] max-w-[220px] basis-[190px] items-center gap-[7px] border-r border-[var(--paste-line)] bg-[var(--paste-editor)] px-3 text-[var(--paste-ink)] [box-shadow:inset_0_2px_var(--paste-blue)] max-[760px]:min-w-0 max-[760px]:max-w-none max-[760px]:flex-1 max-[760px]:px-[9px]" aria-current="page">
-        <UIcon name="i-tabler-folders" class="size-4 shrink-0" />
-        <h1 id="mine-title" class="truncate text-xs font-[620]">我的片段</h1>
-      </div>
-      <div class="min-w-2 flex-1 max-[760px]:hidden" aria-hidden="true" />
-
-      <nav class="flex shrink-0 items-center gap-0.5 px-[5px] max-[760px]:px-1" aria-label="工作区操作">
-        <UTooltip text="新建片段">
-          <UButton
-            to="/"
-            icon="i-tabler-file-plus"
-            color="primary"
-            variant="ghost"
-            size="sm"
-            square
-            aria-label="新建片段"
-          />
-        </UTooltip>
-        <UTooltip text="切换颜色模式">
-          <UColorModeButton
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            aria-label="切换颜色模式"
-          />
-        </UTooltip>
-        <div class="grid size-8 place-items-center max-[760px]:size-9 [&_button]:size-[30px] [&_button]:min-h-[30px] [&_button]:min-w-[30px] [&_button]:p-0 max-[760px]:[&_button]:size-9 max-[760px]:[&_button]:min-h-9 max-[760px]:[&_button]:min-w-9 [&_[data-slot=label]]:sr-only">
-          <ConsumerAccountControl :context-actions="accountActions" trigger-mode="collapsed" />
+  <PasteWorkspace>
+    <section class="paste-mine-shell flex h-full min-h-0 flex-col overflow-hidden" aria-labelledby="mine-title">
+      <header class="paste-command-row flex min-h-[88px] shrink-0 items-center gap-4 border-b border-[var(--paste-line)] px-[30px] py-5 max-[760px]:px-4">
+        <div class="flex min-w-0 flex-1 items-center gap-3">
+          <UIcon name="i-tabler-folders" class="size-5 text-[var(--paste-blue)]" />
+          <h1 id="mine-title" class="text-[21px] font-semibold tracking-tight max-[760px]:text-lg">内容库</h1>
         </div>
-      </nav>
-    </header>
+        <UButton to="/" label="新建内容" icon="i-tabler-plus" class="paste-primary min-h-10 rounded-[7px] bg-[var(--paste-blue)] px-4 font-semibold text-[#17200e] hover:bg-[var(--paste-blue-hover)] not-dark:text-white" />
+      </header>
 
-    <div class="flex min-w-0 items-center gap-1.5 border-b border-[var(--paste-line)] bg-[var(--paste-editor)] py-[3px] pr-1.5 pl-2.5 max-[760px]:gap-[3px] max-[760px]:p-[4px_5px]" role="toolbar" aria-label="代码片段列表工具栏">
-      <UTooltip :text="selectionState === true ? '取消选择筛选结果' : '选择全部筛选结果'">
-        <UCheckbox
-          :model-value="selectionState"
-          size="sm"
-          class="h-7 w-6 min-w-6 shrink-0 items-center justify-center max-[760px]:h-9 max-[760px]:w-[34px] max-[760px]:min-w-[34px]"
-          aria-label="选择当前筛选结果"
-          :disabled="loading || filtered.length === 0 || batchBusy"
-          @update:model-value="toggleFilteredSelection"
-        />
-      </UTooltip>
-
-      <template v-if="selectedValues.length > 0">
-        <strong class="min-w-0 truncate text-xs font-[680] text-[var(--paste-ink)] max-[760px]:flex-1">已选择 {{ selectedValues.length }} 项</strong>
-        <div class="ml-auto flex min-w-0 items-center gap-0.5 max-[760px]:ml-0 max-[760px]:shrink-0 max-[760px]:[&_button]:min-h-9">
-          <UButton
-            type="button"
-            icon="i-tabler-adjustments"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            :disabled="batchBusy"
-            @click="openBatchEdit"
-          >批量修改</UButton>
-          <UButton
-            type="button"
-            icon="i-tabler-trash"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            class="text-[var(--paste-red)] hover:bg-[var(--paste-red-soft)] hover:text-[var(--paste-red)]"
-            :loading="batchDeleting"
-            :disabled="batchSaving"
-            @click="removeSelected"
-          >删除</UButton>
-          <UTooltip text="取消选择">
-            <UButton
-              type="button"
-              icon="i-tabler-x"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              square
-              aria-label="取消全部选择"
-              :disabled="batchBusy"
-              @click="clearSelection"
-            />
-          </UTooltip>
-        </div>
-      </template>
-
-      <template v-else>
-        <UInput
-          id="mine-search"
-          v-model="query"
-          type="search"
-          icon="i-tabler-search"
-          placeholder="搜索标题、短码、语言或标签"
-          aria-label="搜索代码片段"
-          variant="none"
-          size="sm"
-          class="min-w-40 max-w-[520px] flex-1 max-[760px]:max-w-none"
-          :ui="{ base: 'rounded-none ring-0' }"
-          @keyup.esc="clearSearch"
-        >
-          <template #trailing>
-            <kbd class="rounded-[3px] border border-[var(--paste-line)] px-[5px] text-[10px] leading-[18px] text-[var(--paste-ink-dim)] max-[760px]:hidden">/</kbd>
-          </template>
-        </UInput>
-        <span class="ml-auto whitespace-nowrap font-mono text-[11px] text-[var(--paste-ink-dim)] max-[760px]:hidden">{{ filtered.length }} / {{ total }}</span>
-        <UTooltip text="刷新列表">
-          <UButton
-            type="button"
-            icon="i-tabler-refresh"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            square
-            aria-label="刷新列表"
-            :loading="loading"
-            @click="load"
-          />
-        </UTooltip>
-      </template>
-    </div>
-
-    <div class="min-h-0 min-w-0 overflow-auto bg-[var(--paste-editor)]" :aria-busy="loading">
-      <div v-if="loadingVisible" class="paste-ledger-loading" role="status" aria-label="正在读取代码片段">
-        <div class="sticky top-0 z-[2] grid min-h-[30px] grid-cols-[32px_minmax(240px,1fr)_132px_112px_120px] items-center border-b border-[var(--paste-line)] bg-[var(--paste-surface-muted)] px-3 text-[11px] font-[630] text-[var(--paste-ink-dim)] max-[760px]:hidden" aria-hidden="true">
-          <span /><span>内容</span><span>访问</span><span>更新</span><span>操作</span>
-        </div>
-        <div v-for="index in 5" :key="index" class="grid min-h-[62px] grid-cols-[32px_minmax(240px,1fr)_132px_112px_120px] items-center border-b border-[var(--paste-line)] px-3 py-2 max-[760px]:grid-cols-[28px_minmax(0,1fr)_70px] max-[760px]:[&>:nth-child(4)]:hidden max-[760px]:[&>:nth-child(5)]:hidden">
-          <USkeleton class="size-3.5" />
-          <div><USkeleton class="h-3.5 w-52 max-w-full" /><USkeleton class="mt-2 h-2.5 w-72 max-w-full" /></div>
-          <USkeleton class="h-3 w-16" />
-          <USkeleton class="h-3 w-20" />
-          <USkeleton class="ml-auto h-7 w-24" />
-        </div>
+      <div class="flex min-h-16 shrink-0 items-center gap-3 border-b border-[var(--paste-line)] px-[30px] py-3 max-[760px]:gap-2 max-[760px]:px-4" role="toolbar" aria-label="代码片段列表工具栏">
+        <UCheckbox :model-value="selectionState" size="sm" class="flex size-8 shrink-0 items-center justify-center" aria-label="选择当前筛选结果" :disabled="loading || filtered.length === 0 || batchBusy" @update:model-value="toggleFilteredSelection" />
+        <template v-if="selectedValues.length > 0">
+          <strong class="min-w-0 flex-1 text-xs text-[var(--paste-ink)]">已选择 {{ selectedValues.length }} 项</strong>
+          <UButton icon="i-tabler-adjustments" color="neutral" variant="ghost" size="sm" :disabled="batchBusy" @click="openBatchEdit">批量修改</UButton>
+          <UButton icon="i-tabler-trash" color="error" variant="ghost" size="sm" :loading="batchDeleting" :disabled="batchSaving" @click="removeSelected">删除</UButton>
+          <UButton icon="i-tabler-x" color="neutral" variant="ghost" size="sm" square aria-label="取消全部选择" :disabled="batchBusy" @click="clearSelection" />
+        </template>
+        <template v-else>
+          <UInput id="mine-search" v-model="query" type="search" icon="i-tabler-search" placeholder="搜索内容…" aria-label="搜索代码片段" variant="none" class="min-w-0 max-w-[460px] flex-1" :ui="{ base: 'h-9 rounded-lg bg-[var(--paste-surface)] ring-1 ring-[var(--paste-line)] focus:ring-[var(--paste-blue)]' }" @keyup.esc="clearSearch">
+            <template #trailing><kbd class="rounded border border-[var(--paste-line)] px-1.5 text-[10px] text-[var(--paste-ink-dim)] max-[760px]:hidden">/</kbd></template>
+          </UInput>
+          <span class="ml-auto whitespace-nowrap text-xs text-[var(--paste-ink-dim)] max-[760px]:hidden">{{ total }} 项{{ query.trim() ? '匹配' : '内容' }}</span>
+          <UButton icon="i-tabler-refresh" color="neutral" variant="ghost" square aria-label="刷新列表" :loading="loading" @click="load" />
+        </template>
       </div>
 
-      <div v-else-if="error" class="grid min-h-full place-content-center justify-items-center gap-[9px] p-7 text-center text-xs text-[var(--paste-ink-soft)] [&_p]:mb-[3px] [&_p]:max-w-[54ch] [&_p]:leading-[1.6] [&_strong]:text-sm [&_strong]:text-[var(--paste-ink)]" role="alert">
-        <UIcon name="i-tabler-alert-circle" class="size-6 text-[var(--paste-red)]" />
-        <strong>列表读取失败</strong>
-        <p>{{ error }}</p>
-        <UButton type="button" label="重新读取" icon="i-tabler-refresh" color="neutral" variant="outline" @click="load" />
-      </div>
-
-      <div v-else-if="values.length === 0" class="grid min-h-full place-content-center justify-items-center gap-[9px] p-7 text-center text-xs text-[var(--paste-ink-soft)] [&_p]:mb-[3px] [&_p]:max-w-[54ch] [&_p]:leading-[1.6] [&_strong]:text-sm [&_strong]:text-[var(--paste-ink)]">
-        <UIcon name="i-tabler-file-code" class="size-7" />
-        <strong>还没有可管理的代码片段</strong>
-        <p>登录状态下创建的内容会出现在这个工作区。</p>
-        <UButton to="/" label="新建片段" icon="i-tabler-file-plus" color="primary" />
-      </div>
-
-      <div v-else-if="filtered.length === 0" class="grid min-h-full place-content-center justify-items-center gap-[9px] p-7 text-center text-xs text-[var(--paste-ink-soft)] [&_p]:mb-[3px] [&_p]:max-w-[54ch] [&_p]:leading-[1.6] [&_strong]:text-sm [&_strong]:text-[var(--paste-ink)]">
-        <UIcon name="i-tabler-file-search" class="size-7" />
-        <strong>没有匹配的代码片段</strong>
-        <p>换一个关键词，或清除当前搜索。</p>
-        <UButton type="button" label="清除搜索" icon="i-tabler-x" color="neutral" variant="outline" @click="clearSearch" />
-      </div>
-
-      <div v-else class="min-w-0">
-        <div class="sticky top-0 z-[2] grid min-h-[30px] grid-cols-[32px_minmax(240px,1fr)_132px_112px_120px] items-center border-b border-[var(--paste-line)] bg-[var(--paste-surface-muted)] px-3 text-[11px] font-[630] text-[var(--paste-ink-dim)] max-[760px]:hidden" aria-hidden="true">
-          <span /><span>内容</span><span>访问</span><span>更新</span><span>操作</span>
+      <div class="min-h-0 flex-1 overflow-auto bg-[var(--paste-page)] p-6 max-[760px]:p-3" :aria-busy="loading">
+        <div v-if="loadingVisible" class="paste-ledger-loading mx-auto grid max-w-[1180px] gap-3" role="status" aria-label="正在读取代码片段">
+          <div v-for="index in 4" :key="index" class="flex h-28 items-center gap-4 rounded-xl border border-[var(--paste-line)] bg-[var(--paste-editor)] p-5">
+            <USkeleton class="size-11 shrink-0 rounded-lg" /><div class="flex-1"><USkeleton class="h-4 w-40 max-w-full" /><USkeleton class="mt-3 h-3 w-64 max-w-full" /></div>
+          </div>
         </div>
-        <div class="paste-ledger-rows" role="list" aria-label="我的片段">
-          <div
-            v-for="value in filtered"
-            :key="value.code"
-            class="paste-ledger-row group grid min-h-[62px] min-w-0 grid-cols-[32px_minmax(240px,1fr)_132px_112px_120px] items-center border-b border-[var(--paste-line)] px-3 py-2 transition-colors duration-100 hover:bg-[var(--paste-editor-active)] focus-within:bg-[var(--paste-editor-active)] data-[selected=true]:bg-[color-mix(in_srgb,var(--paste-blue)_9%,var(--paste-editor))] data-[selected=true]:hover:bg-[color-mix(in_srgb,var(--paste-blue)_13%,var(--paste-editor))] data-[selected=true]:focus-within:bg-[color-mix(in_srgb,var(--paste-blue)_13%,var(--paste-editor))] max-[760px]:grid-cols-[28px_minmax(0,1fr)_auto] max-[760px]:gap-x-2.5 max-[760px]:gap-y-2 max-[760px]:px-[9px] max-[760px]:py-[11px]"
-            role="listitem"
-            :data-selected="selectedCodeSet.has(value.code)"
-            :aria-busy="deleting === value.code || batchBusy"
-          >
-            <UCheckbox
-              :model-value="selectedCodeSet.has(value.code)"
-              size="sm"
-              class="h-7 w-6 items-center justify-start max-[760px]:col-start-1 max-[760px]:row-start-1 max-[760px]:row-end-4 max-[760px]:mt-[-8px] max-[760px]:ml-[-8px] max-[760px]:size-11 max-[760px]:self-start max-[760px]:justify-center"
-              :aria-label="`选择 ${displayTitle(value.title)}`"
-              :disabled="deleting === value.code || batchBusy"
-              @update:model-value="toggleSelected(value.code, $event === true)"
-            />
-            <div class="min-w-0 pr-3.5 max-[760px]:col-start-2 max-[760px]:col-end-[-1] max-[760px]:pr-0">
-              <NuxtLink class="block truncate text-[13px] font-[680] text-[var(--paste-ink)] no-underline hover:text-[var(--paste-blue)] hover:underline hover:underline-offset-3 max-[760px]:whitespace-normal max-[760px]:[overflow-wrap:anywhere]" :to="`/p/${value.code}`" :title="displayTitle(value.title)">{{ displayTitle(value.title) }}</NuxtLink>
-              <div class="mt-[5px] flex min-w-0 items-center gap-x-[11px] gap-y-[5px] overflow-hidden whitespace-nowrap text-[11px] text-[var(--paste-ink-soft)] max-[760px]:gap-x-[9px]">
-                <code class="shrink-0 font-[680] text-[var(--paste-blue)]">{{ value.code }}</code>
-                <span>{{ value.fileCount }} 个文件</span>
-                <span>{{ value.primaryLanguage }}</span>
-                <span v-for="tag in value.tags.slice(0, 3)" :key="tag" class="max-w-[100px] truncate max-[760px]:hidden">#{{ tag }}</span>
+        <div v-else-if="error" class="grid min-h-full place-content-center justify-items-center gap-3 p-6 text-center text-sm" role="alert">
+          <UIcon name="i-tabler-alert-circle" class="size-7 text-[var(--paste-red)]" /><strong>内容读取失败</strong><p class="text-[var(--paste-ink-soft)]">{{ error }}</p>
+          <UButton label="重新读取" icon="i-tabler-refresh" color="neutral" variant="outline" @click="load" />
+        </div>
+        <div v-else-if="filtered.length === 0" class="grid min-h-full place-content-center justify-items-center gap-4 p-6 text-center text-sm">
+          <span class="grid size-14 place-items-center rounded-xl border border-[var(--paste-line)] bg-[var(--paste-surface)] text-[var(--paste-ink-dim)]"><UIcon :name="query.trim() ? 'i-tabler-file-search' : 'i-tabler-folders'" class="size-7" /></span>
+          <strong>{{ query.trim() ? '没有找到匹配的内容' : '内容库还是空的' }}</strong>
+          <UButton v-if="query.trim()" label="清除搜索" icon="i-tabler-x" color="neutral" variant="outline" @click="clearSearch" />
+          <UButton v-else to="/" label="新建内容" icon="i-tabler-plus" color="primary" variant="outline" />
+        </div>
+        <div v-else class="mx-auto max-w-[1180px]">
+          <div class="mb-3 flex items-center gap-2 px-1 text-[11px] text-[var(--paste-ink-dim)]"><UIcon name="i-tabler-clock" class="size-3.5" />最近创建</div>
+          <div class="paste-ledger-rows grid gap-3" role="list" aria-label="内容库">
+            <div v-for="value in filtered" :key="value.code" class="paste-ledger-row group grid min-w-0 grid-cols-[24px_44px_minmax(0,1fr)_auto] items-center gap-x-4 gap-y-3 rounded-xl border border-[var(--paste-line)] bg-[var(--paste-editor)] p-5 transition-colors hover:border-[var(--paste-line-strong)] focus-within:border-[var(--paste-line-strong)] data-[selected=true]:border-[var(--paste-blue)] data-[selected=true]:bg-[var(--paste-editor-active)] max-[760px]:grid-cols-[20px_minmax(0,1fr)_auto] max-[760px]:gap-x-2.5 max-[760px]:p-3.5" role="listitem" :data-selected="selectedCodeSet.has(value.code)" :aria-busy="deleting === value.code || batchBusy">
+              <UCheckbox :model-value="selectedCodeSet.has(value.code)" size="sm" class="flex min-h-9 items-center" :aria-label="`选择 ${displayTitle(value.title)}`" :disabled="deleting === value.code || batchBusy" @update:model-value="toggleSelected(value.code, $event === true)" />
+              <span class="grid size-11 place-items-center rounded-lg border border-[var(--paste-line)] bg-[var(--paste-surface)] text-[var(--paste-blue)] max-[760px]:hidden"><UIcon :name="value.primaryLanguage === 'markdown' ? 'i-tabler-markdown' : value.primaryLanguage === 'text' ? 'i-tabler-file-text' : 'i-tabler-code'" class="size-5" /></span>
+              <div class="min-w-0">
+                <NuxtLink :to="`/p/${value.code}`" :title="displayTitle(value.title)" class="block truncate py-0.5 text-sm font-semibold leading-6 text-[var(--paste-ink)] hover:text-[var(--paste-blue)]">{{ displayTitle(value.title) }}</NuxtLink>
+                <div class="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-[var(--paste-ink-dim)]">
+                  <span class="rounded border border-[var(--paste-line)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--paste-ink-soft)]">{{ value.primaryLanguage === 'text' ? 'TEXT' : value.primaryLanguage === 'markdown' ? 'Markdown' : value.primaryLanguage }}</span>
+                  <span>{{ value.fileCount }} 个文件</span><code class="max-[760px]:hidden">/{{ value.code }}</code>
+                  <span v-for="tag in value.tags.slice(0, 2)" :key="tag" class="max-w-28 truncate max-[760px]:hidden">#{{ tag }}</span>
+                </div>
               </div>
-            </div>
-            <div class="grid gap-0.5 text-xs text-[var(--paste-ink-soft)] max-[760px]:col-start-2 max-[760px]:row-start-2 [&_span]:flex [&_span]:items-center [&_span]:gap-[5px] [&_small]:text-[10px] [&_small]:text-[var(--paste-ink-dim)] max-[760px]:[&_small]:hidden">
-              <span><UIcon :name="value.visibility === 'private' ? 'i-tabler-lock' : 'i-tabler-link'" class="size-4" />{{ value.visibility === "private" ? "仅自己" : "持链访问" }}</span>
-              <small v-if="value.passwordProtected">另有密码</small>
-            </div>
-            <time class="font-mono text-[11px] text-[var(--paste-ink-soft)] max-[760px]:col-start-3 max-[760px]:row-start-2 max-[760px]:text-right" :datetime="value.updatedAt">{{ new Date(value.updatedAt).toLocaleDateString("zh-CN") }}</time>
-            <div class="flex justify-end gap-px opacity-70 transition-opacity duration-100 group-hover:opacity-100 group-focus-within:opacity-100 max-[760px]:col-start-2 max-[760px]:col-end-[-1] max-[760px]:row-start-3 max-[760px]:opacity-100 max-[760px]:[&_a]:size-11 max-[760px]:[&_a]:min-h-11 max-[760px]:[&_a]:min-w-11 max-[760px]:[&_button]:size-11 max-[760px]:[&_button]:min-h-11 max-[760px]:[&_button]:min-w-11">
-              <UTooltip :text="copied === value.code ? '已复制' : '复制链接'">
-                <UButton type="button" :icon="copied === value.code ? 'i-tabler-check' : 'i-tabler-copy'" color="neutral" variant="ghost" size="sm" square aria-label="复制链接" :disabled="deleting === value.code || batchBusy" @click="copyLink(value)" />
-              </UTooltip>
-              <UTooltip text="编辑">
-                <UButton :to="`/?edit=${value.code}`" icon="i-tabler-edit" color="neutral" variant="ghost" size="sm" square aria-label="编辑代码片段" :disabled="deleting === value.code || batchBusy" />
-              </UTooltip>
-              <UTooltip text="删除">
-                <UButton type="button" icon="i-tabler-trash" color="error" variant="ghost" size="sm" square aria-label="删除代码片段" :loading="deleting === value.code" :disabled="batchBusy" @click="remove(value)" />
-              </UTooltip>
+              <div class="flex items-center gap-1 max-[760px]:col-start-2 max-[760px]:col-end-4 max-[760px]:row-start-3 max-[760px]:justify-end">
+                <UTooltip :text="copied === value.code ? '已复制' : '复制链接'"><UButton :icon="copied === value.code ? 'i-tabler-check' : 'i-tabler-link'" color="neutral" variant="ghost" square aria-label="复制链接" class="size-9" :disabled="deleting === value.code || batchBusy" @click="copyLink(value)" /></UTooltip>
+                <UTooltip text="编辑"><UButton :to="`/?edit=${value.code}`" icon="i-tabler-edit" color="neutral" variant="ghost" square aria-label="编辑代码片段" class="size-9" :disabled="deleting === value.code || batchBusy" /></UTooltip>
+                <UTooltip text="删除"><UButton icon="i-tabler-trash" color="neutral" variant="ghost" square aria-label="删除代码片段" class="size-9 hover:text-[var(--paste-red)]" :loading="deleting === value.code" :disabled="batchBusy" @click="remove(value)" /></UTooltip>
+              </div>
+              <div class="col-start-3 col-end-5 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[var(--paste-line)] pt-3 text-[11px] text-[var(--paste-ink-dim)] max-[760px]:col-start-2 max-[760px]:col-end-4 max-[760px]:row-start-2">
+                <span class="inline-flex items-center gap-1.5"><UIcon :name="value.visibility === 'private' ? 'i-tabler-lock' : 'i-tabler-link'" class="size-3.5" />{{ value.visibility === 'private' ? '仅自己' : '链接访问' }}{{ value.passwordProtected ? ' · 密码保护' : '' }}</span>
+                <span v-if="value.expiresAt" class="inline-flex items-center gap-1.5"><UIcon name="i-tabler-hourglass" class="size-3.5" />{{ new Date(value.expiresAt).getTime() < Date.now() ? '已过期' : `${new Date(value.expiresAt).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })} 到期` }}</span>
+                <time class="ml-auto" :datetime="value.updatedAt">{{ new Date(value.updatedAt).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }) }} 更新</time>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+      <footer class="paste-mine-statusbar shrink-0 border-t border-[var(--paste-line)] bg-[var(--paste-editor)] px-5 py-2 text-xs text-[var(--paste-ink-dim)] max-[760px]:px-3" aria-label="工作区状态">
+        <CollectionPaginationBar :page-size-option="(size) => `${size} / 页`" :page="page" :page-size="pageSize" :page-sizes="[20, 50, 100]" :total="total" @page-size-change="pageSize = $event; page = 1; load();" @page-change="page = $event" />
+        <span class="sr-only" aria-live="polite">{{ operationMessage }}</span>
+      </footer>
 
-    <footer class="paste-mine-statusbar min-w-0 border-t border-default bg-default px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] text-xs text-muted" aria-label="工作区状态">
-      <CollectionPaginationBar :page="page" :page-size="pageSize" :page-sizes="[20, 50, 100]" @page-size-change="pageSize = $event; page = 1; load()" :total="total" @page-change="page = $event" />
-      <span class="sr-only" aria-live="polite">{{ operationMessage }}</span>
-    </footer>
-
-    <USlideover
-      v-model:open="batchEditOpen"
-      title="批量修改"
-      :description="`为选中的 ${selectedValues.length} 个代码片段统一修改访问设置。`"
-      :dismissible="!batchSaving"
-      :close="!batchSaving"
-      :ui="{ content: 'sm:max-w-sm' }"
-    >
-      <template #body>
-        <div class="grid gap-[18px]">
-          <UFormField label="可见性">
-            <USelect
-              v-model="batchVisibility"
-              :items="visibilityItems"
-              value-key="value"
-              label-key="label"
-              class="w-full"
-              aria-label="批量可见性"
-              :disabled="batchSaving"
+      <USlideover
+        v-model:open="batchEditOpen"
+        title="批量修改"
+        :description="`为选中的 ${selectedValues.length} 个代码片段统一修改访问设置。`"
+        :dismissible="!batchSaving"
+        :close="!batchSaving"
+        :ui="{ content: 'sm:max-w-sm' }"
+      >
+        <template #body>
+          <div class="grid gap-[18px]">
+            <UFormField label="可见性">
+              <USelect
+                v-model="batchVisibility"
+                :items="visibilityItems"
+                value-key="value"
+                label-key="label"
+                class="w-full"
+                aria-label="批量可见性"
+                :disabled="batchSaving"
+              />
+            </UFormField>
+            <UFormField label="有效期">
+              <USelect
+                v-model="batchExpiry"
+                :items="expiryItems"
+                value-key="value"
+                label-key="label"
+                class="w-full"
+                aria-label="批量有效期"
+                :disabled="batchSaving"
+              />
+            </UFormField>
+            <p
+              class="mt-[-4px] text-xs leading-[1.65] text-[var(--paste-ink-soft)]"
+            >
+              “保持原设置”不会覆盖每个代码片段当前不同的值；已有密码和文件内容不会改变。
+            </p>
+            <UAlert
+              v-if="batchError"
+              color="warning"
+              variant="subtle"
+              icon="i-tabler-alert-triangle"
+              title="部分修改未完成"
+              :description="batchError"
+              role="alert"
             />
-          </UFormField>
-          <UFormField label="有效期">
-            <USelect
-              v-model="batchExpiry"
-              :items="expiryItems"
-              value-key="value"
-              label-key="label"
-              class="w-full"
-              aria-label="批量有效期"
+          </div>
+        </template>
+        <template #footer>
+          <div class="flex w-full items-center justify-end gap-1.5">
+            <UButton
+              type="button"
+              label="取消"
+              color="neutral"
+              variant="ghost"
               :disabled="batchSaving"
+              @click="closeBatchEdit"
             />
-          </UFormField>
-          <p class="mt-[-4px] text-xs leading-[1.65] text-[var(--paste-ink-soft)]">“保持原设置”不会覆盖每个代码片段当前不同的值；已有密码和文件内容不会改变。</p>
-          <UAlert
-            v-if="batchError"
-            color="warning"
-            variant="subtle"
-            icon="i-tabler-alert-triangle"
-            title="部分修改未完成"
-            :description="batchError"
-            role="alert"
-          />
-        </div>
-      </template>
-      <template #footer>
-        <div class="flex w-full items-center justify-end gap-1.5">
-          <UButton
-            type="button"
-            label="取消"
-            color="neutral"
-            variant="ghost"
-            :disabled="batchSaving"
-            @click="closeBatchEdit"
-          />
-          <UButton
-            type="button"
-            label="应用修改"
-            icon="i-tabler-check"
-            color="primary"
-            :loading="batchSaving"
-            :disabled="batchSaving || !hasBatchChanges || selectedValues.length === 0"
-            @click="applyBatchEdit"
-          />
-        </div>
-      </template>
-    </USlideover>
-    <p class="sr-only" aria-live="polite">{{ copied ? "分享链接已复制" : operationMessage }}</p>
-  </section>
+            <UButton
+              type="button"
+              label="应用修改"
+              icon="i-tabler-check"
+              color="primary"
+              :loading="batchSaving"
+              :disabled="
+                batchSaving || !hasBatchChanges || selectedValues.length === 0
+              "
+              @click="applyBatchEdit"
+            />
+          </div>
+        </template>
+      </USlideover>
+      <p class="sr-only" aria-live="polite">
+        {{ copied ? "分享链接已复制" : operationMessage }}
+      </p>
+    </section>
+  </PasteWorkspace>
 </template>

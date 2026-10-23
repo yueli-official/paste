@@ -667,8 +667,8 @@ onBeforeUnmount(() => {
             <UFormField label="站点名称" name="name" required :error="settingsFailure?.fieldErrors.name?.join(' ')">
               <UInput id="paste-site-name" v-model="settingsName" name="siteName" maxlength="40" autocomplete="off" aria-label="站点名称" class="w-full" />
             </UFormField>
-            <UFormField label="站点描述" name="description" :error="settingsFailure?.fieldErrors.description?.join(' ')">
-              <UTextarea id="paste-site-description" v-model="settingsDescription" name="siteDescription" maxlength="160" :rows="3" aria-label="站点说明" class="w-full" />
+            <UFormField label="站点提示语" name="description" :error="settingsFailure?.fieldErrors.description?.join(' ')">
+              <UTextarea id="paste-site-description" v-model="settingsDescription" name="siteDescription" maxlength="160" :rows="3" aria-label="站点提示语" class="w-full" />
             </UFormField>
             <FailureNotice :feedback="settingsFailure" />
           </div>

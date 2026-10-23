@@ -1,47 +1,64 @@
 # Paste interface contract
 
-Paste is an editor-first workbench, not a marketing page or a miniature file manager. The creation and editing route (`/`) begins
-directly with a full-height editor shell: ordered file tabs, active code, transient share controls and document status. It does not
-place a hero, explanatory copy or a separate public website Header ahead of the task. Recipients get the same file vocabulary in a
-quieter, read-only surface; authenticated users get the same application shell around a compact management ledger.
+Paste is a fast text and code sharing workspace. The core path is paste content, optionally adjust access, and generate a link.
+The public editor, reader and content library share a graphite-and-lime visual language with a global account control in the top
+right and a persistent left content navigator on desktop.
 
 ## Visual language
 
-- Cool porcelain canvases, mist-blue chrome and ink-navy dark surfaces give the editor a focused technical atmosphere without
-  falling into generic charcoal. Mineral blue owns selection, focus, commit actions and the editor status bar; red and green stay
-  reserved for destructive and successful states.
-- Borders establish structure. Shadows are limited to genuinely elevated overlays, while the workbench itself remains flat.
-- Interface text uses the system Chinese sans-serif stack. Monospace typography is reserved for source code and file-oriented
-  metadata.
-- Tabler is the only icon family. Icons support labels and do not replace unfamiliar action names.
+- Dark mode is the initial preference: cold graphite surfaces, restrained separators, readable muted text and one lime primary
+  action. A cool neutral light mode retains the same hierarchy.
+- The serif `paste.` wordmark is the product signature. The configurable site description appears beside it as a tagline; an empty description hides it. The site name remains in page
+  metadata. The theme switch and shared Identity account control live at the top right on every workspace route.
+- System Chinese sans-serif type carries interface copy; monospace is reserved for file names, source code and technical metadata.
+- Tabler is the only icon family. Labels explain unfamiliar actions; compact mobile icon actions retain accessible names.
+- Product theme tokens live in `web/app/assets/css/main.css`. Layouts and component states belong in template Tailwind utilities.
 
-The canonical tokens live in `web/app/assets/css/main.css`. Light and dark modes must preserve the same hierarchy, rather than
-reinterpreting the layout with unrelated colors or effects.
+## Creation and editing
 
-## Layout and interaction
+- `/` opens directly into an empty `untitled.txt` file with focused CodeMirror input. A title is optional. Generating a link is
+  disabled until at least one file contains content; anonymous creation remains available without login.
+- The left navigator contains a secondary New action, library search, the current editing state and real recent owned content.
+  Anonymous users see a sign-in action without promotional filler. Mobile navigation opens from the header.
+- A document command row contains the optional title, one access-and-expiry summary, and the primary Generate link / Save changes
+  action. The summary opens one sharing panel for visibility, expiry, password, description and tags. Sharing does not require
+  visiting that panel first.
+- There is no automatic clipboard read or implied autosave. Current content is marked unshared or unsaved; abandoning changed
+  content requires confirmation. Anonymous creators are informed that their content cannot subsequently be edited.
+- A Paste contains 1–20 ordered text files and a combined 1 MiB content budget. File tabs retain switching, drag reordering,
+  `Alt + Left/Right` reordering, double-click rename and deletion. File names infer languages; selecting a language updates the extension while preserving the path stem and avoiding duplicate names.
+- Plain text and code use the full-width CodeMirror canvas with language selection, wrapping and raw-copy controls. Source syntax
+  colors are theme-aware. The editor status row reports the real total byte budget and file count.
+- Markdown uses the shared Foundation ContentEditor (Tiptap) for formatted editing, CodeMirror for source editing, and shared
+  ContentProse for preview. At widths of at least 1100px, Markdown starts with editing on the left and live preview on the right.
+  Edit / Split / Preview controls choose the layout; the source/formatted menu chooses the editor. Narrow screens default to
+  editing and offer a separate Preview view.
+- Markdown starts in source mode. Switching a nonempty source into formatted editing explains possible normalization of HTML,
+  custom syntax and whitespace when edits are made. Merely opening preview or formatted mode must preserve the original source
+  byte for byte; the API continues to receive Markdown strings. Shared editor draft storage is disabled for this workspace.
+- Markdown body content has a bounded reading width; code keeps the available workspace width. Mobile tool rows keep file tabs
+  and editing actions accessible without overflowing the page. The shared rich editor owns its own scrollable formatting toolbar.
 
-- Creation and editing on `/` use one edge-to-edge editor shell. A single editor chrome merges the product entry, horizontal file
-  tabs, share, My Paste, theme and account controls into one 40px desktop row; it is the route's only title and
-  navigation layer. The code surface consumes the remaining viewport above a 28px status bar, which owns the language selector.
-- Sharing opens from the editor chrome in a transient Nuxt UI slideover and never permanently consumes editing width.
-- File tabs support direct switching, drag reordering, `Alt + ←/→` keyboard reordering, double-click rename and direct deletion
-  from the tab close control. Inline rename uses the tab's flat editor-native field rather than a rounded form control, and adding
-  a file does not force rename mode. On
-  narrow viewports the editor chrome becomes 44px and the status bar 30px; the product entry collapses to an icon, My Paste moves
-  into the account context, and the horizontally scrolling file tabs remain the primary file carrier.
-- The authenticated `/mine` route uses the same edge-to-edge application shell: one editor-like titlebar, one flat search toolbar,
-  an internally scrolling file ledger and a readable status bar. It does not render the shared public Header or card-page hero.
-- The shared `/p/:code` route is the read-only expression of that same editor shell. Its desktop frame is one 40px file bar, a
-  full-height code surface and a 28px status bar; narrow viewports use the matching 44px file bar and 30px status bar. The file bar
-  carries file selection plus the primary read, copy and inspect actions, without adding a page title, card wrapper or second
-  navigation row.
-- Shared-Paste metadata and secondary copy actions live in a transient information rail opened from the file bar. The rail may
-  explain title, description, tags, visibility, expiry and file details, but it must not reserve permanent width beside the code
-  or make reading contingent on opening it.
-- `/mine` supports explicit row selection and selection of the current filtered result set. Once anything is selected, the search
-  toolbar becomes a contextual command bar for batch visibility/expiry changes, destructive deletion and clearing selection.
-  Batch changes patch only the chosen fields, run with bounded concurrency and keep failed items selected after partial failure;
-  they must never overwrite file content, passwords or unrelated metadata.
+## Reading and library
+
+- `/p/:code` uses the same shell, a clear title, one primary Copy link action, file tabs and raw-copy controls. Markdown opens in
+  reading mode and can reveal its original source. Code remains read-only.
+- Authenticated ownership is verified before showing Edit and Delete on the reading page. Deletion requires confirmation,
+  uses the current revision, and returns to the library after success.
+- Successful creation or saving displays an inline confirmation and selectable share URL. Copy success appears at the action;
+  no success Toast is emitted. Details and multi-file copy actions remain in the information panel.
+- Password access, loading and unavailable-content states retain the surrounding workspace. Passwords never enter the URL.
+- `/mine` is named 内容库. It retains server search, pagination, explicit row selection, batch visibility/expiry changes and
+  deletion. Batch changes affect only selected fields; partial failures remain selected and never overwrite file content.
+- The library uses compact file cards on graphite surfaces, with language, file count, access state and update date grouped
+  beneath the title. Long titles truncate inside the sidebar; file tabs leave room for letter descenders.
+- The future website-cluster launcher belongs beside the top-right account control. Do not display an inert launcher or invent
+  destinations before a real site navigation contract is supplied.
+
+## Administration
+
+The protected administration area continues to use the shared Foundation admin shell and existing governance flows.
+
 - The protected `/admin` route is an editor-native Operate master-detail ledger, not a card dashboard. Compact application chrome
   leads to full-site governance as the primary workspace and site settings as a deliberate secondary workspace. On desktop, the
   safe record inspector shares the work plane with the ledger; at narrower widths it becomes an overlay, and on mobile it occupies
@@ -64,44 +81,22 @@ reinterpreting the layout with unrelated colors or effects.
   shared anonymous daily total (0–100000). Each group exposes its own revision. Unified save reports partial success by group, and
   the mobile command bar keeps abandoning unsaved changes reachable. Presentation values may replace the user-facing product
   label, but do not rename the technical `paste` identity, API or routes.
-- Other public routes retain the shared public Header. Do not reintroduce that Header—or any second titlebar—above the application
-  shell on `/`, `/mine`, `/p/:code` or `/admin`.
-- A Paste contains 1–20 ordered text files. Multiple files should feel like one shareable artifact, not a directory browser.
-- Passwords are submitted in the protected access form and never appear in a query string or copied share URL.
-- A single file may use the full 1 MiB Paste budget; all files together remain limited to 1 MiB. The status bar shows the active
-  file against that real boundary, client validation names an offending file before submission, and API validation preserves
-  field violations.
-- Anonymous creators receive a usable link immediately. Identity login adds history and management but must not obstruct public
-  creation or reading.
-- Every control retains a visible focus state, text status and a practical touch target. Reduced-motion preferences suppress
-  nonessential transitions.
 
-## Reuse boundaries
+## Reuse and ownership
 
-Foundation supplies shared runtime, Identity integration and common UI primitives. Paste owns its workbench composition, code
-editor and product-specific states. Standard form controls—including inputs, textareas, tags and dropdowns—use Nuxt UI; custom
-controls are reserved for editor-native interactions such as the file explorer and code surface. New pages should reuse the
-established tokens and shell before introducing another card, navigation pattern or visual motif.
+Foundation owns the shared content renderer/editor, runtime, account integration and common controls. Paste owns its composition,
+CodeMirror adapter, file model and sharing states. Consume the Workspace-approved packages and verify frozen artifacts before
+claiming a production build; local source overlays are a separate integration check.
 
-## Implementation ownership
+- Ordinary layout, spacing, sizing, responsive behavior and states belong in Vue Tailwind utilities, Nuxt UI configuration or
+  shared Foundation modules. Product pages do not own `<style>` blocks.
+- Main CSS owns semantic light/dark tokens, document base/focus behavior, minimal CodeMirror host rules and reduced-motion behavior.
+- Keep administrator save feedback, compact collections and pagination within the existing shared contracts. The new public shell
+  must not replace or duplicate the administration shell.
 
-- Ordinary layout, spacing, sizing, responsive behavior and component states belong in Vue template Tailwind utilities, Nuxt UI
-  configuration or shared Foundation modules. Paste pages and layouts do not own `<style>` blocks.
-- `web/app/assets/css/main.css` owns only semantic light/dark theme tokens, document-level base and focus behavior, the minimal
-  CodeMirror host adapter, the reader loading keyframe and the global reduced-motion fallback.
-- The CodeMirror adapter is restricted to editor height, scroller containment and tooltip theming. It must not grow into a second
-  page-layout system; new product UI should remain visible in the template where Tailwind ownership can be reviewed directly.
+## Verification
 
-## Admin acceptance refinement (2026-09-10)
-
-Admin collections follow the shared compact header and pagination contract: title-aligned search/filter,
-content-driven list height, page size on the left and bounded first/previous/pages/next/last controls on the right.
-Keep the pagination inside the list surface. Mobile toolbar button sizing must not stretch checkbox glyphs.
-User rows use Foundation AuthorizationUser and Identity public profiles, with a retry action for failed enrichment.
-Administrator setup requires explicit confirmation and uses the existing tokens and Nuxt UI controls.
-
-## Save and pagination refinement (2026-09-10)
-
-Paste settings expose one fixed primary Save button. Successful saves show 已保存 in that button for 1000ms using Foundation action feedback, then return to 保存. No discard action; reload abandons unsaved input.
-Admin secondary navigation omits 我的片段/返回首页 because the brand already links home.
-The My Pastes pagination uses a neutral theme-aware footer with page size left and page navigation right; it is not embedded in the editor's blue 28px status strip.
+CLI Playwright covers real desktop/mobile creation, protected access, copy/share, login and owned content management. The redesign
+suite additionally checks direct creation, complete multiline clipboard input, exact Markdown preservation across mode switches,
+and content created in the shared formatted editor. Screenshot collection is not visual approval: inspect actual rendered states,
+fix alignment/spacing/overflow issues and inspect again before delivery.

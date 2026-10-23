@@ -4,7 +4,7 @@ import type { AccountMenuAction } from "@yueli/ui/account-menu/pattern";
 const { siteName } = useSiteSettings();
 const { isAdmin } = usePasteAdministration();
 const accountActions = computed<readonly AccountMenuAction[]>(() => [
-  { label: "我的片段", icon: "i-tabler-folders", to: "/mine" },
+  { label: "内容库", icon: "i-tabler-folders", to: "/mine" },
   ...(isAdmin.value
     ? [{ label: "管理后台", icon: "i-tabler-shield-cog", to: "/admin" }]
     : []),
@@ -41,7 +41,7 @@ const applicationShell = computed(() =>
         <div class="flex items-center gap-0.5">
           <UButton
             to="/mine"
-            label="我的片段"
+            label="内容库"
             icon="i-tabler-folders"
             color="neutral"
             variant="ghost"
@@ -58,6 +58,6 @@ const applicationShell = computed(() =>
         </div>
       </nav>
     </header>
-    <main><slot /></main>
+    <component :is="applicationShell ? 'div' : 'main'"><slot /></component>
   </div>
 </template>

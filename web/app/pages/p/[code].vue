@@ -1,21 +1,21 @@
-<!--
-THESIS: A shared Paste opens as the editor's read-only mode, never as an article wrapped around a code card.
-OWN-WORLD: Cool porcelain and ink-navy code floors inside flat mineral-blue, VS Code-derived application chrome.
-STORY: choose a file, read the code, copy what matters, and inspect access facts without leaving the editor context.
-FIRST VIEWPORT: one 40px product-and-file bar, a viewport-filling code surface, and one 28px document status bar.
-FORM: the established editor shell in recipient mode; metadata and secondary copy actions stay in a transient information rail.
-FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
--->
 <script setup lang="ts">
-import type { AccountMenuAction } from "@yueli/ui/account-menu/pattern";
 import type { Paste, PasteFile } from "../../types/paste";
-import { displayTitle, pasteErrorMessage, pasteProblemCode } from "../../utils/paste";
+import {
+  displayTitle,
+  pasteErrorMessage,
+  pasteProblemCode,
+} from "../../utils/paste";
 
 const route = useRoute();
 const api = usePasteApi();
+const { loggedIn } = useAuth();
+const ownedRevision = ref<number>();
+const deleting = ref(false);
+const deleteError = ref("");
 const transfer = usePasteTransfer();
-const toast = useToast();
-const { isAdmin } = usePasteAdministration();
+const copyError = ref("");
+const showSource = ref(false);
+const wrapping = ref(true);
 const { siteName, siteDescription } = useSiteSettings();
 const code = computed(() => String(route.params.code || ""));
 const value = ref<Paste>();
@@ -28,23 +28,14 @@ const loadError = ref("");
 const accessError = ref("");
 const copied = ref("");
 const infoOpen = ref(false);
-const createdNotified = ref(false);
 
-const accountActions = computed<readonly AccountMenuAction[]>(() => [
-  { label: "我的片段", icon: "i-tabler-folders", to: "/mine" },
-  ...(isAdmin.value
-    ? [{ label: "管理后台", icon: "i-tabler-shield-cog", to: "/admin" }]
-    : []),
-]);
-const activeFile = computed<PasteFile | undefined>(() => value.value?.files[activeIndex.value]);
+const activeFile = computed<PasteFile | undefined>(
+  () => value.value?.files[activeIndex.value],
+);
 const created = computed(() => route.query.created === "1");
-const visibilityLabel = computed(() => value.value?.visibility === "private" ? "仅自己" : "链接访问");
-const shellState = computed(() => {
-  if (loading.value) return "loading";
-  if (locked.value) return "locked";
-  if (loadError.value || !value.value) return "error";
-  return created.value ? "created" : "ready";
-});
+const visibilityLabel = computed(() =>
+  value.value?.visibility === "private" ? "仅自己" : "链接访问",
+);
 const shellTitle = computed(() => {
   if (loading.value) return "正在打开片段";
   if (locked.value) return "需要访问密码";
@@ -53,8 +44,14 @@ const shellTitle = computed(() => {
 });
 
 useSeoMeta({
-  title: computed(() => value.value ? `${displayTitle(value.value.title, activeFile.value?.path)} · ${siteName.value}` : `${code.value} · ${siteName.value}`),
-  description: computed(() => value.value?.description || siteDescription.value),
+  title: computed(() =>
+    value.value
+      ? `${displayTitle(value.value.title, activeFile.value?.path)} · ${siteName.value}`
+      : `${code.value} · ${siteName.value}`,
+  ),
+  description: computed(
+    () => value.value?.description || siteDescription.value,
+  ),
 });
 
 async function load() {
@@ -67,29 +64,20 @@ async function load() {
   const carried = transfer.value[code.value];
   if (carried) {
     value.value = carried;
+    delete transfer.value[code.value];
     loading.value = false;
-    notifyCreated();
+
     return;
   }
   try {
     value.value = (await api.get(code.value)).paste;
-    notifyCreated();
   } catch (caught) {
-    if (pasteProblemCode(caught) === "paste.password_required") locked.value = true;
+    if (pasteProblemCode(caught) === "paste.password_required")
+      locked.value = true;
     else loadError.value = pasteErrorMessage(caught);
   } finally {
     loading.value = false;
   }
-}
-
-function notifyCreated() {
-  if (!created.value || createdNotified.value) return;
-  createdNotified.value = true;
-  toast.add({
-    title: "代码片段已创建",
-    description: "链接已经可以复制和分享。",
-    color: "success",
-  });
 }
 
 async function unlock() {
@@ -110,17 +98,14 @@ async function unlock() {
 
 async function copy(text: string, key: string) {
   try {
+    copyError.value = "";
     await copyPasteText(text);
     copied.value = key;
     window.setTimeout(() => {
       if (copied.value === key) copied.value = "";
     }, 1800);
   } catch {
-    toast.add({
-      title: "复制失败",
-      description: "请选中内容后手动复制。",
-      color: "error",
-    });
+    copyError.value = "复制失败，请选择内容后手动复制。";
   }
 }
 
@@ -134,7 +119,9 @@ function copyAll() {
 
 function copyShareLink() {
   if (!value.value) return;
-  const fallback = import.meta.client ? window.location.href : value.value.shareUrl;
+  const fallback = import.meta.client
+    ? window.location.href
+    : value.value.shareUrl;
   return copy(value.value.shareUrl || fallback, "link");
 }
 
@@ -142,158 +129,194 @@ function openInfo() {
   infoOpen.value = true;
 }
 
+async function checkOwnership() {
+  ownedRevision.value = undefined;
+  deleteError.value = "";
+  if (!loggedIn.value || !value.value) return;
+  const requestedCode = code.value;
+  try {
+    const owned = (await api.getMine(requestedCode)).paste;
+    if (code.value === requestedCode && loggedIn.value)
+      ownedRevision.value = owned.revision;
+  } catch {
+    // Only the authenticated owner endpoint grants management controls.
+  }
+}
+
+async function removeOwned() {
+  if (ownedRevision.value === undefined || deleting.value) return;
+  if (!window.confirm(`删除“${shellTitle.value}”？此链接将永久失效。`)) return;
+  deleting.value = true;
+  deleteError.value = "";
+  try {
+    await api.remove(code.value, ownedRevision.value);
+    await navigateTo("/mine");
+  } catch (caught) {
+    deleteError.value = pasteErrorMessage(caught);
+  } finally {
+    deleting.value = false;
+  }
+}
+
+watch([loggedIn, value], checkOwnership);
+
 function selectAdjacentFile(index: number, direction: -1 | 1) {
   if (!value.value) return;
-  const next = (index + direction + value.value.files.length) % value.value.files.length;
+  const next =
+    (index + direction + value.value.files.length) % value.value.files.length;
   activeIndex.value = next;
-  nextTick(() => document.querySelector<HTMLButtonElement>(`#paste-reader-tab-${next}`)?.focus());
+  nextTick(() =>
+    document
+      .querySelector<HTMLButtonElement>(`#paste-reader-tab-${next}`)
+      ?.focus(),
+  );
 }
 
 onMounted(load);
 watch(code, (next, previous) => {
   if (next !== previous) load();
 });
-</script>
 
+watch(activeIndex, () => {
+  showSource.value = false;
+  copied.value = "";
+});
+</script>
 <template>
-  <section
-    class="min-h-dvh bg-[var(--paste-editor)]"
-    :aria-label="shellTitle"
-    :aria-busy="loading"
+  <PasteWorkspace
+    :current-title="value ? shellTitle : ''"
+    :current-status="
+      value?.visibility === 'private' ? '仅自己可访问' : '链接分享'
+    "
   >
     <div
-      class="paste-reader-shell grid h-dvh min-h-[360px] w-full min-w-0 grid-rows-[40px_minmax(0,1fr)_28px] overflow-hidden bg-[var(--paste-editor)] max-[720px]:min-h-[320px] max-[720px]:grid-rows-[44px_minmax(0,1fr)_30px]"
+      class="paste-reader-shell h-full flex flex-col min-w-0 overflow-hidden"
+      :aria-busy="loading"
     >
       <header
-        class="flex min-w-0 items-stretch border-b border-[var(--paste-line)] bg-[var(--paste-chrome)]"
-        aria-label="代码片段只读工具栏"
+        class="paste-command-row min-h-[88px] [padding:20px_30px] flex items-center gap-5 [border-bottom:1px_solid_var(--paste-line)] max-[1100px]:flex-wrap max-[1100px]:gap-3 max-[1100px]:[padding:18px_22px] max-[760px]:p-4 max-[760px]:min-h-[76px]"
       >
-        <NuxtLink
-          to="/"
-          class="flex shrink-0 items-center gap-[7px] border-r border-[var(--paste-line)] px-[11px] text-[var(--paste-ink)] no-underline max-[720px]:px-1.5"
-          :aria-label="`${siteName} 首页`"
-        >
-          <span
-            class="grid size-6 place-items-center rounded-md border border-[color-mix(in_srgb,var(--paste-blue)_28%,var(--paste-line))] bg-[var(--paste-blue-soft)] text-[var(--paste-blue)]"
-            aria-hidden="true"
-          >
-            <UIcon name="i-tabler-code-dots" class="size-4" />
-          </span>
-          <span
-            class="text-[13px] font-[730] tracking-[-0.025em] max-[720px]:hidden"
-            >{{ siteName }}</span
-          >
-        </NuxtLink>
-
-        <nav
+        <h1
           v-if="value"
-          class="flex min-w-0 flex-1 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          id="paste-title"
+          class="paste-reader-title text-[21px] font-semibold flex-1 min-w-0 [letter-spacing:-.025em] overflow-hidden text-ellipsis whitespace-nowrap max-[760px]:text-lg"
+        >
+          {{ shellTitle }}
+        </h1>
+        <span
+          v-else
+          class="paste-reader-title text-[21px] font-semibold flex-1 min-w-0 [letter-spacing:-.025em] overflow-hidden text-ellipsis whitespace-nowrap max-[760px]:text-lg"
+          >{{ loading ? "正在打开…" : "分享内容" }}</span
+        >
+        <div v-if="value" class="flex flex-wrap items-center gap-2 max-[760px]:w-full">
+          <UButton v-if="ownedRevision !== undefined" :to="`/?edit=${code}`" icon="i-tabler-edit" label="编辑" aria-label="编辑此内容" color="neutral" variant="ghost" :disabled="deleting" />
+          <UButton v-if="ownedRevision !== undefined" icon="i-tabler-trash" label="删除" aria-label="删除此链接" color="neutral" variant="ghost" class="hover:text-[var(--paste-red)]" :loading="deleting" @click="removeOwned" />
+          <UButton
+            icon="i-tabler-info-circle"
+            label="详情"
+            aria-label="查看片段信息"
+            color="neutral"
+            variant="ghost"
+            @click="openInfo"
+          />
+          <UButton
+            :label="copied === 'link' ? '链接已复制' : '复制链接'"
+            aria-label="复制分享链接"
+            :icon="copied === 'link' ? 'i-tabler-check' : 'i-tabler-link'"
+            class="paste-primary bg-[var(--paste-blue)] text-[#17200e] min-h-10 [padding:9px_18px] rounded-[7px] font-[650] whitespace-nowrap justify-center not-dark:text-white hover:bg-[var(--paste-blue-hover)] disabled:[opacity:.35] max-[760px]:min-h-10 max-[760px]:text-xs max-[760px]:[padding:8px_12px]"
+            @click="copyShareLink"
+          />
+        </div>
+      </header>
+      <div
+        v-if="value && (created || route.query.updated === '1')"
+        class="paste-reader-success flex items-center gap-3 [padding:12px_30px] bg-[var(--paste-blue-soft)] [border-bottom:1px_solid_var(--paste-line)] text-[var(--paste-ink-soft)] text-[13px] [&_>_span:first-child]:text-[var(--paste-blue)] max-[760px]:[padding:10px_16px] max-[760px]:flex-wrap"
+        role="status"
+      >
+        <UIcon name="i-tabler-circle-check" class="size-5" /><span>{{
+          created ? "链接已生成，可以分享了" : "修改已保存，原链接继续有效"
+        }}</span
+        ><input
+          :value="value.shareUrl"
+          readonly
+          aria-label="分享链接"
+          class="paste-reader-link min-w-0 flex-1 border-0 outline-0 bg-transparent text-xs text-[var(--paste-ink-soft)] max-[760px]:basis-full"
+          @focus="($event.target as HTMLInputElement).select()"
+        />
+      </div>
+      <p
+        v-if="copyError || deleteError"
+        role="alert"
+        class="paste-inline-feedback [padding:10px_28px] text-[13px] bg-[var(--paste-red-soft)] text-[var(--paste-red)]"
+      >
+        {{ deleteError || copyError }}
+      </p>
+      <div
+        v-if="value"
+        class="paste-editor-toolbar min-h-[58px] flex items-stretch justify-between gap-3 [border-bottom:1px_solid_var(--paste-line)] [padding:0_22px] max-[1100px]:flex-wrap max-[1100px]:gap-0 max-[760px]:[padding:0_10px]"
+      >
+        <nav
+          class="paste-file-tabs min-h-[54px] flex flex-1 min-w-0 overflow-x-auto [scrollbar-width:thin] max-[1100px]:basis-full"
           role="tablist"
           aria-label="片段文件"
         >
           <button
             v-for="(file, index) in value.files"
             :id="`paste-reader-tab-${index}`"
-            :key="`${file.path}-${index}`"
+            :key="file.path"
             type="button"
             role="tab"
-            class="flex h-full min-w-[108px] max-w-[220px] basis-44 items-center gap-[7px] overflow-hidden border-0 border-r border-[var(--paste-line)] bg-transparent px-[11px] text-left text-xs text-[var(--paste-ink-soft)] hover:bg-[color-mix(in_srgb,var(--paste-editor-active)_48%,transparent)] hover:text-[var(--paste-ink)] data-[active=true]:bg-[var(--paste-editor)] data-[active=true]:text-[var(--paste-ink)] data-[active=true]:[box-shadow:inset_0_2px_var(--paste-blue)] max-[720px]:min-w-[88px] max-[720px]:basis-[124px] max-[720px]:px-[9px] [&>span]:truncate"
+            class="paste-file-tab gap-2 px-3 text-xs relative flex items-center [min-width:132px] [max-width:230px] text-[var(--paste-ink-dim)] [&[data-active=true]]:text-[var(--paste-ink)] [&[data-active=true]]:[box-shadow:inset_0_-2px_var(--paste-blue)] [&[data-dragging=true]]:[opacity:.4] [&[data-drop-position=before]]:[border-left:2px_solid_var(--paste-blue)] [&[data-drop-position=after]]:[border-right:2px_solid_var(--paste-blue)] [&_.paste-file-tab-button]:text-xs [&_.paste-file-tab-button]:min-h-[54px]"
             :data-active="activeIndex === index"
             :aria-selected="activeIndex === index"
             :aria-controls="`paste-reader-panel-${index}`"
             :tabindex="activeIndex === index ? 0 : -1"
             :aria-label="file.path"
-            @click="activeIndex = index"
+            @click="() => { activeIndex = index; }"
             @keydown.left.prevent="selectAdjacentFile(index, -1)"
             @keydown.right.prevent="selectAdjacentFile(index, 1)"
           >
-            <UIcon name="i-tabler-file-code" class="size-4 shrink-0" />
-            <span>{{ file.path }}</span>
+            <UIcon name="i-tabler-file-code" class="size-4 shrink-0" /><span
+              class="truncate leading-6 py-px"
+              >{{ file.path }}</span
+            >
           </button>
         </nav>
         <div
-          v-else
-          class="flex min-w-0 flex-1 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          aria-hidden="true"
+          v-if="activeFile"
+          class="paste-editor-tools flex items-center gap-[5px] shrink-0 max-[1100px]:[padding:8px_0] max-[1100px]:[min-height:48px] max-[1100px]:w-full max-[1100px]:justify-end max-[1100px]:[border-top:1px_solid_var(--paste-line)] max-[760px]:justify-start max-[760px]:gap-0.5 max-[760px]:overflow-x-auto max-[760px]:[&_>_*]:shrink-0 max-[760px]:[&_button]:min-h-[38px]"
         >
-          <div
-            class="flex h-full min-w-[108px] max-w-[220px] basis-44 cursor-default items-center gap-[7px] overflow-hidden border-r border-[var(--paste-line)] bg-[var(--paste-editor)] px-[11px] text-xs text-[var(--paste-ink)] [box-shadow:inset_0_2px_var(--paste-blue)] max-[720px]:min-w-[88px] max-[720px]:basis-[124px] max-[720px]:px-[9px] [&>span]:truncate"
-            data-active="true"
-          >
-            <UIcon :name="locked ? 'i-tabler-lock' : loadError ? 'i-tabler-file-off' : 'i-tabler-file-code'" class="size-4 shrink-0" />
-            <span>{{ locked ? "受保护的片段" : loadError ? "无法打开" : code }}</span>
-          </div>
-        </div>
-
-        <div
-          class="flex shrink-0 items-center gap-0.5 bg-[var(--paste-chrome)] px-[5px] max-[720px]:px-1"
-        >
-          <UTooltip v-if="value" text="片段信息">
-            <UButton
-              type="button"
-              icon="i-tabler-info-circle"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              square
-              aria-label="查看片段信息"
-              @click="openInfo"
-            />
-          </UTooltip>
-          <UTooltip v-if="activeFile" :text="copied === activeFile.path ? '已复制当前文件' : '复制当前文件'">
-            <UButton
-              type="button"
-              :icon="copied === activeFile.path ? 'i-tabler-check' : 'i-tabler-copy'"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              square
-              class="max-[720px]:hidden"
-              :aria-label="`复制 ${activeFile.path}`"
-              @click="copy(activeFile.content, activeFile.path)"
-            />
-          </UTooltip>
-          <UTooltip v-if="value" :text="copied === 'link' ? '链接已复制' : '复制分享链接'">
-            <UButton
-              type="button"
-              :icon="copied === 'link' ? 'i-tabler-check' : 'i-tabler-share-3'"
-              color="primary"
-              variant="ghost"
-              size="sm"
-              square
-              aria-label="复制分享链接"
-              @click="copyShareLink"
-            />
-          </UTooltip>
-          <span
-            v-if="value"
-            class="mx-[3px] h-5 w-px bg-[var(--paste-line)] max-[720px]:hidden"
-            aria-hidden="true"
+          <UButton
+            v-if="activeFile.language === 'markdown'"
+            :label="showSource ? '阅读' : '查看源码'"
+            :icon="showSource ? 'i-tabler-book' : 'i-tabler-code'"
+            color="neutral"
+            variant="ghost"
+            @click="() => { showSource = !showSource; }"
           />
-          <UTooltip text="我的片段">
-            <UButton
-              to="/mine"
-              icon="i-tabler-folders"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              square
-              class="max-[720px]:hidden"
-              aria-label="我的片段"
-            />
-          </UTooltip>
-          <UTooltip text="切换颜色模式">
-            <UColorModeButton color="neutral" variant="ghost" size="sm" aria-label="切换颜色模式" />
-          </UTooltip>
-          <div
-            class="grid size-8 place-items-center [&_button]:size-[30px] [&_button]:min-h-[30px] [&_button]:min-w-[30px] [&_button]:p-0 [&_[data-slot=label]]:sr-only"
-          >
-            <ConsumerAccountControl :context-actions="accountActions" trigger-mode="collapsed" />
-          </div>
+          <span class="px-2 text-xs text-muted">{{ activeFile.language }}</span>
+          <UButton
+            v-if="activeFile.language !== 'markdown' || showSource"
+            icon="i-tabler-text-wrap"
+            aria-label="自动换行"
+            :aria-pressed="wrapping"
+            color="neutral"
+            :variant="wrapping ? 'soft' : 'ghost'"
+            @click="() => { wrapping = !wrapping; }"
+          />
+          <UButton
+            :label="copied === activeFile.path ? '已复制' : '复制源码'"
+            :aria-label="`复制 ${activeFile.path}`"
+            :icon="
+              copied === activeFile.path ? 'i-tabler-check' : 'i-tabler-copy'
+            "
+            color="neutral"
+            variant="ghost"
+            @click="copy(activeFile.content, activeFile.path)"
+          />
         </div>
-      </header>
-
-      <div class="min-h-0 min-w-0 overflow-hidden bg-[var(--paste-editor)]">
+      </div>
+      <div class="paste-editor-area flex-1 min-h-0 min-w-0 overflow-hidden">
         <div
           v-if="loading"
           class="grid size-full place-content-center justify-items-center gap-2.5 p-6 text-center text-xs text-[var(--paste-ink-soft)]"
@@ -307,7 +330,11 @@ watch(code, (next, previous) => {
           v-else-if="locked"
           class="grid size-full place-content-center justify-items-center gap-2.5 p-6 text-center text-xs text-[var(--paste-ink-soft)] [&>h1]:mt-1 [&>h1]:text-xl [&>h1]:font-[730] [&>h1]:tracking-[-0.025em] [&>h1]:text-[var(--paste-ink)] [&>p]:max-w-[48ch] [&>p]:leading-[1.65]"
         >
-          <span class="grid size-[38px] place-items-center rounded-lg border border-[var(--paste-line)] bg-[var(--paste-surface-muted)] text-[var(--paste-blue)]" aria-hidden="true"><UIcon name="i-tabler-lock" class="size-5" /></span>
+          <span
+            class="grid size-[38px] place-items-center rounded-lg border border-[var(--paste-line)] bg-[var(--paste-surface-muted)] text-[var(--paste-blue)]"
+            aria-hidden="true"
+            ><UIcon name="i-tabler-lock" class="size-5"
+          /></span>
           <h1 id="paste-title">需要访问密码</h1>
           <p>密码只用于这次打开，不会写入地址栏。</p>
           <form
@@ -326,13 +353,19 @@ watch(code, (next, previous) => {
                 class="w-full"
               />
             </UFormField>
-            <p v-if="accessError" class="text-xs leading-[1.55] text-[var(--paste-red)]" role="alert">{{ accessError }}</p>
+            <p
+              v-if="accessError"
+              class="text-xs leading-[1.55] text-[var(--paste-red)]"
+              role="alert"
+            >
+              {{ accessError }}
+            </p>
             <UButton
               type="submit"
               label="打开片段"
               icon="i-tabler-lock-open"
               block
-              class="min-h-11 border-transparent bg-[var(--paste-blue)] text-white hover:bg-[var(--paste-blue-hover)]"
+              class="paste-primary bg-[var(--paste-blue)] text-[#17200e] min-h-10 [padding:9px_18px] rounded-[7px] font-[650] whitespace-nowrap justify-center not-dark:text-white hover:bg-[var(--paste-blue-hover)] disabled:[opacity:.35] max-[760px]:min-h-10 max-[760px]:text-xs max-[760px]:[padding:8px_12px]"
               :loading="unlocking"
               :disabled="unlocking || !password"
             />
@@ -343,12 +376,30 @@ watch(code, (next, previous) => {
           v-else-if="loadError || !value"
           class="grid size-full place-content-center justify-items-center gap-2.5 p-6 text-center text-xs text-[var(--paste-ink-soft)] [&>h1]:mt-1 [&>h1]:text-xl [&>h1]:font-[730] [&>h1]:tracking-[-0.025em] [&>h1]:text-[var(--paste-ink)] [&>p]:max-w-[48ch] [&>p]:leading-[1.65]"
         >
-          <span class="grid size-[38px] place-items-center rounded-lg border border-[var(--paste-line)] bg-[var(--paste-surface-muted)] text-[var(--paste-red)]" aria-hidden="true"><UIcon name="i-tabler-file-off" class="size-5" /></span>
+          <span
+            class="grid size-[38px] place-items-center rounded-lg border border-[var(--paste-line)] bg-[var(--paste-surface-muted)] text-[var(--paste-red)]"
+            aria-hidden="true"
+            ><UIcon name="i-tabler-file-off" class="size-5"
+          /></span>
           <h1 id="paste-title">无法打开这个片段</h1>
           <p role="alert">{{ loadError || "内容不存在。" }}</p>
-          <div class="mt-[5px] flex flex-wrap justify-center gap-[7px] max-[720px]:[&>*]:min-h-11">
-            <UButton type="button" label="重新打开" icon="i-tabler-refresh" color="neutral" variant="outline" @click="load" />
-            <UButton to="/" label="新建片段" icon="i-tabler-file-plus" color="primary" />
+          <div
+            class="mt-[5px] flex flex-wrap justify-center gap-[7px] max-[720px]:[&>*]:min-h-11"
+          >
+            <UButton
+              type="button"
+              label="重新打开"
+              icon="i-tabler-refresh"
+              color="neutral"
+              variant="outline"
+              @click="load"
+            />
+            <UButton
+              to="/"
+              label="新建内容"
+              icon="i-tabler-file-plus"
+              color="primary"
+            />
           </div>
         </div>
 
@@ -359,41 +410,43 @@ watch(code, (next, previous) => {
           :aria-labelledby="`paste-reader-tab-${activeIndex}`"
           class="size-full min-h-0 min-w-0 [&_pre]:m-0 [&_pre]:h-full [&_pre]:overflow-auto [&_pre]:p-[18px] [&_pre]:font-mono [&_pre]:text-[13px] [&_pre]:leading-[1.72] [&_pre]:text-[var(--paste-ink)]"
         >
-          <ClientOnly>
+          <div
+            v-if="activeFile.language === 'markdown' && !showSource"
+            class="paste-document-scroll h-full overflow-auto"
+          >
+            <div
+              class="paste-document [max-width:840px] m-auto [padding:48px_44px_80px] text-[15px] [line-height:1.85] [overflow-wrap:anywhere] max-[760px]:[padding:28px_20px_60px]"
+            >
+              <LazyContentProse :content="activeFile.content" />
+            </div>
+          </div>
+          <ClientOnly v-else>
             <PasteCodeEditor
               :key="activeFile.path"
               :model-value="activeFile.content"
               :language="activeFile.language"
               :label="`${activeFile.path} 只读代码`"
+              :line-wrapping="wrapping"
               read-only
             />
-            <template #fallback><pre>{{ activeFile.content }}</pre></template>
+            <template #fallback>
+              <pre>{{ activeFile.content }}</pre>
+            </template>
           </ClientOnly>
         </section>
       </div>
 
       <footer
-        class="paste-reader-statusbar flex min-w-0 items-center justify-between gap-4 border-t border-[var(--paste-status-border)] bg-[var(--paste-status)] px-2.5 pb-[env(safe-area-inset-bottom)] font-mono text-xs text-[var(--paste-status-text-muted)]"
+        class="paste-statusbar flex justify-between gap-3 [padding:10px_24px] min-h-[38px] [border-top:1px_solid_var(--paste-line)] text-[var(--paste-ink-dim)] text-[10px] bg-[var(--paste-editor)] max-[760px]:[padding:9px_14px] max-[760px]:[font-size:9px] max-[760px]:gap-2 max-[760px]:[&_>_span:last-child]:gap-2"
         aria-label="片段状态"
       >
-        <span class="flex min-w-0 items-center gap-2 text-[var(--paste-status-text)]">
-          <span
-            class="size-[7px] shrink-0 rounded-full bg-[var(--paste-green)] data-[state=loading]:bg-[var(--paste-status-text-muted)] data-[state=loading]:[animation:paste-reader-pulse_1.1s_ease-in-out_infinite_alternate] data-[state=locked]:bg-[var(--paste-status-error)] data-[state=error]:bg-[var(--paste-status-error)] motion-reduce:animate-none"
-            :data-state="shellState"
-            aria-hidden="true"
-          />
-          <h1 v-if="value" id="paste-title" class="truncate font-[inherit] font-[650]">{{ shellTitle }}</h1>
-          <span v-else class="truncate font-[650]">{{ shellTitle }}</span>
-        </span>
-        <span v-if="value && activeFile" class="flex shrink-0 items-center justify-end gap-2 whitespace-nowrap max-[720px]:gap-[7px]">
-          <span class="max-[720px]:hidden">{{ value.code }}</span>
-          <span class="max-[720px]:hidden">{{ visibilityLabel }}</span>
-          <span>{{ activeFile.language }}</span>
-          <span>{{ activeIndex + 1 }}/{{ value.files.length }} 文件</span>
-        </span>
-        <span v-else class="flex shrink-0 items-center justify-end gap-2 whitespace-nowrap">{{ code }}</span>
+        <span
+          >{{ value ? visibilityLabel : shellTitle
+          }}{{ value?.passwordProtected ? " · 密码保护" : "" }}</span
+        ><span v-if="value"
+          >只读 · {{ value.files.length }} 个文件 · UTF-8</span
+        >
       </footer>
-
       <USlideover
         v-if="value"
         v-model:open="infoOpen"
@@ -404,26 +457,55 @@ watch(code, (next, previous) => {
         <template #body>
           <div class="grid gap-5">
             <div>
-              <strong class="text-base font-[730] text-[var(--paste-ink)]">{{ displayTitle(value.title, value.files[0]?.path) }}</strong>
-              <p v-if="value.description" class="mt-[7px] text-xs leading-[1.65] text-[var(--paste-ink-soft)]">{{ value.description }}</p>
+              <strong class="text-base font-[730] text-[var(--paste-ink)]">{{
+                displayTitle(value.title, value.files[0]?.path)
+              }}</strong>
+              <p
+                v-if="value.description"
+                class="mt-[7px] text-xs leading-[1.65] text-[var(--paste-ink-soft)]"
+              >
+                {{ value.description }}
+              </p>
             </div>
-            <dl class="border-t border-[var(--paste-line)] [&>div]:grid [&>div]:min-h-[42px] [&>div]:grid-cols-[76px_minmax(0,1fr)] [&>div]:items-center [&>div]:gap-3 [&>div]:border-b [&>div]:border-[var(--paste-line)] [&_dd]:m-0 [&_dd]:overflow-wrap-anywhere [&_dd]:text-right [&_dd]:text-xs [&_dd]:text-[var(--paste-ink)] [&_dt]:text-[11px] [&_dt]:text-[var(--paste-ink-dim)]">
-              <div><dt>访问</dt><dd>{{ visibilityLabel }}</dd></div>
-              <div><dt>文件</dt><dd>{{ value.files.length }} 个</dd></div>
-              <div><dt>创建</dt><dd>{{ new Date(value.createdAt).toLocaleString("zh-CN") }}</dd></div>
-              <div v-if="value.expiresAt"><dt>到期</dt><dd>{{ new Date(value.expiresAt).toLocaleString("zh-CN") }}</dd></div>
+            <dl
+              class="border-t border-[var(--paste-line)] [&>div]:grid [&>div]:min-h-[42px] [&>div]:grid-cols-[76px_minmax(0,1fr)] [&>div]:items-center [&>div]:gap-3 [&>div]:border-b [&>div]:border-[var(--paste-line)] [&_dd]:m-0 [&_dd]:overflow-wrap-anywhere [&_dd]:text-right [&_dd]:text-xs [&_dd]:text-[var(--paste-ink)] [&_dt]:text-[11px] [&_dt]:text-[var(--paste-ink-dim)]"
+            >
+              <div>
+                <dt>访问</dt>
+                <dd>{{ visibilityLabel }}</dd>
+              </div>
+              <div>
+                <dt>文件</dt>
+                <dd>{{ value.files.length }} 个</dd>
+              </div>
+              <div>
+                <dt>创建</dt>
+                <dd>{{ new Date(value.createdAt).toLocaleString("zh-CN") }}</dd>
+              </div>
+              <div v-if="value.expiresAt">
+                <dt>到期</dt>
+                <dd>{{ new Date(value.expiresAt).toLocaleString("zh-CN") }}</dd>
+              </div>
             </dl>
-            <div v-if="value.tags.length" class="flex flex-wrap gap-x-3 gap-y-1.5 text-xs text-[var(--paste-blue)]" aria-label="标签">
+            <div
+              v-if="value.tags.length"
+              class="flex flex-wrap gap-x-3 gap-y-1.5 text-xs text-[var(--paste-blue)]"
+              aria-label="标签"
+            >
               <span v-for="tag in value.tags" :key="tag">#{{ tag }}</span>
             </div>
           </div>
         </template>
         <template #footer>
-          <div class="flex w-full justify-end gap-[7px] max-[720px]:flex-col-reverse max-[720px]:[&>*]:min-h-11 max-[720px]:[&>*]:w-full max-[720px]:[&>*]:justify-center">
+          <div
+            class="flex w-full justify-end gap-[7px] max-[720px]:flex-col-reverse max-[720px]:[&>*]:min-h-11 max-[720px]:[&>*]:w-full max-[720px]:[&>*]:justify-center"
+          >
             <UButton
               v-if="activeFile"
               type="button"
-              :label="copied === activeFile.path ? '已复制当前' : '复制当前文件'"
+              :label="
+                copied === activeFile.path ? '已复制当前' : '复制当前文件'
+              "
               icon="i-tabler-copy"
               color="neutral"
               variant="outline"
@@ -448,7 +530,8 @@ watch(code, (next, previous) => {
           </div>
         </template>
       </USlideover>
+
       <p class="sr-only" aria-live="polite">{{ copied ? "内容已复制" : "" }}</p>
     </div>
-  </section>
+  </PasteWorkspace>
 </template>

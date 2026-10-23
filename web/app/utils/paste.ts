@@ -25,22 +25,22 @@ const languageByExtension: Readonly<Record<string, string>> = {
 };
 
 export const languageItems = [
-  { label: "纯文本", value: "text" },
-  { label: "Go", value: "go" },
-  { label: "JavaScript", value: "javascript" },
-  { label: "TypeScript", value: "typescript" },
-  { label: "Vue", value: "vue" },
-  { label: "Python", value: "python" },
-  { label: "Rust", value: "rust" },
-  { label: "Java", value: "java" },
-  { label: "C / C++", value: "cpp" },
-  { label: "HTML", value: "html" },
-  { label: "CSS", value: "css" },
-  { label: "JSON", value: "json" },
-  { label: "Markdown", value: "markdown" },
-  { label: "SQL", value: "sql" },
-  { label: "YAML", value: "yaml" },
-  { label: "PHP", value: "php" },
+  { label: "纯文本", value: "text", extension: "txt" },
+  { label: "Go", value: "go", extension: "go" },
+  { label: "JavaScript", value: "javascript", extension: "js" },
+  { label: "TypeScript", value: "typescript", extension: "ts" },
+  { label: "Vue", value: "vue", extension: "vue" },
+  { label: "Python", value: "python", extension: "py" },
+  { label: "Rust", value: "rust", extension: "rs" },
+  { label: "Java", value: "java", extension: "java" },
+  { label: "C / C++", value: "cpp", extension: "cpp" },
+  { label: "HTML", value: "html", extension: "html" },
+  { label: "CSS", value: "css", extension: "css" },
+  { label: "JSON", value: "json", extension: "json" },
+  { label: "Markdown", value: "markdown", extension: "md" },
+  { label: "SQL", value: "sql", extension: "sql" },
+  { label: "YAML", value: "yaml", extension: "yaml" },
+  { label: "PHP", value: "php", extension: "php" },
 ] as const;
 
 export function languageFromPath(path: string): string {

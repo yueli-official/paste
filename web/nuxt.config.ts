@@ -5,7 +5,13 @@ const cookieSecure =
 
 export default defineNuxtConfig({
   devtools: { enabled: process.env.NUXT_DEVTOOLS === "true" },
-  extends: ["@yueli/identity-nuxt"],
+  extends: ["@yueli/identity-nuxt", "@yueli/content-nuxt"],
+  colorMode: { preference: "dark", fallback: "dark" },
+  // The table extension and Nuxt UI must register CellSelection only once.
+  vite: {
+    resolve: { dedupe: ["prosemirror-tables"] },
+    optimizeDeps: { include: ["@yueli/content-nuxt > @tiptap/pm/tables"] },
+  },
   modules: ["@nuxt/ui", "@yueli/ui", "@yueli/nuxt-runtime"],
   yueliRuntime: {
     defaultTarget: "platform",
@@ -41,15 +47,24 @@ export default defineNuxtConfig({
     head: {
       link: [
         { rel: "icon", type: "image/x-icon", href: "/favicon.ico?v=20260929" },
-        { rel: "icon", type: "image/svg+xml", sizes: "any", href: "/favicon.svg?v=20260929" },
-        { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png?v=20260929" },
+        {
+          rel: "icon",
+          type: "image/svg+xml",
+          sizes: "any",
+          href: "/favicon.svg?v=20260929",
+        },
+        {
+          rel: "apple-touch-icon",
+          sizes: "180x180",
+          href: "/apple-touch-icon.png?v=20260929",
+        },
       ],
       htmlAttrs: { lang: "zh-CN" },
       titleTemplate: "%s",
       meta: [
         {
           name: "theme-color",
-          content: "#f8f7f3",
+          content: "#eef3f8",
           media: "(prefers-color-scheme: light)",
         },
         {
@@ -86,8 +101,7 @@ export default defineNuxtConfig({
     port: Number(process.env.NUXT_DEV_PORT || "3010"),
   },
   runtimeConfig: {
-    downstreamBase:
-      process.env.NUXT_DOWNSTREAM_BASE || "http://127.0.0.1:8091",
+    downstreamBase: process.env.NUXT_DOWNSTREAM_BASE || "http://127.0.0.1:8091",
     identityBase: process.env.NUXT_IDENTITY_BASE || "http://127.0.0.1:8081",
     cookieSecure,
     authCookieSecure: cookieSecure,
@@ -95,7 +109,8 @@ export default defineNuxtConfig({
       process.env.NUXT_SEAL_SECRET ||
       "dev-paste-seal-secret-change-me-0123456789abcdef",
     public: {
-      oidcIssuer: process.env.NUXT_PUBLIC_OIDC_ISSUER || "http://localhost:8081",
+      oidcIssuer:
+        process.env.NUXT_PUBLIC_OIDC_ISSUER || "http://localhost:8081",
       oidcClientId: process.env.NUXT_PUBLIC_OIDC_CLIENT_ID || "paste-yueli-web",
       oidcRedirectUri:
         process.env.NUXT_PUBLIC_OIDC_REDIRECT_URI ||
@@ -109,8 +124,7 @@ export default defineNuxtConfig({
       accountUrl:
         process.env.NUXT_PUBLIC_ACCOUNT_URL || "http://localhost:3000",
       operatorSubs: process.env.NUXT_PUBLIC_OPERATOR_SUBS || "",
-      publicBase:
-        process.env.NUXT_PUBLIC_PASTE_BASE || "http://localhost:3010",
+      publicBase: process.env.NUXT_PUBLIC_PASTE_BASE || "http://localhost:3010",
       siteBrand: "月离 Paste",
     },
   },

@@ -1,6 +1,6 @@
-
 :root {
-  color-scheme: light;
+  --ui-primary: var(--paste-blue); --ui-text: var(--paste-ink); --ui-text-muted: var(--paste-ink-dim); --ui-text-toned: var(--paste-ink-soft);
+  color-scheme: light; --paste-code-keyword: #7954a8; --paste-code-number: #93621d; --paste-code-string: #357548; --paste-code-function: #236d9b; --paste-code-type: #247a7a;
   --paste-page: #eef3f8;
   --paste-surface: #ffffff;
   --paste-surface-muted: #f2f6fa;
@@ -12,10 +12,10 @@
   --paste-ink-dim: #5d6c80;
   --paste-line: #d3dce7;
   --paste-line-strong: #b8c5d4;
-  --paste-blue: #0b69bd;
-  --paste-blue-hover: #07589e;
-  --paste-blue-soft: #e4f1ff;
-  --paste-selection: #c4e1ff;
+  --paste-blue: #4d7210;
+  --paste-blue-hover: #3c5b08;
+  --paste-blue-soft: #eef5dd;
+  --paste-selection: #dcebb8;
   --paste-status: #155f95;
   --paste-status-border: #0d4f80;
   --paste-status-text: #ffffff;
@@ -44,22 +44,22 @@
 }
 
 .dark {
-  color-scheme: dark;
-  --paste-page: oklch(14.5% 0.027 255);
-  --paste-surface: oklch(20.5% 0.031 255);
-  --paste-surface-muted: oklch(17.8% 0.03 255);
-  --paste-editor: oklch(16.8% 0.028 255);
-  --paste-editor-active: oklch(23.5% 0.045 252);
-  --paste-chrome: oklch(18.5% 0.036 255);
-  --paste-ink: oklch(95.8% 0.008 257);
-  --paste-ink-soft: oklch(79% 0.025 255);
-  --paste-ink-dim: oklch(68% 0.025 255);
-  --paste-line: oklch(29.5% 0.038 255);
-  --paste-line-strong: oklch(40% 0.045 255);
-  --paste-blue: oklch(70% 0.15 242);
-  --paste-blue-hover: oklch(77% 0.12 242);
-  --paste-blue-soft: oklch(27% 0.075 245);
-  --paste-selection: oklch(38% 0.105 244);
+  color-scheme: dark; --paste-code-keyword: #c3a5e9; --paste-code-number: #e5b987; --paste-code-string: #afd78d; --paste-code-function: #8ebfe5; --paste-code-type: #88d5cd;
+  --paste-page: #0c1218;
+  --paste-surface: #141c24;
+  --paste-surface-muted: #101820;
+  --paste-editor: #0e171e;
+  --paste-editor-active: #18242e;
+  --paste-chrome: #101820;
+  --paste-ink: #e7edf2;
+  --paste-ink-soft: #b3c0cd;
+  --paste-ink-dim: #8594a4;
+  --paste-line: #25313b;
+  --paste-line-strong: #3b4b59;
+  --paste-blue: #c7f36b;
+  --paste-blue-hover: #d6ff8a;
+  --paste-blue-soft: #263323;
+  --paste-selection: #344a47;
   --paste-status: oklch(40% 0.105 243);
   --paste-status-border: oklch(32% 0.082 243);
   --paste-status-text: oklch(98% 0.01 243);

@@ -1,48 +1,34 @@
-<!--
-THESIS: The editor owns the whole viewport; Paste refuses a separate website header above the work.
-OWN-WORLD: Yueli mineral blue inside restrained, flat, VS Code-derived application chrome.
-STORY: open a file, write code, set its boundary, and share without leaving the editor context.
-FIRST VIEWPORT: one 40px title-and-tab bar, the code floor, and a 28px readable status bar; sharing stays transient.
-FORM: a single integrated editor shell with product, files, commands, navigation, and identity on one line.
-FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
--->
 <script setup lang="ts">
 import type { FailureFeedback } from "@yueli/http-runtime";
 import { pasteFailureFeedback } from "../utils/pasteFailure";
-import type { AccountMenuAction } from "@yueli/ui/account-menu/pattern";
+
 import type { PasteFile, PasteVisibility } from "../types/paste";
 import {
-  displayTitle,
   expiryISO,
   languageFromPath,
   languageItems,
   pasteErrorMessage,
 } from "../utils/paste";
 
-interface LocalFile extends PasteFile { id: number }
+interface LocalFile extends PasteFile {
+  id: number;
+}
 
 const route = useRoute();
 const api = usePasteApi();
 const transfer = usePasteTransfer();
 const { loggedIn, login } = useAuth();
-const { isAdmin } = usePasteAdministration();
 const { siteName, siteDescription } = useSiteSettings();
 let nextFileID = 1;
 const maxFileBytes = 1024 * 1024;
 const maxContentBytes = 1024 * 1024;
 
-const accountActions = computed<readonly AccountMenuAction[]>(() => [
-  { label: "我的片段", icon: "i-tabler-folders", to: "/mine" },
-  ...(isAdmin.value
-    ? [{ label: "管理后台", icon: "i-tabler-shield-cog", to: "/admin" }]
-    : []),
-]);
-
 const files = ref<LocalFile[]>([
-  { id: nextFileID++, path: "main.go", language: "go", content: "" },
+  { id: nextFileID++, path: "untitled.txt", language: "text", content: "" },
 ]);
 const activeFileID = ref(files.value[0]!.id);
 const title = ref("");
+const titleInput = useTemplateRef<HTMLInputElement>("titleInput");
 const description = ref("");
 const tags = ref<string[]>([]);
 const visibility = ref<PasteVisibility>("unlisted");
@@ -62,13 +48,17 @@ const editRevision = ref<number>();
 const editCode = computed(() =>
   typeof route.query.edit === "string" ? route.query.edit : "",
 );
-const activeFile = computed(() =>
-  files.value.find((file) => file.id === activeFileID.value) || files.value[0]!,
+const activeFile = computed(
+  () =>
+    files.value.find((file) => file.id === activeFileID.value) ||
+    files.value[0]!,
 );
 const totalBytes = computed(() =>
   files.value.reduce((total, file) => total + new Blob([file.content]).size, 0),
 );
-const activeFileBytes = computed(() => new Blob([activeFile.value.content]).size);
+const activeFileBytes = computed(
+  () => new Blob([activeFile.value.content]).size,
+);
 const languageOptions: { label: string; value: string }[] = languageItems.map(
   ({ label, value }) => ({ label, value }),
 );
@@ -95,16 +85,16 @@ const expiryItems = computed(() => [
   { label: "30 天", value: "30d" },
   { label: "不过期", value: "never" },
 ]);
-const visibilityLabel = computed(() =>
-  visibility.value === "private" ? "仅自己" : "链接访问",
-);
-
 function openShare() {
   shareOpen.value = true;
 }
 
 useSeoMeta({
-  title: computed(() => editCode.value ? `编辑片段 · ${siteName.value}` : `新建片段 · ${siteName.value}`),
+  title: computed(() =>
+    editCode.value
+      ? `编辑片段 · ${siteName.value}`
+      : `新建片段 · ${siteName.value}`,
+  ),
   description: "粘贴一段或一组代码，设定访问边界，再分享一个稳定链接。",
   ogTitle: computed(() => siteName.value),
   ogDescription: computed(() => siteDescription.value),
@@ -112,7 +102,9 @@ useSeoMeta({
 
 function addFile() {
   if (files.value.length >= 20) return;
-  const index = files.value.length + 1;
+  let index = files.value.length + 1;
+  while (files.value.some((file) => file.path === `untitled-${index}.txt`))
+    index++;
   const file: LocalFile = {
     id: nextFileID++,
     path: `untitled-${index}.txt`,
@@ -165,12 +157,14 @@ function updateFileDrop(file: LocalFile, event: DragEvent) {
   }
   const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect();
   dragOverFileID.value = file.id;
-  dragOverPosition.value = event.clientX < bounds.left + bounds.width / 2 ? "before" : "after";
+  dragOverPosition.value =
+    event.clientX < bounds.left + bounds.width / 2 ? "before" : "after";
   if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
 }
 
 function dropFile(targetFile: LocalFile, event: DragEvent) {
-  const sourceID = draggedFileID.value || Number(event.dataTransfer?.getData("text/plain"));
+  const sourceID =
+    draggedFileID.value || Number(event.dataTransfer?.getData("text/plain"));
   const sourceIndex = files.value.findIndex((file) => file.id === sourceID);
   let targetIndex = files.value.findIndex((file) => file.id === targetFile.id);
   if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) {
@@ -179,7 +173,8 @@ function dropFile(targetFile: LocalFile, event: DragEvent) {
   }
   const [moved] = files.value.splice(sourceIndex, 1);
   if (sourceIndex < targetIndex) targetIndex -= 1;
-  const insertIndex = targetIndex + (dragOverPosition.value === "after" ? 1 : 0);
+  const insertIndex =
+    targetIndex + (dragOverPosition.value === "after" ? 1 : 0);
   files.value.splice(insertIndex, 0, moved!);
   activeFileID.value = moved!.id;
   clearFileDrag();
@@ -187,6 +182,23 @@ function dropFile(targetFile: LocalFile, event: DragEvent) {
 
 function inferLanguage(file: LocalFile) {
   file.language = languageFromPath(file.path);
+}
+
+function changeLanguage(language: string) {
+  const file = activeFile.value;
+  if (file.language === language) return;
+  const selected = languageItems.find((item) => item.value === language);
+  if (!selected) return;
+  const separator = Math.max(file.path.lastIndexOf("/"), file.path.lastIndexOf("\\"));
+  const dot = file.path.lastIndexOf(".");
+  const stem = dot > separator + 1 ? file.path.slice(0, dot) : file.path;
+  let path = `${stem}.${selected.extension}`;
+  let suffix = 2;
+  while (files.value.some((other) => other.id !== file.id && other.path.toLowerCase() === path.toLowerCase())) {
+    path = `${stem}-${suffix++}.${selected.extension}`;
+  }
+  file.path = path;
+  file.language = language;
 }
 
 function beginRename(file: LocalFile) {
@@ -214,38 +226,49 @@ async function loginForManagement() {
 }
 
 function validate(): string {
-  if (files.value.some((file) => !file.path.trim())) return "每个文件都需要一个文件名。";
-  if (files.value.some((file) => {
-    const path = file.path.trim().replaceAll("\\", "/");
-    return path.startsWith("/") || path.split("/").includes("..");
-  })) return "文件名需要使用片段内的相对路径，不能包含上级目录。";
-  if (new Set(files.value.map((file) => file.path.trim().toLowerCase())).size !== files.value.length) {
+  if (files.value.some((file) => !file.path.trim()))
+    return "每个文件都需要一个文件名。";
+  if (
+    files.value.some((file) => {
+      const path = file.path.trim().replaceAll("\\", "/");
+      return path.startsWith("/") || path.split("/").includes("..");
+    })
+  )
+    return "文件名需要使用片段内的相对路径，不能包含上级目录。";
+  if (
+    new Set(files.value.map((file) => file.path.trim().toLowerCase())).size !==
+    files.value.length
+  ) {
     return "文件名不能重复。";
   }
-  if (files.value.every((file) => !file.content)) return "请先粘贴要分享的内容。";
-  const oversized = files.value.find((file) => new Blob([file.content]).size > maxFileBytes);
-  if (oversized) return `“${oversized.path}”超过文件限制；单个文件不能超过 1 MiB。`;
+  if (files.value.every((file) => !file.content))
+    return "请先粘贴要分享的内容。";
+  const oversized = files.value.find(
+    (file) => new Blob([file.content]).size > maxFileBytes,
+  );
+  if (oversized)
+    return `“${oversized.path}”超过文件限制；单个文件不能超过 1 MiB。`;
   if (totalBytes.value > maxContentBytes) return "全部文件合计不能超过 1 MiB。";
-  if (tags.value.some((tag) => [...tag.trim()].length > 32)) return "每个标签不能超过 32 个字符。";
-  if (password.value && ([...password.value].length < 8 || [...password.value].length > 128)) {
+  if (tags.value.some((tag) => [...tag.trim()].length > 32))
+    return "每个标签不能超过 32 个字符。";
+  if (
+    password.value &&
+    ([...password.value].length < 8 || [...password.value].length > 128)
+  ) {
     return "访问密码需要包含 8–128 个字符。";
   }
-  if (visibility.value === "private" && !loggedIn.value) return "私有片段需要先登录。";
+  if (visibility.value === "private" && !loggedIn.value)
+    return "私有片段需要先登录。";
   return "";
 }
 
-function fieldValue(form: HTMLFormElement, name: string): string {
-  const field = form.elements.namedItem(name);
-  return field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement || field instanceof HTMLSelectElement
-    ? field.value
-    : "";
-}
-
-async function submit(event: SubmitEvent) {
-  const form = event.currentTarget as HTMLFormElement;
-  title.value = fieldValue(form, "title");
-  description.value = fieldValue(form, "description");
-  password.value = fieldValue(form, "password");
+async function submit() {
+  if (
+    saving.value ||
+    loadingEdit.value ||
+    (editCode.value && !editRevision.value)
+  )
+    return;
   failure.value = null;
   error.value = validate();
   if (error.value) return;
@@ -255,7 +278,9 @@ async function submit(event: SubmitEvent) {
     description: description.value.trim(),
     tags: tags.value.map((tag) => tag.trim()).filter(Boolean),
     files: files.value.map(({ path, language, content }) => ({
-      path: path.trim(), language, content,
+      path: path.trim(),
+      language,
+      content,
     })),
     visibility: visibility.value,
     password: password.value,
@@ -263,13 +288,29 @@ async function submit(event: SubmitEvent) {
     clearExpiry: Boolean(editCode.value) && expiry.value === "never",
   };
   try {
-    const response = editCode.value && editRevision.value
-      ? await api.update(editCode.value, editRevision.value, input)
-      : await api.create(input);
+    const response =
+      editCode.value && editRevision.value
+        ? await api.update(editCode.value, editRevision.value, input)
+        : await api.create(input);
     transfer.value[response.paste.code] = response.paste;
-    await navigateTo(`/p/${response.paste.code}?${editCode.value ? "updated" : "created"}=1`);
+    savedSnapshot.value = snapshot();
+    await navigateTo(
+      `/p/${response.paste.code}?${editCode.value ? "updated" : "created"}=1`,
+    );
   } catch (caught) {
-    failure.value = pasteFailureFeedback(caught, "分享未完成，请检查后重试。", {"/title":"title","/description":"description","/tags":"tags","/password":"password","/visibility":"visibility","/expiresAt":"expiry"});
+    failure.value = pasteFailureFeedback(caught, "分享未完成，请检查后重试。", {
+      "/title": "title",
+      "/description": "description",
+      "/tags": "tags",
+      "/password": "password",
+      "/visibility": "visibility",
+      "/expiresAt": "expiry",
+    });
+    if (failure.value.fieldErrors.title) {
+      shareOpen.value = false;
+      await nextTick();
+      titleInput.value?.focus();
+    }
   } finally {
     saving.value = false;
   }
@@ -301,52 +342,209 @@ async function loadEdit() {
   }
 }
 
-onMounted(loadEdit);
+const markdownMode = ref<"source" | "rich">("source");
+const viewMode = ref<"edit" | "split" | "preview">("split");
+const wideScreen = ref(false);
+const markdownView = computed(() => viewMode.value === "split" && !wideScreen.value ? "edit" : viewMode.value);
+const preview = computed(() => activeFile.value.language === "markdown" && markdownView.value === "preview");
+let splitMedia: MediaQueryList | undefined;
+function updateSplitWidth() { wideScreen.value = splitMedia?.matches ?? false; }
+onMounted(() => {
+  splitMedia = window.matchMedia("(min-width: 1100px)");
+  updateSplitWidth();
+  splitMedia.addEventListener("change", updateSplitWidth);
+});
+onBeforeUnmount(() => splitMedia?.removeEventListener("change", updateSplitWidth));
+const wrapping = ref(true);
+const copied = ref(false);
+const copyError = ref("");
+const richConfirm = ref(false);
+const hasContent = computed(() =>
+  files.value.some((file) => file.content.length > 0),
+);
+const sharingAccess = computed(() => visibility.value === "private" ? "仅自己" : password.value ? "密码访问" : "链接访问");
+const sharingExpiry = computed(() => expiry.value === "keep" ? "原有效期" : expiry.value === "never" ? "不过期" : expiryItems.value.find((item) => item.value === expiry.value)?.label);
+const sharingLabel = computed(() => `${sharingAccess.value} · ${sharingExpiry.value}`);
+const modeItems = computed(() => [
+  {
+    label: "排版编辑",
+    icon: "i-tabler-typography",
+    onSelect: () => chooseRich(),
+  },
+  {
+    label: "源码编辑",
+    icon: "i-tabler-code",
+    onSelect: () => {
+      markdownMode.value = "source";
+      viewMode.value = "split";
+    },
+  },
+]);
+function chooseRich() {
+  if (activeFile.value.content && markdownMode.value !== "rich")
+    richConfirm.value = true;
+  else {
+    markdownMode.value = "rich";
+    viewMode.value = "split";
+  }
+}
+async function copySource() {
+  try {
+    await copyPasteText(activeFile.value.content);
+    copied.value = true;
+    copyError.value = "";
+  } catch {
+    copyError.value = "复制失败，请选择内容后手动复制。";
+  }
+}
+watch([activeFileID, () => activeFile.value.content], () => {
+  copied.value = false;
+  copyError.value = "";
+});
+watch(activeFileID, () => {
+  viewMode.value = "split";
+  markdownMode.value = "source";
+});
+function snapshot() {
+  return JSON.stringify({
+    files: files.value,
+    title: title.value,
+    description: description.value,
+    tags: tags.value,
+    visibility: visibility.value,
+    password: password.value,
+    expiry: expiry.value,
+  });
+}
+const savedSnapshot = ref(snapshot());
+const dirty = computed(() => snapshot() !== savedSnapshot.value);
+function resetDraft() {
+  if (dirty.value && !window.confirm("当前内容尚未保存，确定放弃并新建？"))
+    return;
+  files.value = [
+    { id: nextFileID++, path: "untitled.txt", language: "text", content: "" },
+  ];
+  activeFileID.value = files.value[0]!.id;
+  title.value = "";
+  description.value = "";
+  tags.value = [];
+  visibility.value = "unlisted";
+  password.value = "";
+  expiry.value = "7d";
+  editRevision.value = undefined;
+  error.value = "";
+  failure.value = null;
+  savedSnapshot.value = snapshot();
+  if (editCode.value) navigateTo("/");
+}
+function beforeUnload(event: BeforeUnloadEvent) {
+  if (dirty.value) {
+    event.preventDefault();
+    event.returnValue = "";
+  }
+}
+onBeforeRouteLeave(
+  () => !dirty.value || window.confirm("当前内容尚未保存，确定离开？"),
+);
+onMounted(async () => {
+  await loadEdit();
+  savedSnapshot.value = snapshot();
+  window.addEventListener("beforeunload", beforeUnload);
+});
+onBeforeUnmount(() => window.removeEventListener("beforeunload", beforeUnload));
+watch(editCode, async () => {
+  if (editCode.value) {
+    await loadEdit();
+    savedSnapshot.value = snapshot();
+  }
+});
 </script>
 
 <template>
-  <section
-    class="min-h-dvh bg-[var(--paste-editor)]"
-    aria-labelledby="compose-title"
+  <PasteWorkspace
+    :current-title="title || '未命名内容'"
+    :current-status="editCode ? (dirty ? '有未保存修改' : '已保存') : '未分享'"
+    @create="resetDraft"
   >
     <form
       id="paste-compose-form"
-      class="paste-workbench grid h-dvh min-h-[360px] grid-rows-[40px_minmax(0,1fr)_28px] overflow-hidden bg-[var(--paste-surface)] max-[720px]:min-h-[320px] max-[720px]:grid-rows-[44px_minmax(0,1fr)_30px]"
+      class="paste-compose paste-workbench h-full flex flex-col min-w-0 overflow-hidden"
       :aria-busy="saving || loadingEdit"
       @submit.prevent="submit"
     >
       <header
-        class="flex min-w-0 items-stretch border-b border-[var(--paste-line)] bg-[var(--paste-chrome)]"
-        aria-label="代码片段编辑器工具栏"
+        class="paste-command-row min-h-[88px] [padding:20px_30px] flex items-center gap-5 [border-bottom:1px_solid_var(--paste-line)] max-[1100px]:flex-wrap max-[1100px]:gap-3 max-[1100px]:[padding:18px_22px] max-[760px]:p-4 max-[760px]:min-h-[76px]"
       >
-        <NuxtLink
-          to="/"
-          class="flex shrink-0 items-center gap-[7px] border-r border-[var(--paste-line)] px-[11px] text-[var(--paste-ink)] no-underline max-[720px]:px-1.5"
-          :aria-label="`${siteName} 首页`"
+        <h1 id="compose-title" class="sr-only">
+          {{ editCode ? "编辑内容" : "新建内容" }}
+        </h1>
+        <input
+          ref="titleInput"
+          v-model="title"
+          :aria-invalid="Boolean(failure?.fieldErrors.title)"
+          :aria-describedby="failure?.fieldErrors.title ? 'title-error' : undefined"
+          class="paste-title-input flex-1 [width:120px] min-w-0 [padding:5px_0] border-0 outline-none bg-transparent text-[21px] font-semibold [letter-spacing:-.035em] text-[var(--paste-ink)] placeholder:text-[var(--paste-ink-dim)] placeholder:font-medium focus:[box-shadow:0_1px_var(--paste-blue)] max-[1100px]:w-full max-[1100px]:basis-full max-[760px]:text-lg"
+          name="title"
+          maxlength="120"
+          placeholder="添加标题（可选）"
+          aria-label="标题"
+        />
+        <div
+          class="paste-share-actions flex items-center gap-3 max-[1100px]:w-full max-[1100px]:justify-between max-[760px]:gap-2.5 max-[760px]:items-center"
         >
-          <span
-            class="grid size-6 place-items-center rounded-md border border-[color-mix(in_srgb,var(--paste-blue)_28%,var(--paste-line))] bg-[var(--paste-blue-soft)] text-[var(--paste-blue)]"
-            aria-hidden="true"
+          <button
+            type="button"
+            class="paste-sharing-trigger inline-flex items-center gap-2.5 rounded-lg border border-[var(--paste-line)] bg-[var(--paste-surface)] px-3 min-h-10 text-xs text-[var(--paste-ink-soft)] transition-colors hover:border-[var(--paste-ink-dim)] hover:text-[var(--paste-ink)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--paste-blue)] max-[760px]:gap-2 max-[760px]:px-2.5"
+            aria-label="打开分享设置"
+            :aria-description="sharingLabel"
+            :aria-expanded="shareOpen"
+            aria-haspopup="dialog"
+            @click="openShare"
           >
-            <UIcon name="i-tabler-code-dots" class="size-4" />
-          </span>
-          <span
-            class="paste-editor-brand-label text-[13px] font-[730] tracking-[-0.025em] max-[720px]:hidden"
-            >{{ siteName }}</span
-          >
-        </NuxtLink>
-
+            <UIcon name="i-tabler-adjustments-horizontal" class="size-4 shrink-0" />
+            <span>{{ sharingAccess }}</span>
+            <span class="h-3 w-px bg-[var(--paste-line)]" aria-hidden="true" />
+            <span class="text-[var(--paste-ink-dim)]">{{ sharingExpiry }}</span>
+          </button>
+          <UButton
+            type="submit"
+            :label="editCode ? '保存修改' : '生成链接'"
+            :aria-label="editCode ? '保存修改' : '生成分享链接'"
+            trailing-icon="i-tabler-arrow-up-right"
+            class="paste-primary bg-[var(--paste-blue)] text-[#17200e] min-h-10 [padding:9px_18px] rounded-[7px] font-[650] whitespace-nowrap justify-center not-dark:text-white hover:bg-[var(--paste-blue-hover)] disabled:opacity-35 max-[760px]:min-h-10 max-[760px]:text-xs max-[760px]:[padding:8px_12px]"
+            :loading="saving"
+            :disabled="
+              !hasContent || loadingEdit || (!!editCode && !editRevision)
+            "
+          />
+        </div>
+      </header>
+      <div
+        v-if="error || failure"
+        class="paste-inline-feedback [padding:10px_28px] text-[13px] bg-[var(--paste-red-soft)] text-[var(--paste-red)]"
+      >
+        <FailureNotice :feedback="failure" />
+        <p v-if="failure?.fieldErrors.title" id="title-error" role="alert">
+          {{ failure.fieldErrors.title.join(" ") }}
+        </p>
+        <p v-if="error" role="alert">{{ error }}</p>
+      </div>
+      <div
+        class="paste-editor-toolbar min-h-[58px] flex items-stretch justify-between gap-3 [border-bottom:1px_solid_var(--paste-line)] [padding:0_22px] max-[1100px]:flex-wrap max-[1100px]:gap-0 max-[760px]:[padding:0_10px]"
+      >
         <nav
-          class="flex min-w-0 flex-1 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          class="paste-file-tabs flex flex-1 min-w-0 overflow-x-auto [scrollbar-width:thin] max-[1100px]:basis-full"
           aria-label="片段文件"
         >
           <div
             v-for="(file, index) in files"
             :key="file.id"
-            class="paste-file-tab group relative flex min-w-[108px] max-w-[220px] basis-44 items-center border-r border-[var(--paste-line)] text-[var(--paste-ink-soft)] opacity-100 data-[active=true]:bg-[var(--paste-editor)] data-[active=true]:text-[var(--paste-ink)] data-[active=true]:[box-shadow:inset_0_2px_var(--paste-blue)] data-[dragging=true]:opacity-50 data-[drop-position]:after:absolute data-[drop-position]:after:top-[3px] data-[drop-position]:after:bottom-[3px] data-[drop-position]:after:z-[2] data-[drop-position]:after:w-0.5 data-[drop-position]:after:rounded-[1px] data-[drop-position]:after:bg-[var(--paste-blue)] data-[drop-position]:after:content-[''] data-[drop-position=before]:after:-left-px data-[drop-position=after]:after:-right-px max-[720px]:min-w-[88px] max-[720px]:basis-[124px]"
+            class="paste-file-tab group relative flex items-center [min-width:132px] [max-width:230px] text-[var(--paste-ink-dim)] [&[data-active=true]]:text-[var(--paste-ink)] [&[data-active=true]]:[box-shadow:inset_0_-2px_var(--paste-blue)] [&[data-dragging=true]]:[opacity:.4] [&[data-drop-position=before]]:[border-left:2px_solid_var(--paste-blue)] [&[data-drop-position=after]]:[border-right:2px_solid_var(--paste-blue)] [&_.paste-file-tab-button]:text-xs [&_.paste-file-tab-button]:min-h-[54px]"
             :data-active="activeFileID === file.id"
             :data-dragging="draggedFileID === file.id"
-            :data-drop-position="dragOverFileID === file.id ? dragOverPosition : undefined"
+            :data-drop-position="
+              dragOverFileID === file.id ? dragOverPosition : undefined
+            "
             :draggable="renamingFileID !== file.id"
             @dragstart="startFileDrag(file, $event)"
             @dragover.prevent="updateFileDrop(file, $event)"
@@ -363,7 +561,7 @@ onMounted(loadEdit);
               aria-label="重命名文件"
               class="mx-1.5 h-[26px] min-w-0 flex-1 rounded-sm border border-[var(--paste-blue)] bg-[var(--paste-editor)] px-[5px] font-mono text-[11px] leading-6 text-[var(--paste-ink)] shadow-none outline-none selection:bg-[var(--paste-selection)]"
               @blur="commitRename(file)"
-              @keyup.enter="commitRename(file)"
+              @keydown.enter.prevent="commitRename(file)"
               @keyup.esc="cancelRename"
             />
             <button
@@ -372,13 +570,15 @@ onMounted(loadEdit);
               class="paste-file-tab-button flex h-full min-w-0 flex-1 items-center gap-[7px] border-0 bg-transparent py-0 pr-2 pl-[11px] text-left font-mono text-[11px] text-inherit focus-visible:outline-offset-[-3px]"
               :aria-pressed="activeFileID === file.id"
               :aria-label="`${file.path || `文件 ${index + 1}`}，双击重命名，Alt 加方向键移动`"
-              @click="activeFileID = file.id"
+              @click="() => { activeFileID = file.id; }"
               @dblclick.prevent="beginRename(file)"
               @keydown.alt.left.prevent="moveFile(file, -1)"
               @keydown.alt.right.prevent="moveFile(file, 1)"
             >
               <UIcon name="i-tabler-file-code" class="size-4 shrink-0" />
-              <span class="truncate">{{ file.path || `文件 ${index + 1}` }}</span>
+              <span class="truncate leading-6 py-px">{{
+                file.path || `文件 ${index + 1}`
+              }}</span>
             </button>
             <UButton
               v-if="files.length > 1 && renamingFileID !== file.id"
@@ -410,140 +610,129 @@ onMounted(loadEdit);
         </nav>
 
         <div
-          class="flex shrink-0 items-center gap-0.5 bg-[var(--paste-chrome)] px-[5px] max-[720px]:px-1"
+          class="paste-editor-tools flex items-center gap-[5px] shrink-0 max-[1100px]:[padding:8px_0] max-[1100px]:[min-height:48px] max-[1100px]:w-full max-[1100px]:justify-end max-[1100px]:[border-top:1px_solid_var(--paste-line)] max-[760px]:justify-start max-[760px]:gap-0.5 max-[760px]:overflow-x-auto max-[760px]:[&_>_*]:shrink-0 max-[760px]:[&_button]:min-h-[38px]"
         >
-          <UTooltip text="分享">
-            <UButton
-              type="button"
-              icon="i-tabler-share-3"
-              color="primary"
-              variant="ghost"
-              size="sm"
-              square
-              aria-label="打开分享设置"
-              @click="openShare"
-            />
-          </UTooltip>
-          <span
-            class="mx-[3px] h-5 w-px bg-[var(--paste-line)] max-[720px]:hidden"
-            aria-hidden="true"
-          />
-          <UTooltip text="我的片段">
-            <UButton
-              to="/mine"
-              icon="i-tabler-folders"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              square
-              class="max-[720px]:hidden"
-              aria-label="我的片段"
-            />
-          </UTooltip>
-          <UTooltip text="切换颜色模式">
-            <UColorModeButton
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              aria-label="切换颜色模式"
-              class="paste-editor-theme"
-            />
-          </UTooltip>
-          <div
-            class="grid size-8 place-items-center [&_button]:size-[30px] [&_button]:min-h-[30px] [&_button]:min-w-[30px] [&_button]:p-0 [&_[data-slot=label]]:sr-only"
-          >
-            <ConsumerAccountControl
-              :context-actions="accountActions"
-              trigger-mode="collapsed"
-            />
-          </div>
-        </div>
-      </header>
-
-      <section
-        class="min-h-0 min-w-0 bg-[var(--paste-editor)]"
-        aria-label="当前文件"
-      >
-        <ClientOnly>
-          <PasteCodeEditor
-            v-model="activeFile.content"
-            :language="activeFile.language"
-            :label="`${activeFile.path} 代码编辑器`"
-          />
-          <template #fallback>
-            <textarea
-              v-model="activeFile.content"
-              class="size-full resize-none border-0 bg-[var(--paste-editor)] px-5 py-[18px] font-mono leading-[1.72] text-[var(--paste-ink)] outline-0"
-              aria-label="代码编辑器"
-            />
+          <template v-if="activeFile.language === 'markdown'">
+            <UDropdownMenu :items="modeItems">
+              <UButton :label="markdownMode === 'rich' ? '排版' : '源码'" trailing-icon="i-tabler-chevron-down" color="neutral" variant="ghost" size="sm" aria-label="选择 Markdown 编辑方式" />
+            </UDropdownMenu>
+            <div class="paste-view-controls flex items-center rounded-md bg-[var(--paste-surface)] p-0.5" role="group" aria-label="Markdown 布局">
+              <UButton label="编辑" color="neutral" :variant="markdownView === 'edit' ? 'soft' : 'ghost'" size="xs" :aria-pressed="markdownView === 'edit'" @click="() => { viewMode = 'edit'; }" />
+              <UButton v-if="wideScreen" label="双栏" icon="i-tabler-layout-columns" color="neutral" :variant="markdownView === 'split' ? 'soft' : 'ghost'" size="xs" :aria-pressed="markdownView === 'split'" @click="() => { viewMode = 'split'; }" />
+              <UButton label="预览" color="neutral" :variant="markdownView === 'preview' ? 'soft' : 'ghost'" size="xs" :aria-pressed="markdownView === 'preview'" @click="() => { viewMode = 'preview'; }" />
+            </div>
           </template>
-        </ClientOnly>
-      </section>
-
-      <footer
-        class="paste-statusbar flex min-w-0 items-center justify-between gap-5 border-t border-[var(--paste-status-border)] bg-[var(--paste-status)] px-[9px] font-mono text-xs text-[var(--paste-status-text-muted)]"
-        aria-label="编辑状态"
-      >
-        <span
-          class="flex min-w-0 items-center gap-3 whitespace-nowrap text-[var(--paste-status-text)]"
-        >
-          <span class="size-1.5 rounded-full bg-[var(--paste-green)]" aria-hidden="true" />
-          <h1 id="compose-title" class="font-[inherit] font-semibold">
-            {{ editCode ? "编辑片段" : "新建片段" }}
-          </h1>
-        </span>
-        <span
-          class="flex min-w-0 items-center justify-end gap-3 whitespace-nowrap max-[720px]:[&>span:first-child]:hidden"
-          aria-live="polite"
-        >
-          <span>{{ visibilityLabel }}</span>
           <USelectMenu
-            v-model="activeFile.language"
+            :model-value="activeFile.language"
+            @update:model-value="changeLanguage"
             :items="languageOptions"
             value-key="value"
             label-key="label"
-            :search-input="false"
-            :content="{ align: 'end', side: 'top', sideOffset: 6, collisionPadding: 8 }"
-            variant="none"
-            size="xs"
-            class="w-auto min-w-0"
-            :ui="{
-              base: 'min-h-0 rounded-none px-1.5 py-0 text-[12px] text-[var(--paste-status-text)] ring-0 hover:bg-[var(--paste-status-hover)]',
-              content: 'w-52 min-w-52 rounded-md',
-              viewport: 'max-h-[33rem] py-1',
-              item: 'min-h-8 text-xs',
-              trailingIcon: 'size-3',
-            }"
+            :search-input="{ placeholder: '搜索语言' }"
             aria-label="代码语言"
+            variant="ghost"
+            class="paste-language-select [min-width:110px] [width:124px] max-[760px]:[min-width:94px] max-[760px]:[width:125px]"
+            size="sm"
           />
-          <span>{{ files.length }}/20 文件</span>
-          <span
-            class="paste-status-size data-[over-limit=true]:font-bold data-[over-limit=true]:text-[var(--paste-status-error)]"
-            :data-over-limit="activeFileBytes > maxFileBytes"
-            :title="`当前文件 ${Math.ceil(activeFileBytes / 1024)}/1024 KiB；全部文件 ${Math.ceil(totalBytes / 1024)}/1024 KiB`"
-          >{{ Math.ceil(activeFileBytes / 1024) }}/1024 KiB</span>
-        </span>
+          <UButton
+            v-if="
+              !preview &&
+              (activeFile.language !== 'markdown' || markdownMode === 'source')
+            "
+            icon="i-tabler-text-wrap"
+            color="neutral"
+            :variant="wrapping ? 'soft' : 'ghost'"
+            size="sm"
+            aria-label="自动换行"
+            :aria-pressed="wrapping"
+            @click="() => { wrapping = !wrapping; }"
+          />
+          <UButton
+            :icon="copied ? 'i-tabler-check' : 'i-tabler-copy'"
+            :aria-label="copied ? '已复制源码' : '复制源码'"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            :disabled="!activeFile.content"
+            @click="copySource"
+            ><span class="hidden min-[761px]:inline">{{
+              copied ? "已复制" : "复制源码"
+            }}</span></UButton
+          >
+        </div>
+      </div>
+      <section
+        class="paste-editor-area flex-1 min-h-0 min-w-0 overflow-hidden"
+        aria-label="当前文件"
+      >
+        <p v-if="loadingEdit" class="p-8 text-muted" role="status">
+          正在加载内容…
+        </p>
+        <div v-else class="paste-editing-panes h-full min-h-0" :class="{ 'paste-editing-panes-split grid grid-cols-2': activeFile.language === 'markdown' && markdownView === 'split' }">
+          <div v-show="!preview" class="paste-source-pane flex flex-col min-h-0 min-w-0 h-full overflow-hidden" aria-label="编辑区">
+            <div v-if="activeFile.language === 'markdown' && markdownView === 'split'" class="paste-pane-heading flex items-center shrink-0 h-9 px-6 border-b border-[var(--paste-line)] text-[var(--paste-ink-dim)] text-[11px]">{{ markdownMode === 'rich' ? '排版' : 'Markdown' }}</div>
+            <div class="paste-pane-body min-h-0 flex-1 overflow-auto">
+              <LazyContentEditor
+                v-if="activeFile.language === 'markdown' && markdownMode === 'rich'"
+                :key="activeFile.id"
+                v-model="activeFile.content"
+                class="paste-rich-editor max-w-[880px] px-6 py-5 m-auto [--content-editor-toolbar-top:-20px] max-[760px]:px-2.5 max-[760px]:py-3 max-[760px]:[--content-editor-toolbar-top:-12px]"
+                :draft-enabled="false"
+                placeholder="开始写作，或粘贴 Markdown…"
+              />
+              <ClientOnly v-else>
+                <PasteCodeEditor :key="activeFile.id" v-model="activeFile.content" :language="activeFile.language" :line-wrapping="wrapping" autofocus placeholder="在这里粘贴或输入内容…" :label="`${activeFile.path} 代码编辑器`" />
+                <template #fallback><textarea v-model="activeFile.content" class="paste-editor-fallback w-full h-full p-6 bg-[var(--paste-editor)] resize-none" aria-label="代码编辑器" /></template>
+              </ClientOnly>
+            </div>
+          </div>
+          <div v-if="activeFile.language === 'markdown' && markdownView !== 'edit'" :class="{ 'border-l border-[var(--paste-line)]': markdownView === 'split' }" class="paste-preview-pane flex flex-col min-h-0 min-w-0 h-full" aria-label="Markdown 预览">
+            <div v-if="markdownView === 'split'" class="paste-pane-heading flex items-center shrink-0 h-9 px-6 border-b border-[var(--paste-line)] text-[var(--paste-ink-dim)] text-[11px]">预览</div>
+            <div class="paste-document-scroll min-h-0 flex-1 overflow-auto">
+              <div class="paste-document max-w-[840px] mx-auto px-8 py-8 text-[15px] leading-[1.85] [overflow-wrap:anywhere] max-[760px]:px-5 max-[760px]:py-6">
+                <LazyContentProse v-if="activeFile.content" :content="activeFile.content" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <footer
+        class="paste-statusbar flex justify-between gap-3 [padding:10px_24px] min-h-[38px] [border-top:1px_solid_var(--paste-line)] text-[var(--paste-ink-dim)] text-[10px] bg-[var(--paste-editor)] max-[760px]:[padding:9px_14px] max-[760px]:[font-size:9px] max-[760px]:gap-2 max-[760px]:[&_>_span:last-child]:gap-2"
+        aria-label="编辑状态"
+      >
+        <span v-if="copyError" role="alert">{{ copyError }}</span
+        ><span v-else>{{
+          loggedIn
+            ? dirty
+              ? "尚未保存"
+              : "准备就绪"
+            : "匿名分享 · 创建后不可修改"
+        }}</span>
+        <span class="flex items-center gap-4"
+          ><span>{{ files.length }}/20 文件</span
+          ><span
+            class="paste-status-size [&[data-over-limit=true]]:text-[var(--paste-red)]"
+            :data-over-limit="totalBytes > maxContentBytes"
+            >{{ Math.ceil(totalBytes / 1024) }}/1024 KiB</span
+          ><span>UTF-8</span></span
+        >
       </footer>
-
       <USlideover
         v-model:open="shareOpen"
-        title="分享代码片段"
-        description="设置访问边界，然后生成链接。"
+        title="分享设置"
+        description="统一设置访问范围、有效期和密码。"
         :ui="{ content: 'sm:max-w-sm' }"
       >
         <template #body>
-          <div class="grid gap-[18px] [&_label]:text-[11px] [&_label]:font-[680]">
-            <UFormField :error="failure?.fieldErrors.title?.join(' ')" name="title" label="标题">
-              <UInput
-                v-model="title"
-                form="paste-compose-form"
-                name="title"
-                maxlength="120"
-                :placeholder="displayTitle('', activeFile.path)"
-                class="w-full"
-              />
-            </UFormField>
-            <UFormField :error="failure?.fieldErrors.description?.join(' ')" name="description" label="说明" hint="可选">
+          <div
+            class="grid gap-[18px] [&_label]:text-[11px] [&_label]:font-[680]"
+          >
+            <UFormField
+              :error="failure?.fieldErrors.description?.join(' ')"
+              name="description"
+              label="说明"
+              hint="可选"
+            >
               <UTextarea
                 v-model="description"
                 form="paste-compose-form"
@@ -555,7 +744,12 @@ onMounted(loadEdit);
                 class="w-full"
               />
             </UFormField>
-            <UFormField :error="failure?.fieldErrors.tags?.join(' ')" name="tags" label="标签" hint="最多 8 个">
+            <UFormField
+              :error="failure?.fieldErrors.tags?.join(' ')"
+              name="tags"
+              label="标签"
+              hint="最多 8 个"
+            >
               <UInputTags
                 v-model="tags"
                 name="tags"
@@ -568,7 +762,10 @@ onMounted(loadEdit);
               />
             </UFormField>
             <div class="grid grid-cols-2 gap-2.5 max-[720px]:grid-cols-1">
-              <UFormField :error="failure?.fieldErrors.visibility?.join(' ')" label="可见性">
+              <UFormField
+                :error="failure?.fieldErrors.visibility?.join(' ')"
+                label="可见性"
+              >
                 <USelect
                   v-model="visibility"
                   :items="visibilityItems"
@@ -578,7 +775,10 @@ onMounted(loadEdit);
                   aria-label="可见性"
                 />
               </UFormField>
-              <UFormField :error="failure?.fieldErrors.expiry?.join(' ')" label="有效期">
+              <UFormField
+                :error="failure?.fieldErrors.expiry?.join(' ')"
+                label="有效期"
+              >
                 <USelect
                   v-model="expiry"
                   :items="expiryItems"
@@ -602,7 +802,6 @@ onMounted(loadEdit);
                 type="password"
                 autocomplete="new-password"
                 icon="i-tabler-key"
-                placeholder="不会出现在链接中"
                 class="w-full"
               />
             </UFormField>
@@ -640,13 +839,40 @@ onMounted(loadEdit);
               type="submit"
               :label="editCode ? '保存修改' : '生成分享链接'"
               :icon="editCode ? 'i-tabler-device-floppy' : 'i-tabler-send'"
-              class="border-transparent bg-[var(--paste-blue)] text-white hover:bg-[var(--paste-blue-hover)]"
+              class="paste-primary bg-[var(--paste-blue)] text-[#17200e] min-h-10 [padding:9px_18px] rounded-[7px] font-[650] whitespace-nowrap justify-center not-dark:text-white hover:bg-[var(--paste-blue-hover)] disabled:opacity-35 max-[760px]:min-h-10 max-[760px]:text-xs max-[760px]:[padding:8px_12px]"
               :loading="saving || loadingEdit"
-              :disabled="saving || loadingEdit"
+              :disabled="
+                saving ||
+                loadingEdit ||
+                !hasContent ||
+                (!!editCode && !editRevision)
+              "
             />
           </div>
         </template>
       </USlideover>
+      <UModal
+        v-model:open="richConfirm"
+        title="切换到排版编辑"
+        description="排版编辑会在实际修改内容时重新生成 Markdown。HTML、自定义语法和原始空白格式可能改变；需要逐字保留时请继续使用源码编辑。"
+      >
+        <template #footer
+          ><div class="flex justify-end gap-2 w-full">
+            <UButton
+              label="保留源码编辑"
+              color="neutral"
+              variant="ghost"
+              @click="() => { richConfirm = false; }"
+            /><UButton
+              label="使用排版编辑"
+              @click="
+                markdownMode = 'rich';
+                viewMode = 'split';
+                richConfirm = false;
+              "
+            /></div
+        ></template>
+      </UModal>
     </form>
-  </section>
+  </PasteWorkspace>
 </template>

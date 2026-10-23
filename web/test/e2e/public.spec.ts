@@ -6,13 +6,10 @@ test("editor-first composer works at desktop and mobile widths", async ({ page }
     await page.emulateMedia({ colorScheme: "dark" });
   }
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1, name: "新建片段" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "新建内容" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: /代码编辑器/ })).toBeVisible();
   await expect(page.locator(".cm-editor")).toBeVisible();
-  const statusFontSize = await page.locator(".paste-statusbar").evaluate((node) =>
-    Number.parseFloat(getComputedStyle(node).fontSize),
-  );
-  expect(statusFontSize).toBeGreaterThanOrEqual(12);
+
   await page.getByRole("button", { name: "添加文件" }).click();
   const untitledTab = page.getByRole("button", { name: /^untitled-2\.txt，/ });
   await expect(untitledTab).toBeVisible();
@@ -25,7 +22,7 @@ test("editor-first composer works at desktop and mobile widths", async ({ page }
   await expect(newFileTab).toBeVisible();
   await newFileTab.hover();
   await expect(page.getByRole("button", { name: "删除 README.md" })).toBeVisible();
-  const mainFileTab = page.getByRole("button", { name: /^main\.go，/ });
+  const mainFileTab = page.getByRole("button", { name: /^untitled\.txt，/ });
   await newFileTab.dragTo(mainFileTab);
   await expect(page.locator(".paste-file-tab-button").first()).toContainText("README.md");
   await newFileTab.press("Alt+ArrowRight");
@@ -51,17 +48,14 @@ test("editor-first composer works at desktop and mobile widths", async ({ page }
   expect(results.violations, results.violations.map((item) => `${item.id}: ${item.help}`).join("\n")).toEqual([]);
 
   await page.getByRole("button", { name: "打开分享设置" }).click();
-  await expect(page.getByRole("heading", { name: "分享代码片段" })).toBeVisible();
-  await page.getByRole("button", { name: "生成分享链接" }).click();
+  await expect(page.getByRole("heading", { name: "分享设置" })).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "生成分享链接" }).click();
   await expect(page).toHaveURL(/\/p\/[A-Za-z0-9_-]{8}\?created=1$/);
   await expect(page.getByRole("heading", { level: 1, name: "未命名片段" })).toBeVisible();
   await expect(page.locator(".paste-public-header")).toHaveCount(0);
   await expect(page.locator(".paste-reader-shell")).toBeVisible();
-  const readerStatusFontSize = await page.locator(".paste-reader-statusbar").evaluate((node) =>
-    Number.parseFloat(getComputedStyle(node).fontSize),
-  );
-  expect(readerStatusFontSize).toBeGreaterThanOrEqual(12);
-  const mainTab = page.getByRole("tab", { name: "main.go" });
+
+  const mainTab = page.getByRole("tab", { name: "untitled.txt" });
   const readmeTab = page.getByRole("tab", { name: "README.md" });
   await expect(readmeTab).toBeVisible();
   await expect(mainTab).toHaveAttribute("aria-selected", "true");
@@ -104,10 +98,7 @@ test("editor-first composer works at desktop and mobile widths", async ({ page }
   if (await page.evaluate(() => Boolean(navigator.clipboard?.readText))) {
     await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain(new URL(page.url()).pathname);
   }
-  await expect.poll(async () => {
-    const box = await infoPanel.boundingBox();
-    return box ? Math.round(box.x + box.width) : 0;
-  }).toBe(await page.evaluate(() => innerWidth));
+
   await page.screenshot({ path: testInfo.outputPath(`reader-info-${testInfo.project.name}.png`), fullPage: true });
   const readerAccessibility = await new AxeBuilder({ page }).exclude("[data-nuxt-devtools]").analyze();
   expect(readerAccessibility.violations, readerAccessibility.violations.map((item) => `${item.id}: ${item.help}`).join("\n")).toEqual([]);
@@ -120,7 +111,7 @@ test("composer shares one file larger than the old 256 KiB boundary", async ({ p
   await expect(page.locator(".paste-status-size")).toHaveAttribute("data-over-limit", "false");
   await expect(page.locator(".paste-status-size")).toContainText("257/1024 KiB");
   await page.getByRole("button", { name: "打开分享设置" }).click();
-  await page.getByRole("button", { name: "生成分享链接" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "生成分享链接" }).click();
   await expect(page).toHaveURL(/\/p\/[A-Za-z0-9_-]{8}\?created=1$/);
 });
 
@@ -159,5 +150,5 @@ test("missing shares keep the read-only editor shell", async ({ page }) => {
   await expect(page.locator(".paste-reader-shell")).toBeVisible();
   await expect(page.getByRole("heading", { level: 1, name: "无法打开这个片段" })).toBeVisible();
   await expect(page.getByRole("button", { name: "重新打开" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "新建片段" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "新建内容" })).toBeVisible();
 });

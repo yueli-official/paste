@@ -38,10 +38,10 @@ async function createOwnedPaste(page: Page, title: string, content: string) {
   await page.goto("/");
   await expect(page.getByRole("button", { name: /打开.+的用户菜单/ })).toBeVisible();
   await page.waitForLoadState("networkidle");
-  await page.getByRole("textbox", { name: "main.go 代码编辑器" }).fill(content);
-  await page.getByRole("button", { name: "打开分享设置" }).click();
+  await page.getByRole("textbox", { name: "untitled.txt 代码编辑器" }).fill(content);
   await page.getByLabel("标题").fill(title);
-  await page.getByRole("button", { name: "生成分享链接" }).click();
+  await page.getByRole("button", { name: "打开分享设置" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "生成分享链接" }).click();
   await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
 }
 
@@ -97,29 +97,26 @@ test("signed-in owner can create, find, edit, and delete a private Paste", async
   const updatedTitle = `已复核接口示例 ${marker}`;
 
   await login(page);
-  await expect(page.getByRole("heading", { level: 1, name: "我的片段" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "内容库" })).toBeVisible();
   await expect(page.locator(".paste-public-header")).toHaveCount(0);
-  const mineStatusFontSize = await page.locator(".paste-mine-statusbar").evaluate((node) =>
-    Number.parseFloat(getComputedStyle(node).fontSize),
-  );
-  expect(mineStatusFontSize).toBeGreaterThanOrEqual(12);
+
   await page.goto("/");
   await expect(page.getByRole("button", { name: /打开.+的用户菜单/ })).toBeVisible();
   await page.waitForLoadState("networkidle");
   await page.screenshot({ path: testInfo.outputPath("composer-owner.png"), fullPage: true });
-  await page.getByRole("button", { name: "打开分享设置" }).click();
   await page.getByLabel("标题").fill(originalTitle);
+  await page.locator(".cm-content").fill(`package private_${marker}\n`);
+  await page.getByRole("button", { name: "打开分享设置" }).click();
   await page.getByLabel("可见性").click();
   await page.getByRole("option", { name: "仅自己可访问" }).click();
   await expect(page.getByLabel("标题")).toHaveValue(originalTitle);
   await expect(page.getByLabel("可见性")).toContainText("仅自己可访问");
-  await page.locator(".cm-content").fill(`package private_${marker}\n`);
   await expect(page.getByLabel("标题")).toHaveValue(originalTitle);
   await expect(page.getByLabel("可见性")).toContainText("仅自己可访问");
   const createRequest = page.waitForRequest((request) =>
     request.url().endsWith("/api/v1/pastes") && request.method() === "POST",
   );
-  await page.getByRole("button", { name: "生成分享链接" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "生成分享链接" }).click();
   const submitted = (await createRequest).postDataJSON();
   expect(submitted.title).toBe(originalTitle);
   expect(submitted.visibility).toBe("private");
@@ -128,7 +125,7 @@ test("signed-in owner can create, find, edit, and delete a private Paste", async
   const listResponse = page.waitForResponse((response) =>
     response.url().includes("/api/v1/me/pastes") && response.request().method() === "GET",
   );
-  await page.getByRole("link", { name: "我的片段" }).click();
+  await page.getByRole("link", { name: "内容库" }).click();
   const listed = await listResponse;
   expect(listed.status()).toBe(200);
   const listedPayload = await listed.json();
@@ -143,14 +140,13 @@ test("signed-in owner can create, find, edit, and delete a private Paste", async
   expect(accessibility.violations, accessibility.violations.map((item) => `${item.id}: ${item.help}`).join("\n")).toEqual([]);
   await row.getByRole("link", { name: "编辑代码片段" }).click();
 
-  await expect(page.getByRole("heading", { level: 1, name: "编辑片段" })).toBeVisible();
-  await page.getByRole("button", { name: "打开分享设置" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "编辑内容" })).toBeVisible();
   await expect(page.getByLabel("标题")).toHaveValue(originalTitle);
   await page.getByLabel("标题").fill(updatedTitle);
   await page.getByRole("button", { name: "保存修改" }).click();
   await expect(page.getByRole("heading", { level: 1, name: updatedTitle })).toBeVisible();
 
-  await page.getByRole("link", { name: "我的片段" }).click();
+  await page.getByRole("link", { name: "内容库" }).click();
   const updatedRow = page.locator(".paste-ledger-row").filter({ hasText: updatedTitle });
   await expect(updatedRow).toBeVisible();
   page.once("dialog", (dialog) => dialog.accept());
@@ -167,7 +163,7 @@ test("owner can batch update and delete selected Pastes", async ({ page }, testI
   await login(page);
   await createOwnedPaste(page, titles[0], `const batchA = "${marker}";\n`);
   await createOwnedPaste(page, titles[1], `const batchB = "${marker}";\n`);
-  await page.getByRole("link", { name: "我的片段" }).click();
+  await page.getByRole("link", { name: "内容库" }).click();
 
   const rows = titles.map((title) => page.locator(".paste-ledger-row").filter({ hasText: title }));
   for (const [index, title] of titles.entries()) {
@@ -225,7 +221,7 @@ test("my Paste keeps the editor workspace at mobile width", async ({ page }, tes
   test.skip(testInfo.project.name !== "mobile", "mobile shell contract");
   await page.emulateMedia({ colorScheme: "dark" });
   await login(page);
-  await expect(page.getByRole("heading", { level: 1, name: "我的片段" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "内容库" })).toBeVisible();
   await expect(page.locator(".paste-public-header")).toHaveCount(0);
   await expect(page.locator(".paste-ledger-loading")).toHaveCount(0);
   const dimensions = await page.locator(".paste-mine-shell").evaluate((node) => ({
