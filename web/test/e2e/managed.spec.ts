@@ -149,8 +149,8 @@ test("signed-in owner can create, find, edit, and delete a private Paste", async
   await page.getByRole("link", { name: "内容库" }).click();
   const updatedRow = page.locator(".paste-ledger-row").filter({ hasText: updatedTitle });
   await expect(updatedRow).toBeVisible();
-  page.once("dialog", (dialog) => dialog.accept());
   await updatedRow.getByRole("button", { name: "删除代码片段" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "确认删除", exact: true }).click();
   await expect(updatedRow).toHaveCount(0);
 });
 
@@ -209,8 +209,8 @@ test("owner can batch update and delete selected Pastes", async ({ page }, testI
   for (const title of titles) {
     await page.getByRole("checkbox", { name: `选择 ${title}` }).click();
   }
-  page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "删除", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "确认删除", exact: true }).click();
   for (const row of rows) await expect(row).toHaveCount(0);
   await page.reload();
   await expect(page.locator(".paste-ledger-loading")).toHaveCount(0);

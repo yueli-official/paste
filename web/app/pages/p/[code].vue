@@ -13,6 +13,7 @@ const { loggedIn } = useAuth();
 const ownedRevision = ref<number>();
 const deleting = ref(false);
 const deleteError = ref("");
+const deleteOpen = ref(false);
 const transfer = usePasteTransfer();
 const copyError = ref("");
 const showSource = ref(false);
@@ -152,12 +153,12 @@ async function checkOwnership() {
 
 async function removeOwned() {
   if (ownedRevision.value === undefined || deleting.value) return;
-  if (!window.confirm(`删除“${shellTitle.value}”？此链接将永久失效。`)) return;
   deleting.value = true;
   deleteError.value = "";
   try {
     await api.remove(code.value, ownedRevision.value);
     libraryVersion.value++;
+    deleteOpen.value = false;
     await navigateTo("/mine");
   } catch (caught) {
     deleteError.value = pasteErrorMessage(caught);
@@ -218,7 +219,7 @@ watch(activeIndex, () => {
         >
         <div v-if="value" class="flex flex-wrap items-center gap-2 max-[760px]:w-full">
           <UButton v-if="ownedRevision !== undefined" :to="`/?edit=${code}`" icon="i-tabler-edit" label="编辑" aria-label="编辑此内容" color="neutral" variant="ghost" :disabled="deleting" />
-          <UButton v-if="ownedRevision !== undefined" icon="i-tabler-trash" label="删除" aria-label="删除此链接" color="neutral" variant="ghost" class="hover:text-[var(--paste-red)]" :loading="deleting" @click="removeOwned" />
+          <UButton v-if="ownedRevision !== undefined" icon="i-tabler-trash" label="删除" aria-label="删除此链接" color="neutral" variant="ghost" class="hover:text-[var(--paste-red)]" :loading="deleting" @click="deleteError = ''; deleteOpen = true" />
           <UButton
             icon="i-tabler-info-circle"
             label="详情"
@@ -253,11 +254,11 @@ watch(activeIndex, () => {
         />
       </div>
       <p
-        v-if="copyError || deleteError"
+        v-if="copyError"
         role="alert"
         class="paste-inline-feedback [padding:10px_28px] text-[13px] bg-[var(--paste-red-soft)] text-[var(--paste-red)]"
       >
-        {{ deleteError || copyError }}
+        {{ copyError }}
       </p>
       <div
         v-if="value"
@@ -539,6 +540,7 @@ watch(activeIndex, () => {
         </template>
       </USlideover>
 
+      <PasteDeleteDialog v-model:open="deleteOpen" :titles="[shellTitle]" :busy="deleting" :error="deleteError" @confirm="removeOwned" />
       <p class="sr-only" aria-live="polite">{{ copied ? "内容已复制" : "" }}</p>
     </div>
   </PasteWorkspace>

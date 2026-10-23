@@ -71,8 +71,8 @@ test("guest confirms sharing, retains ownership, and claims content on login", a
   await expect.poll(async () => (await context.cookies(origin)).some(cookie => cookie.name.endsWith("yueli_guest"))).toBe(false);
   await page.goto(`/p/${value.code}`);
   await expect(page.getByRole("button", { name: "删除此链接" })).toBeVisible();
-  page.once("dialog", dialog => dialog.accept());
   await page.getByRole("button", { name: "删除此链接" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "确认删除", exact: true }).click();
   await expect(page).toHaveURL(/\/mine$/);
   expect((await page.request.get(`/api/v1/pastes/${value.code}`)).status()).toBe(410);
 });
@@ -89,11 +89,11 @@ test("guest can delete without logging in and clearing cookies removes managemen
   await context.addCookies(ownerCookies);
   await page.goto(`/p/${paste.code}`);
   await expect(page.getByRole("button", { name: "删除此链接" })).toBeVisible();
-  page.once("dialog", dialog => dialog.dismiss());
   await page.getByRole("button", { name: "删除此链接" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "取消", exact: true }).click();
   await expect(page.getByRole("button", { name: "删除此链接" })).toBeVisible();
-  page.once("dialog", dialog => dialog.accept());
   await page.getByRole("button", { name: "删除此链接" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "确认删除", exact: true }).click();
   await expect(page).toHaveURL(/\/mine$/);
   await expect(page.getByText("内容库还是空的", { exact: true })).toBeVisible();
 });

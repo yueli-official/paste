@@ -49,11 +49,11 @@ test("owner library and reader support finding, cancelling, and deleting links",
       const rejected = await other.request.delete(`${origin}/api/v1/me/pastes/${created[0]!.code}?expectedRevision=1`);
       expect([401, 403]).toContain(rejected.status());
     } finally { await guest.close(); }
-    page.once("dialog", dialog => dialog.dismiss());
     await page.getByRole("button", { name: "删除此链接" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "取消", exact: true }).click();
     await expect(page.locator(".cm-content")).toBeVisible();
-    page.once("dialog", dialog => dialog.accept());
     await page.getByRole("button", { name: "删除此链接" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "确认删除", exact: true }).click();
     await expect(page).toHaveURL(/\/mine$/);
     const removed = created.shift()!;
     await page.goto(`/p/${removed.code}`);

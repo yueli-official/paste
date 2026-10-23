@@ -33,6 +33,9 @@ const batchExpiry = ref<"keep" | "1h" | "1d" | "7d" | "30d" | "never">("keep");
 const batchSaving = ref(false);
 const batchDeleting = ref(false);
 const batchError = ref("");
+const deleteOpen = ref(false);
+const deleteTargets = ref<PasteSummary[]>([]);
+const deleteError = ref("");
 const operationMessage = ref("");
 
 const visibilityItems = computed(() => [
@@ -138,14 +141,16 @@ async function copyLink(value: PasteSummary) {
   }
 }
 
+function requestDelete(targets: PasteSummary[]) {
+  if (!targets.length || batchBusy.value || deleting.value) return;
+  deleteTargets.value = [...targets];
+  deleteError.value = "";
+  deleteOpen.value = true;
+}
+
 async function remove(value: PasteSummary) {
-  if (
-    !window.confirm(
-      `删除“${displayTitle(value.title)}”？链接将永久返回已失效。`,
-    )
-  )
-    return;
   deleting.value = value.code;
+  deleteError.value = "";
   try {
     await api.remove(value.code, value.revision);
     libraryVersion.value++;
@@ -153,8 +158,9 @@ async function remove(value: PasteSummary) {
     selectedCodes.value = selectedCodes.value.filter(
       (code) => code !== value.code,
     );
+    deleteOpen.value = false;
   } catch (caught) {
-    announce(pasteErrorMessage(caught), "error");
+    deleteError.value = pasteErrorMessage(caught);
   } finally {
     deleting.value = "";
   }
@@ -276,7 +282,6 @@ async function applyBatchEdit() {
 
   if (result.failed.length > 0) {
     batchError.value = `已修改 ${result.succeeded.length} 项，${result.failed.length} 项失败。失败项仍保持选中，可以重试。`;
-    announce(batchError.value, "warning");
     return;
   }
   batchEditOpen.value = false;
@@ -284,36 +289,31 @@ async function applyBatchEdit() {
 }
 
 async function removeSelected() {
-  const targets = [...selectedValues.value];
-  if (targets.length === 0) return;
-  if (
-    !window.confirm(
-      `删除选中的 ${targets.length} 个代码片段？这些链接将永久失效。`,
-    )
-  )
-    return;
+  const targets = [...deleteTargets.value];
+  if (targets.length === 0 || batchBusy.value || deleting.value) return;
+  if (targets.length === 1) return remove(targets[0]!);
 
   batchDeleting.value = true;
+  deleteError.value = "";
   const result = await runBounded(targets, (value) =>
     api.remove(value.code, value.revision),
   );
   const removed = new Set(result.succeeded.map(({ item }) => item.code));
   values.value = values.value.filter((value) => !removed.has(value.code));
   selectedCodes.value = result.failed.map((value) => value.code);
-  batchDeleting.value = false;
   if (removed.size) {
     libraryVersion.value++;
     await load();
   }
 
   if (result.failed.length > 0) {
-    announce(
-      `已删除 ${result.succeeded.length} 项，${result.failed.length} 项失败。失败项仍保持选中。`,
-      "warning",
-    );
+    deleteTargets.value = result.failed;
+    deleteError.value = `已删除 ${result.succeeded.length} 项，${result.failed.length} 项失败。可以重试剩余内容。`;
   } else {
+    deleteOpen.value = false;
     announce(`已删除 ${result.succeeded.length} 个代码片段。`, "success");
   }
+  batchDeleting.value = false;
 }
 
 function focusSearch(event: KeyboardEvent) {
@@ -361,7 +361,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", focusSearch));
         <template v-if="selectedValues.length > 0">
           <strong class="min-w-0 flex-1 text-xs text-[var(--paste-ink)]">已选择 {{ selectedValues.length }} 项</strong>
           <UButton icon="i-tabler-adjustments" color="neutral" variant="ghost" size="sm" :disabled="batchBusy" @click="openBatchEdit">批量修改</UButton>
-          <UButton icon="i-tabler-trash" color="error" variant="ghost" size="sm" :loading="batchDeleting" :disabled="batchSaving" @click="removeSelected">删除</UButton>
+          <UButton icon="i-tabler-trash" color="error" variant="ghost" size="sm" :loading="batchDeleting" :disabled="batchSaving" @click="requestDelete(selectedValues)">删除</UButton>
           <UButton icon="i-tabler-x" color="neutral" variant="ghost" size="sm" square aria-label="取消全部选择" :disabled="batchBusy" @click="clearSelection" />
         </template>
         <template v-else>
@@ -406,7 +406,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", focusSearch));
               <div class="flex items-center gap-1 max-[760px]:col-start-2 max-[760px]:col-end-4 max-[760px]:row-start-3 max-[760px]:justify-end">
                 <UTooltip :text="copied === value.code ? '已复制' : '复制链接'"><UButton :icon="copied === value.code ? 'i-tabler-check' : 'i-tabler-link'" color="neutral" variant="ghost" square aria-label="复制链接" class="size-9" :disabled="deleting === value.code || batchBusy" @click="copyLink(value)" /></UTooltip>
                 <UTooltip text="编辑"><UButton :to="`/?edit=${value.code}`" icon="i-tabler-edit" color="neutral" variant="ghost" square aria-label="编辑代码片段" class="size-9" :disabled="deleting === value.code || batchBusy" /></UTooltip>
-                <UTooltip text="删除"><UButton icon="i-tabler-trash" color="neutral" variant="ghost" square aria-label="删除代码片段" class="size-9 hover:text-[var(--paste-red)]" :loading="deleting === value.code" :disabled="batchBusy" @click="remove(value)" /></UTooltip>
+                <UTooltip text="删除"><UButton icon="i-tabler-trash" color="neutral" variant="ghost" square aria-label="删除代码片段" class="size-9 hover:text-[var(--paste-red)]" :loading="deleting === value.code" :disabled="batchBusy" @click="requestDelete([value])" /></UTooltip>
               </div>
               <div class="col-start-3 col-end-5 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[var(--paste-line)] pt-3 text-[11px] text-[var(--paste-ink-dim)] max-[760px]:col-start-2 max-[760px]:col-end-4 max-[760px]:row-start-2">
                 <span class="inline-flex items-center gap-1.5"><UIcon :name="value.visibility === 'private' ? 'i-tabler-lock' : 'i-tabler-link'" class="size-3.5" />{{ value.visibility === 'private' ? '仅自己' : '链接访问' }}{{ value.passwordProtected ? ' · 密码保护' : '' }}</span>
@@ -422,7 +422,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", focusSearch));
         <span class="sr-only" aria-live="polite">{{ operationMessage }}</span>
       </footer>
 
-      <USlideover
+      <UModal
         v-model:open="batchEditOpen"
         title="批量修改"
         :description="`为选中的 ${selectedValues.length} 个代码片段统一修改访问设置。`"
@@ -493,7 +493,8 @@ onBeforeUnmount(() => window.removeEventListener("keydown", focusSearch));
             />
           </div>
         </template>
-      </USlideover>
+      </UModal>
+      <PasteDeleteDialog v-model:open="deleteOpen" :titles="deleteTargets.map(value => displayTitle(value.title))" :busy="batchDeleting || Boolean(deleting)" :error="deleteError" @confirm="removeSelected" />
       <p class="sr-only" aria-live="polite">
         {{ copied ? "分享链接已复制" : operationMessage }}
       </p>
