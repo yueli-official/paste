@@ -101,10 +101,13 @@ export default defineNuxtConfig({
     port: Number(process.env.NUXT_DEV_PORT || "3010"),
   },
   runtimeConfig: {
+    pasteAudience: "paste-api",
     downstreamBase: process.env.NUXT_DOWNSTREAM_BASE || "http://127.0.0.1:8091",
     identityBase: process.env.NUXT_IDENTITY_BASE || "http://127.0.0.1:8081",
     cookieSecure,
     authCookieSecure: cookieSecure,
+    guestCookieSecure: cookieSecure,
+    guestSessionTtlSeconds: 30 * 24 * 60 * 60,
     sealSecret:
       process.env.NUXT_SEAL_SECRET ||
       "dev-paste-seal-secret-change-me-0123456789abcdef",

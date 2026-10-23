@@ -31,8 +31,8 @@ remains as direct as a single-file paste.
 ## Operating Context
 
 - The primary action begins with code already on a clipboard or in an editor.
-- Anonymous creators receive a share link but no management record. Signing in is required for personal history, editing and
-  deletion.
+- Browser guests receive a share link and can manage their own content through an Identity guest session. Clearing its Cookie
+  or session expiry loses guest management; signing in transfers content to the account. Old ownerless content is not claimable.
 - Recipients commonly arrive from chat, an issue, an email or a short link on desktop or mobile.
 - Yueli Identity supplies OIDC login. The Paste API and Web app use the current Foundation runtime and Workspace orchestration.
 
@@ -89,7 +89,7 @@ remains as direct as a single-file paste.
 - The shortest path creates a useful share, not an account.
 - Protection is a server contract, never a secret embedded in a URL.
 - Multiple files should read like one compact artifact, not a miniature file manager.
-- Ownership stays explicit: anonymous is immutable; authenticated ownership is manageable and auditable.
+- Ownership stays explicit: Identity guest sessions and accounts occupy separate owner namespaces; ownerless anonymous content remains immutable.
 - Terminal lifecycle states are honest and stable.
 
 ## Accessibility & Inclusion

@@ -366,6 +366,23 @@
         "paste.password_required",
         "paste.password_invalid"
       ]
+    },
+    {
+      "id": "paste.post.api.v1.pastes.guest-claims",
+      "method": "POST",
+      "path": "/api/v1/pastes/guest-claims",
+      "success": {
+        "status": 200,
+        "kind": "resource",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.paste.api.v1.ClaimGuestPastesRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "paste.not_authenticated",
+        "paste.forbidden"
+      ]
     }
   ]
 }

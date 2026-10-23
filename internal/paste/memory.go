@@ -16,11 +16,13 @@ type MemoryStore struct {
 	governanceSettings governance.Settings
 	governancePolicies map[string]governance.UserPolicy
 	dailyUsage         map[string]int
+	guestClaims        map[string]string
 }
 
 func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{
-		values: make(map[string]Paste),
+		values:      make(map[string]Paste),
+		guestClaims: make(map[string]string),
 		governanceSettings: governance.Settings{
 			UserDailyLimit: governance.DefaultUserDailyLimit, AnonymousDailyLimit: governance.DefaultAnonymousDailyLimit,
 			Revision: 1, UpdatedAt: time.Unix(0, 0).UTC(),
@@ -47,6 +49,9 @@ func (store *MemoryStore) Insert(ctx context.Context, value Paste) (Paste, error
 }
 
 func (store *MemoryStore) claimCreationLocked(value Paste) error {
+	if value.OwnerGuestID != "" && store.guestClaims[value.OwnerGuestID] != "" {
+		return ErrForbidden
+	}
 	actorKind := "anonymous"
 	actorKey := "global"
 	limit := store.governanceSettings.AnonymousDailyLimit
@@ -111,6 +116,9 @@ func (store *MemoryStore) ListForAdministration(ctx context.Context, query Admin
 	values := make([]Paste, 0, len(store.values))
 	for _, value := range store.values {
 		if query.OwnerUserKey != "" && value.OwnerUserKey != query.OwnerUserKey {
+			continue
+		}
+		if query.OwnerGuestID != "" && value.OwnerGuestID != query.OwnerGuestID {
 			continue
 		}
 		if query.Visibility != "" && value.Visibility != query.Visibility {

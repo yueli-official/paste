@@ -16,6 +16,7 @@ interface LocalFile extends PasteFile {
 
 const route = useRoute();
 const api = usePasteApi();
+const libraryVersion = useState("paste-library-version", () => 0);
 const transfer = usePasteTransfer();
 const { loggedIn, login } = useAuth();
 const { siteName, siteDescription } = useSiteSettings();
@@ -262,6 +263,12 @@ function validate(): string {
   return "";
 }
 
+async function requestShare() {
+  if (editCode.value) return submit();
+  error.value = validate();
+  shareOpen.value = true;
+}
+
 async function submit() {
   if (
     saving.value ||
@@ -293,6 +300,7 @@ async function submit() {
         ? await api.update(editCode.value, editRevision.value, input)
         : await api.create(input);
     transfer.value[response.paste.code] = response.paste;
+    libraryVersion.value++;
     savedSnapshot.value = snapshot();
     await navigateTo(
       `/p/${response.paste.code}?${editCode.value ? "updated" : "created"}=1`,
@@ -318,10 +326,6 @@ async function submit() {
 
 async function loadEdit() {
   if (!editCode.value) return;
-  if (!loggedIn.value) {
-    await login(`/?edit=${encodeURIComponent(editCode.value)}`);
-    return;
-  }
   loadingEdit.value = true;
   try {
     const response = await api.getMine(editCode.value);
@@ -470,7 +474,7 @@ watch(editCode, async () => {
       id="paste-compose-form"
       class="paste-compose paste-workbench h-full flex flex-col min-w-0 overflow-hidden"
       :aria-busy="saving || loadingEdit"
-      @submit.prevent="submit"
+      @submit.prevent="requestShare"
     >
       <header
         class="paste-command-row min-h-[88px] [padding:20px_30px] flex items-center gap-5 [border-bottom:1px_solid_var(--paste-line)] max-[1100px]:flex-wrap max-[1100px]:gap-3 max-[1100px]:[padding:18px_22px] max-[760px]:p-4 max-[760px]:min-h-[76px]"
@@ -706,7 +710,7 @@ watch(editCode, async () => {
             ? dirty
               ? "尚未保存"
               : "准备就绪"
-            : "匿名分享 · 创建后不可修改"
+            : "当前浏览器可管理"
         }}</span>
         <span class="flex items-center gap-4"
           ><span>{{ files.length }}/20 文件</span
@@ -719,48 +723,14 @@ watch(editCode, async () => {
       </footer>
       <USlideover
         v-model:open="shareOpen"
-        title="分享设置"
-        description="统一设置访问范围、有效期和密码。"
+        :title="editCode ? '分享设置' : '生成分享链接'"
+        :description="editCode ? undefined : '有效期从生成链接时开始。'"
         :ui="{ content: 'sm:max-w-sm' }"
       >
         <template #body>
           <div
             class="grid gap-[18px] [&_label]:text-[11px] [&_label]:font-[680]"
           >
-            <UFormField
-              :error="failure?.fieldErrors.description?.join(' ')"
-              name="description"
-              label="说明"
-              hint="可选"
-            >
-              <UTextarea
-                v-model="description"
-                form="paste-compose-form"
-                name="description"
-                :rows="3"
-                autoresize
-                maxlength="2000"
-                placeholder="这组文件用于什么？"
-                class="w-full"
-              />
-            </UFormField>
-            <UFormField
-              :error="failure?.fieldErrors.tags?.join(' ')"
-              name="tags"
-              label="标签"
-              hint="最多 8 个"
-            >
-              <UInputTags
-                v-model="tags"
-                name="tags"
-                :max="8"
-                add-on-paste
-                add-on-blur
-                delimiter=","
-                placeholder="输入后回车"
-                class="w-full"
-              />
-            </UFormField>
             <div class="grid grid-cols-2 gap-2.5 max-[720px]:grid-cols-1">
               <UFormField
                 :error="failure?.fieldErrors.visibility?.join(' ')"
@@ -805,6 +775,40 @@ watch(editCode, async () => {
                 class="w-full"
               />
             </UFormField>
+            <UFormField
+              :error="failure?.fieldErrors.description?.join(' ')"
+              name="description"
+              label="说明"
+              hint="可选"
+            >
+              <UTextarea
+                v-model="description"
+                form="paste-compose-form"
+                name="description"
+                :rows="3"
+                autoresize
+                maxlength="2000"
+                placeholder="这组文件用于什么？"
+                class="w-full"
+              />
+            </UFormField>
+            <UFormField
+              :error="failure?.fieldErrors.tags?.join(' ')"
+              name="tags"
+              label="标签"
+              hint="最多 8 个"
+            >
+              <UInputTags
+                v-model="tags"
+                name="tags"
+                :max="8"
+                add-on-paste
+                add-on-blur
+                delimiter=","
+                placeholder="输入后回车"
+                class="w-full"
+              />
+            </UFormField>
             <FailureNotice :feedback="failure" />
             <UAlert
               v-if="error"
@@ -820,7 +824,7 @@ watch(editCode, async () => {
               color="neutral"
               variant="subtle"
               icon="i-tabler-user-off"
-              description="匿名创建后不能修改。"
+              description="可在此浏览器编辑、删除。Cookie 清除或访客会话到期后失效；登录可保存到账户。"
             />
           </div>
         </template>
@@ -835,8 +839,8 @@ watch(editCode, async () => {
               @click="loginForManagement"
             />
             <UButton
-              form="paste-compose-form"
-              type="submit"
+              type="button"
+              @click="submit"
               :label="editCode ? '保存修改' : '生成分享链接'"
               :icon="editCode ? 'i-tabler-device-floppy' : 'i-tabler-send'"
               class="paste-primary bg-[var(--paste-blue)] text-[#17200e] min-h-10 [padding:9px_18px] rounded-[7px] font-[650] whitespace-nowrap justify-center not-dark:text-white hover:bg-[var(--paste-blue-hover)] disabled:opacity-35 max-[760px]:min-h-10 max-[760px]:text-xs max-[760px]:[padding:8px_12px]"

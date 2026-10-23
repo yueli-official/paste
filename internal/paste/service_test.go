@@ -206,7 +206,7 @@ func TestListMineRequiresAndFiltersOwner(t *testing.T) {
 	if len(values) != 2 {
 		t.Fatalf("expected two Pastes, got %d", len(values))
 	}
-	if err := service.Delete(context.Background(), owned[0].Code, "usr_A", owned[0].Revision); err != nil {
+	if err := service.Delete(context.Background(), owned[0].Code, Owner{UserKey: "usr_A"}, owned[0].Revision); err != nil {
 		t.Fatal(err)
 	}
 	values, err = service.ListMine(context.Background(), "usr_A")
@@ -231,14 +231,14 @@ func TestGetMineBypassesThePublicPasswordChallengeForTheOwner(t *testing.T) {
 	if _, err := service.Open(context.Background(), created.Code, Access{UserKey: "usr_OWNER"}); !errors.Is(err, ErrPasswordNeeded) {
 		t.Fatalf("public open should still require a password, got %v", err)
 	}
-	managed, err := service.GetMine(context.Background(), created.Code, "usr_OWNER")
+	managed, err := service.GetMine(context.Background(), created.Code, Owner{UserKey: "usr_OWNER"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if managed.Files[0].Content != "package main" || len(managed.PasswordHash) != 0 || !managed.PasswordGuard {
 		t.Fatalf("unexpected managed Paste: %#v", managed)
 	}
-	if _, err := service.GetMine(context.Background(), created.Code, "usr_OTHER"); !errors.Is(err, ErrForbidden) {
+	if _, err := service.GetMine(context.Background(), created.Code, Owner{UserKey: "usr_OTHER"}); !errors.Is(err, ErrForbidden) {
 		t.Fatalf("expected owner boundary, got %v", err)
 	}
 }
@@ -315,7 +315,7 @@ func TestDeleteKeepsTerminalLocatorAndClearsContent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := service.Delete(context.Background(), created.Code, "usr_OWNER", created.Revision); err != nil {
+	if err := service.Delete(context.Background(), created.Code, Owner{UserKey: "usr_OWNER"}, created.Revision); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.Open(context.Background(), created.Code, Access{Password: "safe password"}); !errors.Is(err, ErrDeleted) {

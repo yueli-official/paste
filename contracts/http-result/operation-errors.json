@@ -168,6 +168,13 @@
       "paste.not_authenticated",
       "paste.forbidden",
       "paste.conflict"
+    ],
+    "POST /api/v1/pastes/guest-claims": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "paste.not_authenticated",
+      "paste.forbidden"
     ]
   }
 }

@@ -8,6 +8,7 @@ import {
 
 const route = useRoute();
 const api = usePasteApi();
+const libraryVersion = useState("paste-library-version", () => 0);
 const { loggedIn } = useAuth();
 const ownedRevision = ref<number>();
 const deleting = ref(false);
@@ -61,6 +62,7 @@ async function load() {
   accessError.value = "";
   activeIndex.value = 0;
   value.value = undefined;
+  ownedRevision.value = undefined;
   const carried = transfer.value[code.value];
   if (carried) {
     value.value = carried;
@@ -70,7 +72,12 @@ async function load() {
     return;
   }
   try {
-    value.value = (await api.get(code.value)).paste;
+    try {
+      value.value = (await api.getMine(code.value)).paste;
+    } catch (caught) {
+      if (!["paste.not_authenticated", "paste.forbidden", "paste.not_found"].includes(pasteProblemCode(caught))) throw caught;
+      value.value = (await api.get(code.value)).paste;
+    }
   } catch (caught) {
     if (pasteProblemCode(caught) === "paste.password_required")
       locked.value = true;
@@ -132,14 +139,14 @@ function openInfo() {
 async function checkOwnership() {
   ownedRevision.value = undefined;
   deleteError.value = "";
-  if (!loggedIn.value || !value.value) return;
+  if (!value.value) return;
   const requestedCode = code.value;
   try {
     const owned = (await api.getMine(requestedCode)).paste;
-    if (code.value === requestedCode && loggedIn.value)
+    if (code.value === requestedCode)
       ownedRevision.value = owned.revision;
   } catch {
-    // Only the authenticated owner endpoint grants management controls.
+    // Only the owner endpoint grants management controls.
   }
 }
 
@@ -150,6 +157,7 @@ async function removeOwned() {
   deleteError.value = "";
   try {
     await api.remove(code.value, ownedRevision.value);
+    libraryVersion.value++;
     await navigateTo("/mine");
   } catch (caught) {
     deleteError.value = pasteErrorMessage(caught);

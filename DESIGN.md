@@ -19,12 +19,12 @@ right and a persistent left content navigator on desktop.
 - `/` opens directly into an empty `untitled.txt` file with focused CodeMirror input. A title is optional. Generating a link is
   disabled until at least one file contains content; anonymous creation remains available without login.
 - The left navigator contains a secondary New action, library search, the current editing state and real recent owned content.
-  Anonymous users see a sign-in action without promotional filler. Mobile navigation opens from the header.
+  Browser guests see their own recent content; account login remains in the top-right control. Mobile navigation opens from the header.
 - A document command row contains the optional title, one access-and-expiry summary, and the primary Generate link / Save changes
-  action. The summary opens one sharing panel for visibility, expiry, password, description and tags. Sharing does not require
-  visiting that panel first.
+  action. Both Generate link and the summary open one confirmation panel, with visibility, expiry and password before optional
+  description and tags. Only confirmation creates the link; relative expiry starts then.
 - There is no automatic clipboard read or implied autosave. Current content is marked unshared or unsaved; abandoning changed
-  content requires confirmation. Anonymous creators are informed that their content cannot subsequently be edited.
+  content requires confirmation. Browser guests are informed that management ends if their Cookie is cleared or session expires.
 - A Paste contains 1–20 ordered text files and a combined 1 MiB content budget. File tabs retain switching, drag reordering,
   `Alt + Left/Right` reordering, double-click rename and deletion. File names infer languages; selecting a language updates the extension while preserving the path stem and avoiding duplicate names.
 - Plain text and code use the full-width CodeMirror canvas with language selection, wrapping and raw-copy controls. Source syntax
@@ -43,12 +43,12 @@ right and a persistent left content navigator on desktop.
 
 - `/p/:code` uses the same shell, a clear title, one primary Copy link action, file tabs and raw-copy controls. Markdown opens in
   reading mode and can reveal its original source. Code remains read-only.
-- Authenticated ownership is verified before showing Edit and Delete on the reading page. Deletion requires confirmation,
+- Account or Identity guest ownership is verified before showing Edit and Delete on the reading page. Deletion requires confirmation,
   uses the current revision, and returns to the library after success.
 - Successful creation or saving displays an inline confirmation and selectable share URL. Copy success appears at the action;
   no success Toast is emitted. Details and multi-file copy actions remain in the information panel.
 - Password access, loading and unavailable-content states retain the surrounding workspace. Passwords never enter the URL.
-- `/mine` is named 内容库. It retains server search, pagination, explicit row selection, batch visibility/expiry changes and
+- `/mine` is named 内容库 and is available to browser guests with a 当前浏览器 scope label. It retains server search, pagination, explicit row selection, batch visibility/expiry changes and
   deletion. Batch changes affect only selected fields; partial failures remain selected and never overwrite file content.
 - The library uses compact file cards on graphite surfaces, with language, file count, access state and update date grouped
   beneath the title. Long titles truncate inside the sidebar; file tabs leave room for letter descenders.

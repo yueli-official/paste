@@ -5,8 +5,8 @@ import {
 } from "../generated/pasteFailure";
 
 const messages: Record<PasteFailureCode, string> = {
-  "paste.not_authenticated": "请先登录，再继续管理你的代码片段。",
-  "paste.forbidden": "当前账号没有执行此操作的权限。",
+  "paste.not_authenticated": "管理会话已失效，请使用创建内容时的浏览器或登录所属账户。",
+  "paste.forbidden": "当前会话没有执行此操作的权限。",
   "paste.creation_suspended":
     "你的代码片段创建权限已被暂停；已有内容仍可查看和删除。",
   "paste.anonymous_creation_disabled": "本站暂时停止匿名创建，请登录后重试。",

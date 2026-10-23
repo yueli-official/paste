@@ -73,7 +73,7 @@ export function usePasteApi() {
     async listMine(query: { page?: number; size?: number; q?: string } = {}) {
       const response = await api.request<{ items: PasteSummary[]; page: number; size: number; total: number }>("/api/v1/me/pastes", {
         query,
-        auth: "required",
+        auth: "optional",
       });
       return { ...response, items: response.items.map(normalizeSummary) };
     },
@@ -85,7 +85,7 @@ export function usePasteApi() {
     async getMine(code: string) {
       const response = await api.request<{ paste: Paste }>(
         `/api/v1/me/pastes/${encodeURIComponent(code)}`,
-        { auth: "required" },
+        { auth: "optional" },
       );
       return { paste: normalizePaste(response.paste) };
     },
@@ -95,7 +95,7 @@ export function usePasteApi() {
         {
           method: "PATCH",
           body: jsonBody({ expectedRevision, ...input }),
-          auth: "required",
+          auth: "optional",
         },
       );
       return { paste: normalizePaste(response.paste) };
@@ -106,7 +106,7 @@ export function usePasteApi() {
         {
           method: "PATCH",
           body: jsonBody({ expectedRevision, ...input }),
-          auth: "required",
+          auth: "optional",
         },
       );
       return { paste: normalizePaste(response.paste) };
@@ -117,7 +117,7 @@ export function usePasteApi() {
         {
           method: "DELETE",
           query: { expectedRevision },
-          auth: "required",
+          auth: "optional",
         },
       );
     },

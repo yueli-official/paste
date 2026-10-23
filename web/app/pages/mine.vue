@@ -6,9 +6,9 @@ import type {
   PasteSummary,
   PasteVisibility,
 } from "../types/paste";
-import { displayTitle, pasteErrorMessage } from "../utils/paste";
+import { displayTitle, pasteErrorMessage, pasteProblemCode } from "../utils/paste";
 
-definePageMeta({ middleware: "auth" });
+const { loggedIn } = useAuth();
 
 const api = usePasteApi();
 const libraryVersion = useState("paste-library-version", () => 0);
@@ -35,14 +35,11 @@ const batchDeleting = ref(false);
 const batchError = ref("");
 const operationMessage = ref("");
 
-const visibilityItems: Array<{
-  label: string;
-  value: "keep" | PasteVisibility;
-}> = [
+const visibilityItems = computed(() => [
   { label: "保持原设置", value: "keep" },
   { label: "持链访问", value: "unlisted" },
-  { label: "仅自己", value: "private" },
-];
+  { label: "仅自己", value: "private", disabled: !loggedIn.value },
+]);
 const expiryItems: Array<{
   label: string;
   value: "keep" | "1h" | "1d" | "7d" | "30d" | "never";
@@ -116,11 +113,18 @@ async function load() {
       available.has(code),
     );
   } catch (caught) {
-    if (sequence === loadSequence) error.value = pasteErrorMessage(caught);
+    if (sequence !== loadSequence) return;
+    values.value = [];
+    total.value = 0;
+    selectedCodes.value = [];
+    if (loggedIn.value || pasteProblemCode(caught) !== "paste.not_authenticated")
+      error.value = pasteErrorMessage(caught);
   } finally {
     if (sequence === loadSequence) loading.value = false;
   }
 }
+
+watch(loggedIn, () => { page.value = 1; void load(); });
 
 async function copyLink(value: PasteSummary) {
   try {
@@ -347,6 +351,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", focusSearch));
         <div class="flex min-w-0 flex-1 items-center gap-3">
           <UIcon name="i-tabler-folders" class="size-5 text-[var(--paste-blue)]" />
           <h1 id="mine-title" class="text-[21px] font-semibold tracking-tight max-[760px]:text-lg">内容库</h1>
+          <span v-if="!loggedIn" class="text-xs text-[var(--paste-ink-dim)]">当前浏览器</span>
         </div>
         <UButton to="/" label="新建内容" icon="i-tabler-plus" class="paste-primary min-h-10 rounded-[7px] bg-[var(--paste-blue)] px-4 font-semibold text-[#17200e] hover:bg-[var(--paste-blue-hover)] not-dark:text-white" />
       </header>

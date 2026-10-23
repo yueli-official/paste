@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { AccountMenuAction } from "@yueli/ui/account-menu/pattern";
 import type { PasteSummary } from "../types/paste";
-import { displayTitle } from "../utils/paste";
+import { displayTitle, pasteProblemCode } from "../utils/paste";
 
 withDefaults(defineProps<{ currentTitle?: string; currentStatus?: string }>(), {
   currentTitle: "",
@@ -27,13 +27,12 @@ const accountActions = computed<readonly AccountMenuAction[]>(() => [
 ]);
 async function loadRecent() {
   recent.value = [];
-  if (!loggedIn.value) return;
   loading.value = true;
   loadError.value = false;
   try {
     recent.value = (await api.listMine({ size: 8 })).items;
-  } catch {
-    loadError.value = true;
+  } catch (caught) {
+    loadError.value = loggedIn.value || pasteProblemCode(caught) !== "paste.not_authenticated";
   } finally {
     loading.value = false;
   }
@@ -176,21 +175,8 @@ watch(
             >内容库</NuxtLink
           ><UIcon name="i-tabler-folders" class="size-4" />
         </div>
-        <div
-          v-if="!loggedIn"
-          class="paste-sidebar-empty text-[var(--paste-ink-dim)] text-[13px] [line-height:1.8] [padding:10px_0]"
-        >
-          <UButton
-            label="登录账户"
-            trailing-icon="i-tabler-arrow-right"
-            color="neutral"
-            variant="link"
-            class="px-0"
-            @click="async () => { await login(route.fullPath); }"
-          />
-        </div>
         <p
-          v-else-if="loading"
+          v-if="loading"
           class="paste-sidebar-empty text-[var(--paste-ink-dim)] text-[13px] [line-height:1.8] [padding:10px_0]"
           role="status"
         >
@@ -246,7 +232,7 @@ watch(
           </NuxtLink>
         </nav>
         <NuxtLink
-          v-if="loggedIn"
+          v-if="recent.length"
           to="/mine"
           class="paste-view-all flex gap-2 items-center text-xs text-[var(--paste-ink-soft)] pt-1"
           >查看全部 <UIcon name="i-tabler-arrow-right" class="size-4"

@@ -25,10 +25,13 @@ var schemaV5 string
 //go:embed migrations/0006_authorization_catalog_v2.up.sql
 var schemaV6 string
 
+//go:embed migrations/0007_guest_ownership.up.sql
+var schemaV7 string
+
 func ApplySchema(ctx context.Context, database *sql.DB) error {
 	if database == nil {
 		return errors.New("paste/postgres: DB is required")
 	}
-	_, err := database.ExecContext(ctx, schemaV1+"\n"+schemaV2+"\n"+schemaV3+"\n"+schemaV4+"\n"+schemaV5+"\n"+schemaV6)
+	_, err := database.ExecContext(ctx, schemaV1+"\n"+schemaV2+"\n"+schemaV3+"\n"+schemaV4+"\n"+schemaV5+"\n"+schemaV6+"\n"+schemaV7)
 	return err
 }

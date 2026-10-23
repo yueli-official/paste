@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 async function login(page: Page) {
-  await page.goto("/mine");
+  await page.goto("/auth/login?return_to=%2Fmine");
   await page.waitForFunction(() =>
     Boolean(
       (

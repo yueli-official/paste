@@ -18,7 +18,7 @@ let governedUserKey = "";
 let originalPolicy: UserPolicySnapshot | undefined;
 
 async function login(page: Page) {
-  await page.goto("/mine");
+  await page.goto("/auth/login?return_to=%2Fmine");
   await expect(page).toHaveURL(/\/login(?:\?|$)/);
   await page.getByLabel("邮箱").waitFor({ state: "visible" });
   await page.waitForFunction(() => {

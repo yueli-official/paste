@@ -48,7 +48,7 @@ test("editor-first composer works at desktop and mobile widths", async ({ page }
   expect(results.violations, results.violations.map((item) => `${item.id}: ${item.help}`).join("\n")).toEqual([]);
 
   await page.getByRole("button", { name: "打开分享设置" }).click();
-  await expect(page.getByRole("heading", { name: "分享设置" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "生成分享链接" })).toBeVisible();
   await page.getByRole("dialog").getByRole("button", { name: "生成分享链接" }).click();
   await expect(page).toHaveURL(/\/p\/[A-Za-z0-9_-]{8}\?created=1$/);
   await expect(page.getByRole("heading", { level: 1, name: "未命名片段" })).toBeVisible();

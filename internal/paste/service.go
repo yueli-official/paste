@@ -55,6 +55,7 @@ func (service *Service) Create(ctx context.Context, input CreateInput) (Paste, e
 	base := Paste{
 		ID:            id.String(),
 		OwnerUserKey:  normalized.OwnerUserKey,
+		OwnerGuestID:  normalized.OwnerGuestID,
 		Title:         normalized.Title,
 		Description:   normalized.Description,
 		Tags:          normalized.Tags,
@@ -208,8 +209,8 @@ func (service *Service) Govern(ctx context.Context, code string, input Governanc
 
 // GetMine returns an owned Paste for management without requiring its public
 // access password. Ownership is the authorization boundary for this view.
-func (service *Service) GetMine(ctx context.Context, code, userKey string) (Paste, error) {
-	value, err := service.owned(ctx, code, userKey)
+func (service *Service) GetMine(ctx context.Context, code string, owner Owner) (Paste, error) {
+	value, err := service.owned(ctx, code, owner)
 	if err != nil {
 		return Paste{}, err
 	}
@@ -217,7 +218,7 @@ func (service *Service) GetMine(ctx context.Context, code, userKey string) (Past
 }
 
 func (service *Service) Update(ctx context.Context, code string, input UpdateInput) (Paste, error) {
-	value, err := service.owned(ctx, code, input.OwnerUserKey)
+	value, err := service.owned(ctx, code, Owner{UserKey: input.OwnerUserKey, GuestID: input.OwnerGuestID})
 	if err != nil {
 		return Paste{}, err
 	}
@@ -259,6 +260,9 @@ func (service *Service) Update(ctx context.Context, code string, input UpdateInp
 		if *input.Visibility != VisibilityUnlisted && *input.Visibility != VisibilityPrivate {
 			return Paste{}, ValidationError{Field: "visibility", Message: "is invalid"}
 		}
+		if *input.Visibility == VisibilityPrivate && value.OwnerUserKey == "" {
+			return Paste{}, ValidationError{Field: "visibility", Message: "private Paste requires an authenticated owner"}
+		}
 		value.Visibility = *input.Visibility
 	}
 	if input.Password != nil {
@@ -295,8 +299,8 @@ func (service *Service) Update(ctx context.Context, code string, input UpdateInp
 	return publicPaste(updated), nil
 }
 
-func (service *Service) Delete(ctx context.Context, code, ownerUserKey string, expectedRevision int64) error {
-	value, err := service.owned(ctx, code, ownerUserKey)
+func (service *Service) Delete(ctx context.Context, code string, owner Owner, expectedRevision int64) error {
+	value, err := service.owned(ctx, code, owner)
 	if err != nil {
 		return err
 	}
@@ -344,9 +348,8 @@ func (service *Service) managedValue(ctx context.Context, code string) (Paste, e
 	return value, nil
 }
 
-func (service *Service) owned(ctx context.Context, code, ownerUserKey string) (Paste, error) {
-	ownerUserKey = strings.TrimSpace(ownerUserKey)
-	if ownerUserKey == "" {
+func (service *Service) owned(ctx context.Context, code string, owner Owner) (Paste, error) {
+	if !owner.Valid() {
 		return Paste{}, ErrForbidden
 	}
 	parsed, err := identifier.CompactURLV1.Parse(code)
@@ -360,7 +363,7 @@ func (service *Service) owned(ctx context.Context, code, ownerUserKey string) (P
 	if value.State == StateDeleted {
 		return Paste{}, ErrDeleted
 	}
-	if value.OwnerUserKey == "" || value.OwnerUserKey != ownerUserKey {
+	if !owner.owns(value) {
 		return Paste{}, ErrForbidden
 	}
 	return value, nil
@@ -368,6 +371,10 @@ func (service *Service) owned(ctx context.Context, code, ownerUserKey string) (P
 
 func normalizeCreate(input CreateInput, now time.Time) (CreateInput, error) {
 	input.OwnerUserKey = strings.TrimSpace(input.OwnerUserKey)
+	input.OwnerGuestID = strings.TrimSpace(input.OwnerGuestID)
+	if input.OwnerUserKey != "" && input.OwnerGuestID != "" {
+		return CreateInput{}, ErrForbidden
+	}
 	input.Title = strings.TrimSpace(input.Title)
 	if input.Title == "" {
 		input.Title = "未命名片段"
@@ -503,10 +510,9 @@ func clonePaste(value Paste) Paste {
 }
 
 // ListMinePage applies the authenticated owner scope before the storage query.
-func (service *Service) ListMinePage(ctx context.Context, userKey, query string, limit, offset int) (AdministrationPage, error) {
-	userKey = strings.TrimSpace(userKey)
-	if userKey == "" {
+func (service *Service) ListMinePage(ctx context.Context, owner Owner, query string, limit, offset int) (AdministrationPage, error) {
+	if !owner.Valid() {
 		return AdministrationPage{}, ErrForbidden
 	}
-	return service.ListForAdministration(ctx, AdministrationQuery{OwnerUserKey: userKey, Query: query, State: StateActive, Limit: limit, Offset: offset})
+	return service.ListForAdministration(ctx, AdministrationQuery{OwnerUserKey: owner.UserKey, OwnerGuestID: owner.GuestID, Query: query, State: StateActive, Limit: limit, Offset: offset})
 }

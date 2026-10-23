@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("owner library and reader support finding, cancelling, and deleting links", async ({ page, browser }, testInfo) => {
   test.setTimeout(90_000);
-  await page.goto("/mine");
+  await page.goto("/auth/login?return_to=%2Fmine");
   await page.getByLabel("邮箱").waitFor();
   await page.waitForFunction(() => Boolean((document.querySelector('form input[name="email"]')?.closest('form') as HTMLFormElement & { __vueParentComponent?: unknown })?.__vueParentComponent));
   await page.getByLabel("邮箱").fill(process.env.PASTE_E2E_EMAIL || "test@example.com");

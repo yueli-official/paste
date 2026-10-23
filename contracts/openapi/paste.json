@@ -217,6 +217,19 @@
         },
         "type": "object"
       },
+      "github.com.yueli-official.paste.api.v1.ClaimGuestPastesReq": {
+        "properties": {},
+        "type": "object"
+      },
+      "github.com.yueli-official.paste.api.v1.ClaimGuestPastesRes": {
+        "properties": {
+          "claimed": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "github.com.yueli-official.paste.api.v1.CreatePasteReq": {
         "properties": {
           "description": {
@@ -1746,6 +1759,37 @@
         "summary": "Create an anonymous or user-owned Paste",
         "tags": [
           "Pastes"
+        ]
+      }
+    },
+    "/api/v1/pastes/guest-claims": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.ClaimGuestPastesReq",
+                "description": ""
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.ClaimGuestPastesRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Claim browser guest content with an Identity guest claim token",
+        "tags": [
+          "My Pastes"
         ]
       }
     },

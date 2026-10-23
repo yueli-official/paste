@@ -125,6 +125,7 @@ test("direct sharing and Markdown modes preserve the original source", async ({
       request.method() === "POST" && request.url().endsWith("/api/v1/pastes"),
   );
   await create.click();
+  await page.getByRole("dialog").getByRole("button", { name: "生成分享链接", exact: true }).click();
   const payload = (await submitted).postDataJSON();
   expect(payload.files[1].content).toBe(markdown);
   expect(payload.files[0].content).toBe(code);
@@ -162,6 +163,7 @@ test("rich Markdown editing produces a shareable Markdown string", async ({
       request.method() === "POST" && request.url().endsWith("/api/v1/pastes"),
   );
   await page.getByRole("button", { name: "生成分享链接", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "生成分享链接", exact: true }).click();
   expect((await submitted).postDataJSON().files[0].content).toContain(
     "从排版编辑器创建的内容",
   );

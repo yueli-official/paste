@@ -30,6 +30,9 @@ func (store *Store) Insert(ctx context.Context, value paste.Paste) (paste.Paste,
 		return paste.Paste{}, fmt.Errorf("begin Paste insert: %w", err)
 	}
 	defer transaction.Rollback()
+	if err := checkGuestCreation(ctx, transaction, value.OwnerGuestID); err != nil {
+		return paste.Paste{}, err
+	}
 	if err := claimCreation(ctx, transaction, value); err != nil {
 		return paste.Paste{}, err
 	}
@@ -37,13 +40,13 @@ func (store *Store) Insert(ctx context.Context, value paste.Paste) (paste.Paste,
 	_, err = transaction.ExecContext(ctx, `
 INSERT INTO pastes (
     id, code, owner_user_key, title, description, tags, visibility,
-    password_hash, state, revision, created_at, updated_at, expires_at, deleted_at
+    password_hash, state, revision, created_at, updated_at, expires_at, deleted_at, owner_guest_id
 ) VALUES (
     $1::uuid, $2, $3, $4, $5, $6, $7,
-    $8, $9, $10, $11, $12, $13, $14
+    $8, $9, $10, $11, $12, $13, $14, $15
 )`, value.ID, value.Code, nullableString(value.OwnerUserKey), value.Title, value.Description,
 		pq.Array(append([]string{}, value.Tags...)), value.Visibility, nullableBytes(value.PasswordHash), value.State, value.Revision,
-		value.CreatedAt, value.UpdatedAt, value.ExpiresAt, value.DeletedAt)
+		value.CreatedAt, value.UpdatedAt, value.ExpiresAt, value.DeletedAt, nullableString(value.OwnerGuestID))
 	if err != nil {
 		return paste.Paste{}, mapWriteError(err)
 	}
@@ -176,11 +179,12 @@ UPDATE pastes SET
     revision = $8,
     updated_at = $9,
     expires_at = $10,
-    deleted_at = $11
+    deleted_at = $11,
+    owner_guest_id = $14
 WHERE code = $12 AND revision = $13`,
 		nullableString(value.OwnerUserKey), value.Title, value.Description, pq.Array(append([]string{}, value.Tags...)), value.Visibility,
 		nullableBytes(value.PasswordHash), value.State, value.Revision, value.UpdatedAt, value.ExpiresAt, value.DeletedAt,
-		value.Code, expectedRevision)
+		value.Code, expectedRevision, nullableString(value.OwnerGuestID))
 	if err != nil {
 		return paste.Paste{}, mapWriteError(err)
 	}
@@ -202,7 +206,7 @@ WHERE code = $12 AND revision = $13`,
 
 const pasteColumns = `
 id::text, code, owner_user_key, title, description, tags, visibility,
-password_hash, state, revision, created_at, updated_at, expires_at, deleted_at`
+password_hash, state, revision, created_at, updated_at, expires_at, deleted_at, owner_guest_id`
 
 type scanner interface {
 	Scan(...any) error
@@ -212,13 +216,14 @@ func scanPaste(row scanner) (paste.Paste, error) {
 	var (
 		value     paste.Paste
 		owner     sql.NullString
+		guest     sql.NullString
 		tags      pq.StringArray
 		expiresAt sql.NullTime
 		deletedAt sql.NullTime
 	)
 	err := row.Scan(
 		&value.ID, &value.Code, &owner, &value.Title, &value.Description, &tags, &value.Visibility,
-		&value.PasswordHash, &value.State, &value.Revision, &value.CreatedAt, &value.UpdatedAt, &expiresAt, &deletedAt,
+		&value.PasswordHash, &value.State, &value.Revision, &value.CreatedAt, &value.UpdatedAt, &expiresAt, &deletedAt, &guest,
 	)
 	if err != nil {
 		return paste.Paste{}, err
@@ -226,6 +231,7 @@ func scanPaste(row scanner) (paste.Paste, error) {
 	if owner.Valid {
 		value.OwnerUserKey = owner.String
 	}
+	value.OwnerGuestID = guest.String
 	value.Tags = append([]string{}, tags...)
 	if expiresAt.Valid {
 		value.ExpiresAt = timePointer(expiresAt.Time)

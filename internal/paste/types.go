@@ -38,6 +38,7 @@ type Paste struct {
 	ID            string     `json:"id"`
 	Code          string     `json:"code"`
 	OwnerUserKey  string     `json:"ownerUserKey,omitempty"`
+	OwnerGuestID  string     `json:"-"`
 	Title         string     `json:"title"`
 	Description   string     `json:"description,omitempty"`
 	Tags          []string   `json:"tags,omitempty"`
@@ -57,6 +58,7 @@ func (value Paste) Anonymous() bool { return value.OwnerUserKey == "" }
 
 type CreateInput struct {
 	OwnerUserKey string
+	OwnerGuestID string
 	Title        string
 	Description  string
 	Tags         []string
@@ -73,6 +75,7 @@ type Access struct {
 
 type UpdateInput struct {
 	OwnerUserKey     string
+	OwnerGuestID     string
 	ExpectedRevision int64
 	Title            *string
 	Description      *string
@@ -86,6 +89,7 @@ type UpdateInput struct {
 
 type AdministrationQuery struct {
 	OwnerUserKey string
+	OwnerGuestID string
 	Query        string
 	Visibility   Visibility
 	State        State

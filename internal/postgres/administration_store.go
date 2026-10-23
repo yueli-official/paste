@@ -27,10 +27,11 @@ AND (
     ($4::text = 'anonymous' AND value.owner_user_key IS NULL) OR
     ($4::text = 'owned' AND value.owner_user_key IS NOT NULL)
 )
-AND ($5::text = '' OR value.owner_user_key = $5::text)`
+AND ($5::text = '' OR value.owner_user_key = $5::text)
+AND ($6::text = '' OR value.owner_guest_id = $6::text)`
 
 func (store *Store) ListForAdministration(ctx context.Context, query paste.AdministrationQuery) (paste.AdministrationPage, error) {
-	arguments := []any{strings.TrimSpace(query.Query), string(query.Visibility), string(query.State), query.Ownership, query.OwnerUserKey}
+	arguments := []any{strings.TrimSpace(query.Query), string(query.Visibility), string(query.State), query.Ownership, query.OwnerUserKey, query.OwnerGuestID}
 	var total int
 	if err := store.database.QueryRowContext(ctx, `SELECT count(*) `+administrationWhere, arguments...).Scan(&total); err != nil {
 		return paste.AdministrationPage{}, fmt.Errorf("count administrative Pastes: %w", err)
@@ -52,7 +53,7 @@ SELECT
     value.expires_at
 `+administrationWhere+`
 ORDER BY value.created_at DESC, value.code DESC
-LIMIT $6 OFFSET $7`, append(arguments, query.Limit, query.Offset)...)
+LIMIT $7 OFFSET $8`, append(arguments, query.Limit, query.Offset)...)
 	if err != nil {
 		return paste.AdministrationPage{}, fmt.Errorf("list administrative Pastes: %w", err)
 	}

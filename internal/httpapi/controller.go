@@ -75,7 +75,7 @@ func (core *Core) Managed() *Managed             { return &Managed{core: core} }
 func (core *Core) Administrator() *Administrator { return &Administrator{core: core} }
 
 func (controller *Public) CreatePaste(ctx context.Context, request *v1.CreatePasteReq) (*v1.CreatePasteRes, error) {
-	owner, err := optionalUser(ctx)
+	owner, err := optionalOwner(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,8 @@ func (controller *Public) CreatePaste(ctx context.Context, request *v1.CreatePas
 		files[index] = paste.File{Path: file.Path, Language: file.Language, Content: file.Content, Order: index}
 	}
 	created, err := controller.core.pastes.Create(ctx, paste.CreateInput{
-		OwnerUserKey: owner,
+		OwnerUserKey: owner.UserKey,
+		OwnerGuestID: owner.GuestID,
 		Title:        request.Title,
 		Description:  request.Description,
 		Tags:         request.Tags,
@@ -133,12 +134,12 @@ func (controller *Public) GetSiteSettings(ctx context.Context, _ *v1.GetSiteSett
 }
 
 func (controller *Managed) ListMyPastes(ctx context.Context, request *v1.ListMyPastesReq) (*v1.ListMyPastesRes, error) {
-	userKey, err := requiredUser(ctx)
+	owner, err := requiredOwner(ctx)
 	if err != nil {
 		return nil, err
 	}
 	pageNumber, size := pagination(request.Page, request.Size)
-	page, err := controller.core.pastes.ListMinePage(ctx, userKey, request.Query, size, (pageNumber-1)*size)
+	page, err := controller.core.pastes.ListMinePage(ctx, owner, request.Query, size, (pageNumber-1)*size)
 	if err != nil {
 		return nil, pasteerr.Map(err)
 	}
@@ -150,11 +151,11 @@ func (controller *Managed) ListMyPastes(ctx context.Context, request *v1.ListMyP
 }
 
 func (controller *Managed) GetMyPaste(ctx context.Context, request *v1.GetMyPasteReq) (*v1.GetMyPasteRes, error) {
-	userKey, err := requiredUser(ctx)
+	owner, err := requiredOwner(ctx)
 	if err != nil {
 		return nil, err
 	}
-	value, err := controller.core.pastes.GetMine(ctx, request.Code, userKey)
+	value, err := controller.core.pastes.GetMine(ctx, request.Code, owner)
 	if err != nil {
 		return nil, pasteerr.Map(err)
 	}
@@ -162,7 +163,7 @@ func (controller *Managed) GetMyPaste(ctx context.Context, request *v1.GetMyPast
 }
 
 func (controller *Managed) UpdatePaste(ctx context.Context, request *v1.UpdatePasteReq) (*v1.UpdatePasteRes, error) {
-	userKey, err := requiredUser(ctx)
+	owner, err := requiredOwner(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +181,8 @@ func (controller *Managed) UpdatePaste(ctx context.Context, request *v1.UpdatePa
 		files = &values
 	}
 	updated, err := controller.core.pastes.Update(ctx, request.Code, paste.UpdateInput{
-		OwnerUserKey:     userKey,
+		OwnerUserKey:     owner.UserKey,
+		OwnerGuestID:     owner.GuestID,
 		ExpectedRevision: request.ExpectedRevision,
 		Title:            request.Title,
 		Description:      request.Description,
@@ -198,11 +200,11 @@ func (controller *Managed) UpdatePaste(ctx context.Context, request *v1.UpdatePa
 }
 
 func (controller *Managed) DeletePaste(ctx context.Context, request *v1.DeletePasteReq) (*v1.DeletePasteRes, error) {
-	userKey, err := requiredUser(ctx)
+	owner, err := requiredOwner(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if err := controller.core.pastes.Delete(ctx, request.Code, userKey, request.ExpectedRevision); err != nil {
+	if err := controller.core.pastes.Delete(ctx, request.Code, owner, request.ExpectedRevision); err != nil {
 		return nil, pasteerr.Map(err)
 	}
 	writeSuccess(ctx, http.StatusNoContent, "")
@@ -434,7 +436,7 @@ func optionalUser(ctx context.Context) (string, error) {
 	if principal.SubjectKind == foundationauth.SubjectGuest {
 		return "", nil
 	}
-	if !principal.IsUser() {
+	if !principal.IsUser() || principal.HasScope("guest:claim") {
 		return "", mustProblem(pasteerr.Forbidden)
 	}
 	return principal.Subject, nil
@@ -445,7 +447,7 @@ func requiredUser(ctx context.Context) (string, error) {
 	if !ok {
 		return "", mustProblem(pasteerr.Unauthorized)
 	}
-	if !principal.IsUser() {
+	if !principal.IsUser() || principal.HasScope("guest:claim") {
 		return "", mustProblem(pasteerr.Forbidden)
 	}
 	return principal.Subject, nil

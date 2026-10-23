@@ -4,7 +4,7 @@ import { expect, request, test, type APIRequestContext, type Page } from "@playw
 test.use({ trace: "off", video: "off", screenshot: "off" });
 
 async function login(page: Page, password: string) {
-  await page.goto("/mine");
+  await page.goto("/auth/login?return_to=%2Fmine");
   await expect(page).toHaveURL(/\/login(?:\?|$)/);
   await page.getByLabel("邮箱").waitFor({ state: "visible" });
   await page.waitForFunction(() => {

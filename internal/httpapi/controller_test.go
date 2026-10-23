@@ -83,8 +83,8 @@ func TestGuestPrincipalCreatesAnAnonymousPaste(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := controller.Managed().ListMyPastes(guestContext, &v1.ListMyPastesReq{}); problemCode(t, err) != "paste.forbidden" {
-		t.Fatalf("guest Paste must remain anonymous, got managed access error %v", err)
+	if page, err := controller.Managed().ListMyPastes(guestContext, &v1.ListMyPastesReq{}); err != nil || len(page.Items) != 1 || page.Items[0].Code != created.Paste.Code {
+		t.Fatalf("guest must manage its own content: page=%+v err=%v", page, err)
 	}
 	opened, err := controller.Public().GetPaste(guestContext, &v1.GetPasteReq{Code: created.Paste.Code})
 	if err != nil || opened.Paste.Files[0].Content != "hello" {
