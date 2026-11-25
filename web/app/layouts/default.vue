@@ -13,6 +13,7 @@ const route = useRoute();
 const applicationShell = computed(() =>
   route.path === "/" || route.path === "/mine" || route.path === "/admin" || route.path.startsWith("/p/"),
 );
+const { loggedIn: headerLoggedIn } = useAuth();
 </script>
 
 <template>
@@ -57,7 +58,7 @@ const applicationShell = computed(() =>
             />
           </UTooltip>
           <YSiteLauncher />
-          <ConsumerAccountControl class="hidden md:block" :context-actions="accountActions" />
+          <ConsumerAccountControl :trigger-mode="headerLoggedIn ? 'collapsed' : 'inline'" class="hidden md:block" :context-actions="accountActions" />
         </div>
       </nav>
     </header>
