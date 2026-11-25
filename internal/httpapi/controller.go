@@ -334,7 +334,8 @@ func (controller *Administrator) UpdateSiteSettings(ctx context.Context, request
 		return nil, err
 	}
 	updated, err := controller.core.settings.Update(ctx, site.UpdateInput{
-		Name: request.Name, Description: request.Description,
+		BrandImagePatch: request.BrandImagePatch,
+		Name:            request.Name, Description: request.Description,
 		ExpectedRevision: request.ExpectedRevision, UpdatedBy: administrator,
 	})
 	if err != nil {
@@ -394,7 +395,8 @@ func administrationItem(value paste.Paste) paste.AdministrationItem {
 
 func siteSettingsView(value site.Settings) v1.SiteSettingsView {
 	return v1.SiteSettingsView{
-		Name: value.Name, Description: value.Description, Revision: value.Revision, UpdatedAt: value.UpdatedAt,
+		BrandImageURLs: value.BrandImageURLs,
+		Name:           value.Name, Description: value.Description, Revision: value.Revision, UpdatedAt: value.UpdatedAt,
 	}
 }
 

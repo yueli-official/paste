@@ -151,6 +151,7 @@ func TestPersonalRoutesAreExplicitAndCapabilityBound(t *testing.T) {
 		{"PATCH", "/api/v1/admin/pastes/ABC123", pasteauthz.CapabilityPasteModerate},
 		{"DELETE", "/api/v1/admin/pastes/ABC123", pasteauthz.CapabilityPasteModerate},
 		{"PATCH", "/api/v1/admin/settings", pasteauthz.CapabilitySettingsManage},
+		{"PATCH", "/api/v1/site/branding", pasteauthz.CapabilitySettingsManage},
 	} {
 		ctx := pastePersonalContext(t, "admin", test.capability)
 		if !allowsPersonalRoute(ctx, test.method, test.path) {

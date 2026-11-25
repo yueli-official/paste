@@ -11,7 +11,7 @@ import (
 
 func (store *Store) ReadSettings(ctx context.Context) (site.Settings, error) {
 	return scanSettings(store.database.QueryRowContext(ctx, `
-SELECT site_name, site_description, revision, updated_at, updated_by
+SELECT site_name, site_description, revision, updated_at, updated_by, logo_url, favicon_url
 FROM paste_site_settings
 WHERE singleton = true`))
 }
@@ -23,10 +23,12 @@ UPDATE paste_site_settings SET
     site_description = $2,
     revision = $3,
     updated_at = $4,
-    updated_by = $5
+    updated_by = $5,
+    logo_url = $7,
+    favicon_url = $8
 WHERE singleton = true AND revision = $6
-RETURNING site_name, site_description, revision, updated_at, updated_by`,
-		value.Name, value.Description, value.Revision, value.UpdatedAt, nullableString(value.UpdatedBy), expectedRevision))
+RETURNING site_name, site_description, revision, updated_at, updated_by, logo_url, favicon_url`,
+		value.Name, value.Description, value.Revision, value.UpdatedAt, nullableString(value.UpdatedBy), expectedRevision, value.LogoURL, value.FaviconURL))
 	if errors.Is(err, sql.ErrNoRows) {
 		return site.Settings{}, site.ErrConflict
 	}
@@ -39,7 +41,7 @@ RETURNING site_name, site_description, revision, updated_at, updated_by`,
 func scanSettings(row scanner) (site.Settings, error) {
 	var value site.Settings
 	var updatedBy sql.NullString
-	if err := row.Scan(&value.Name, &value.Description, &value.Revision, &value.UpdatedAt, &updatedBy); err != nil {
+	if err := row.Scan(&value.Name, &value.Description, &value.Revision, &value.UpdatedAt, &updatedBy, &value.LogoURL, &value.FaviconURL); err != nil {
 		return site.Settings{}, err
 	}
 	if updatedBy.Valid {

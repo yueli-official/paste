@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/gogf/gf/v2/frame/g"
+	"github.com/yueli-official/foundation/go/siteprofile"
 )
 
 type FileInput struct {
@@ -70,6 +71,7 @@ type AdministrationPasteView struct {
 }
 
 type SiteSettingsView struct {
+	siteprofile.BrandImageURLs
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
 	Revision    int64     `json:"revision"`
@@ -298,6 +300,7 @@ type UpdateGovernanceSettingsRes struct {
 }
 
 type UpdateSiteSettingsReq struct {
+	siteprofile.BrandImagePatch
 	g.Meta           `path:"/api/v1/admin/settings" method:"patch" tags:"Administration" summary:"Update public site settings"`
 	Name             string `json:"name"`
 	Description      string `json:"description"`

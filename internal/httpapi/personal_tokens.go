@@ -70,6 +70,8 @@ var personalRoutes = []personalRoute{
 	{"PATCH", "/api/v1/admin/pastes/{code}", pasteauthz.CapabilityPasteModerate},
 	{"DELETE", "/api/v1/admin/pastes/{code}", pasteauthz.CapabilityPasteModerate},
 	{"PATCH", "/api/v1/admin/settings", pasteauthz.CapabilitySettingsManage},
+	{"GET", "/api/v1/site/branding", pasteauthz.CapabilityPasteRead},
+	{"PATCH", "/api/v1/site/branding", pasteauthz.CapabilitySettingsManage},
 }
 
 func PersonalTokenRoutes(request *ghttp.Request) {

@@ -164,6 +164,26 @@
           "paste.settings.manage"
         ]
       ]
+    },
+    {
+      "authentication": "pat",
+      "method": "GET",
+      "path": "/api/v1/site/branding",
+      "scopeAnyOf": [
+        [
+          "paste.paste.read"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "PATCH",
+      "path": "/api/v1/site/branding",
+      "scopeAnyOf": [
+        [
+          "paste.settings.manage"
+        ]
+      ]
     }
   ],
   "schemaVersion": 1

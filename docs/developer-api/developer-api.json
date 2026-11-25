@@ -167,6 +167,32 @@
         ]
       ],
       "summary": "Read public site settings"
+    },
+    {
+      "authentication": "pat",
+      "id": "get_api_v1_site_branding",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1site~1branding/get",
+      "path": "/api/v1/site/branding",
+      "scopeAnyOf": [
+        [
+          "paste.paste.read"
+        ]
+      ],
+      "summary": "Get public site branding"
+    },
+    {
+      "authentication": "pat",
+      "id": "patch_api_v1_site_branding",
+      "method": "PATCH",
+      "openapiPointer": "#/paths/~1api~1v1~1site~1branding/patch",
+      "path": "/api/v1/site/branding",
+      "scopeAnyOf": [
+        [
+          "paste.settings.manage"
+        ]
+      ],
+      "summary": "Update site branding"
     }
   ],
   "permissions": [
@@ -214,5 +240,5 @@
     "openapi": "../../contracts/openapi/paste.json"
   },
   "schemaVersion": 1,
-  "sourceDigest": "4f0844f14f610c7bb2d5ecb536c93d1fff49580e331e64a75a3cf878ad302bb2"
+  "sourceDigest": "97685ec8f427ddaf0dd16edd0f64bbf935a3f1f9a9b6ee5e1ce940b2a25922dc"
 }

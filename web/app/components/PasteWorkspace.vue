@@ -62,10 +62,10 @@ watch(
 
 <template>
   <div
-    class="paste-app h-dvh min-h-[420px] overflow-hidden bg-[var(--paste-page)] max-[760px]:min-h-[420px]"
+    class="paste-app flex h-dvh flex-col min-h-[420px] overflow-hidden bg-[var(--paste-page)] max-[760px]:min-h-[420px]"
   >
     <header
-      class="paste-global-header h-16 [padding:0_28px] flex items-center justify-between [border-bottom:1px_solid_var(--paste-line)] bg-[var(--paste-page)] max-[760px]:h-[58px] max-[760px]:[padding:0_16px_0_8px]"
+      class="paste-global-header h-16 shrink-0 [padding:0_28px] flex items-center justify-between [border-bottom:1px_solid_var(--paste-line)] bg-[var(--paste-page)] max-[760px]:h-[58px] max-[760px]:[padding:0_16px_0_8px]"
     >
       <div class="flex min-w-0 items-center gap-3">
         <UButton
@@ -80,8 +80,10 @@ watch(
           to="/"
           class="paste-wordmark [font:600_36px/.9_Georgia,_Times_New_Roman,_serif] [letter-spacing:-1.8px] text-[var(--paste-ink)] no-underline [&_span]:text-[var(--paste-blue)] max-[760px]:text-[31px]"
           aria-label="Paste 首页"
-          >paste<span>.</span></NuxtLink
         >
+          <img v-if="settings.logoUrl" :src="settings.logoUrl" alt="" width="32" height="32" class="mr-2 inline-block size-8 object-contain align-middle" />
+          paste<span>.</span>
+        </NuxtLink>
         <span
           v-if="settings.description"
           class="paste-editor-brand-label paste-brand-caption ml-4 pl-5 [border-left:1px_solid_var(--paste-line)] truncate max-w-[min(52vw,640px)] text-xs text-[var(--paste-ink-dim)] max-[760px]:hidden"
@@ -90,18 +92,21 @@ watch(
       </div>
       <div class="flex items-center gap-3">
         <UColorModeButton
+          class="hidden md:inline-flex"
           color="neutral"
           variant="ghost"
           aria-label="切换颜色模式"
         />
+        <YSiteLauncher />
         <ConsumerAccountControl
+          class="hidden md:block"
           :context-actions="accountActions"
           trigger-mode="collapsed"
         />
       </div>
     </header>
     <div
-      class="paste-app-body grid [grid-template-columns:248px_minmax(0,1fr)] [height:calc(100%_-_64px)] max-[1100px]:[grid-template-columns:218px_minmax(0,1fr)] max-[760px]:block max-[760px]:[height:calc(100%_-_58px)]"
+      class="paste-app-body grid [grid-template-columns:248px_minmax(0,1fr)] min-h-0 flex-1 max-[1100px]:[grid-template-columns:218px_minmax(0,1fr)] max-[760px]:block"
     >
       <button
         v-if="navigationOpen"
@@ -244,5 +249,6 @@ watch(
         <slot />
       </main>
     </div>
+    <PasteMobileNavigation />
   </div>
 </template>

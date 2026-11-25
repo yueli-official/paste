@@ -435,6 +435,23 @@
         },
         "type": "object"
       },
+      "github.com.yueli-official.paste.api.v1.GetSiteBrandingReq": {
+        "properties": {},
+        "type": "object"
+      },
+      "github.com.yueli-official.paste.api.v1.GetSiteBrandingRes": {
+        "properties": {
+          "faviconUrl": {
+            "format": "string",
+            "type": "string"
+          },
+          "logoUrl": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "github.com.yueli-official.paste.api.v1.GetSiteSettingsReq": {
         "properties": {},
         "type": "object"
@@ -792,6 +809,32 @@
         },
         "type": "object"
       },
+      "github.com.yueli-official.paste.api.v1.PatchSiteBrandingReq": {
+        "properties": {
+          "faviconUrl": {
+            "format": "*string",
+            "type": "string"
+          },
+          "logoUrl": {
+            "format": "*string",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.paste.api.v1.PatchSiteBrandingRes": {
+        "properties": {
+          "faviconUrl": {
+            "format": "string",
+            "type": "string"
+          },
+          "logoUrl": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "github.com.yueli-official.paste.api.v1.PersonalPermissionsReq": {
         "properties": {
           "userKey": {
@@ -809,6 +852,14 @@
       "github.com.yueli-official.paste.api.v1.SiteSettingsView": {
         "properties": {
           "description": {
+            "format": "string",
+            "type": "string"
+          },
+          "faviconUrl": {
+            "format": "string",
+            "type": "string"
+          },
+          "logoUrl": {
             "format": "string",
             "type": "string"
           },
@@ -1010,6 +1061,14 @@
             "format": "int64",
             "minimum": 1,
             "type": "integer"
+          },
+          "faviconUrl": {
+            "format": "*string",
+            "type": "string"
+          },
+          "logoUrl": {
+            "format": "*string",
+            "type": "string"
           },
           "name": {
             "format": "string",
@@ -1893,6 +1952,56 @@
         "summary": "Read public site settings",
         "tags": [
           "Site"
+        ]
+      }
+    },
+    "/api/v1/site/branding": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.GetSiteBrandingRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Get public site branding",
+        "tags": [
+          "Public"
+        ]
+      },
+      "patch": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.PatchSiteBrandingReq",
+                "description": ""
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.PatchSiteBrandingRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Update site branding",
+        "tags": [
+          "Administration"
         ]
       }
     }

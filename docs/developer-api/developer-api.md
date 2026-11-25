@@ -41,5 +41,7 @@
 | `GET /api/v1/pastes/{code}` | Open a Paste that does not require a password | `paste.paste.read` |
 | `POST /api/v1/pastes/{code}/access` | Open a password-protected Paste | `paste.paste.read` |
 | `GET /api/v1/settings` | Read public site settings | `paste.paste.read` |
+| `GET /api/v1/site/branding` | Get public site branding | `paste.paste.read` |
+| `PATCH /api/v1/site/branding` | Update site branding | `paste.settings.manage` |
 
 字段、请求体、响应与引用 Schema 见生成的 OpenAPI。未列入的接口不代表允许 PAT 调用。

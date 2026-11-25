@@ -175,6 +175,18 @@
       "common.validation_failed",
       "paste.not_authenticated",
       "paste.forbidden"
+    ],
+    "GET /api/v1/site/branding": [
+      "common.internal",
+      "common.rate_limited"
+    ],
+    "PATCH /api/v1/site/branding": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "paste.not_authenticated",
+      "paste.forbidden",
+      "paste.conflict"
     ]
   }
 }

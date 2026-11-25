@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/yueli-official/foundation/go/siteprofile"
 )
 
 var (
@@ -69,9 +71,51 @@ func (service *Service) Update(ctx context.Context, input UpdateInput) (Settings
 	if input.ExpectedRevision < 1 {
 		return Settings{}, ErrConflict
 	}
-	value := Settings{
-		Name: name, Description: description, Revision: input.ExpectedRevision + 1,
-		UpdatedAt: service.now().UTC(), UpdatedBy: updatedBy,
+	value, err := service.Get(ctx)
+	if err != nil {
+		return Settings{}, err
 	}
-	return service.store.UpdateSettings(ctx, value, input.ExpectedRevision)
+	if value.Revision != input.ExpectedRevision {
+		return Settings{}, ErrConflict
+	}
+	if _, err := applyBranding(&value, input.BrandImagePatch); err != nil {
+		return Settings{}, err
+	}
+	value.Name, value.Description = name, description
+	return service.storeSettings(ctx, value, updatedBy)
+}
+
+var BrandingDefaults = siteprofile.BrandImageURLs{LogoURL: "/favicon.svg", FaviconURL: "/favicon.svg"}
+
+func (service *Service) PatchBranding(ctx context.Context, patch siteprofile.BrandImagePatch, updatedBy string) (Settings, error) {
+	value, err := service.Get(ctx)
+	if err != nil {
+		return Settings{}, err
+	}
+	changed, err := applyBranding(&value, patch)
+	if err != nil || !changed {
+		return value, err
+	}
+	return service.storeSettings(ctx, value, updatedBy)
+}
+
+func (service *Service) storeSettings(ctx context.Context, value Settings, updatedBy string) (Settings, error) {
+	expected := value.Revision
+	value.Revision++
+	value.UpdatedAt, value.UpdatedBy = service.now().UTC(), updatedBy
+	return service.store.UpdateSettings(ctx, value, expected)
+}
+
+func applyBranding(value *Settings, patch siteprofile.BrandImagePatch) (bool, error) {
+	branding := siteprofile.Branding{BrandImageURLs: value.BrandImageURLs}
+	changed := patch.Apply(&branding, BrandingDefaults)
+	for _, entry := range []struct{ field, url string }{
+		{"logoUrl", branding.LogoURL}, {"faviconUrl", branding.FaviconURL},
+	} {
+		if entry.url != "" && !siteprofile.ValidPublicBrandImageURL(entry.url) {
+			return false, ValidationError{Field: entry.field, Message: "must be a public HTTPS image URL"}
+		}
+	}
+	value.BrandImageURLs = branding.BrandImageURLs
+	return changed, nil
 }

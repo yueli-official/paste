@@ -4,6 +4,8 @@
 
 Paste 复用 Identity 的开发者令牌。账户中心实时查询当前账号在 Paste 的权限；脚本向 Paste API 发送 `Authorization: Bearer <PAT>`，不复制浏览器 Cookie。
 
+无需登录即可通过 `GET /api/v1/site/branding` 读取公开的 Logo 和 favicon 地址。使用包含 `paste.settings.manage` 的令牌调用同路径的 `PATCH`，只传要更新的 `logoUrl` 或 `faviconUrl`。填写公开 HTTPS 图片地址，传空字符串恢复默认。
+
 ## 权限
 
 | 权限 | 能力 | 当前账号要求 |

@@ -1,0 +1,182 @@
+{
+  "release": "paste-spa-20261114-1",
+  "scope": "Only Web deployed, full SPA with Nitro auth/BFF; original API and production data unchanged",
+  "build": "3个测试文件9项测试、typecheck、正式build通过",
+  "provenance": {
+    "sourceArchiveSha256": "fc40c1bd3c0059806077211134b1de189202e565cb7c3271123ca023b5344c45",
+    "sourceFileCount": 179,
+    "webArtifactSha256": "46b310ab3fffa59b73b95325cad6e6ace82c98d1864aea5b2d12104bc5108dcb",
+    "webSourceSha256": "32f78ca06742eed6003457be7560c27c28aed181aebbbec3f4e8f971660e788d",
+    "approvedBaselineSha256": "b896e8efe51b901bf8877e580cfa0af10de62e8ebe0aac6d2573584ad98f63e5"
+  },
+  "production": {
+    "passed": true,
+    "release": "paste-spa-20261114-1",
+    "webImageId": "sha256:4631e05e3a3406e9b87fa19c18690cc55eaa3c4e69afa6e4f77acc7a9c3b5bb8",
+    "webContainerId": "5a2d3e547da5a20e15c4da6b9479b508ae76e433e4e91326f5b5b7537f2d966e",
+    "apiImageId": "sha256:63b2260959d70dcef5110a6f8a103d78ec8c140f6bdfe89aa0cf332ce19f1ecb",
+    "apiContainerId": "02402f338333f0c1d6e9f09b6e30e70c8606ca9f9219c143086d88318356c63b",
+    "apiUnchanged": true,
+    "unrelatedContainersUnchanged": true,
+    "environmentAndPortsUnchanged": true,
+    "health": "healthy",
+    "restarts": 0,
+    "staticAssetsVerified": 189,
+    "checks": [
+      {
+        "path": "/",
+        "status": 200,
+        "spaShell": true
+      },
+      {
+        "path": "/mine",
+        "status": 200,
+        "spaShell": true
+      },
+      {
+        "path": "/p/NoSuch01",
+        "status": 200,
+        "spaShell": true
+      },
+      {
+        "path": "/admin",
+        "status": 200,
+        "spaShell": true
+      },
+      {
+        "path": "/setup",
+        "status": 200,
+        "spaShell": true
+      }
+    ],
+    "jsonProbe": {
+      "path": "/api/v1/settings",
+      "status": 200
+    },
+    "elapsedSeconds": 9.824872428085655,
+    "rollbackCompose": "/projects/yuelili.com/backups/paste-spa-20261114-1/compose.yaml",
+    "databaseMigrations": []
+  },
+  "controlledMemory": {
+    "beforeMiB": 106.44921875,
+    "spaMiB": 41.6796875,
+    "savedMiB": 64.76953125,
+    "savedPercent": 60.84547356060328,
+    "paths": [
+      "/",
+      "/p/NoSuch01"
+    ],
+    "warmupRequests": 4,
+    "measuredRequests": 6,
+    "concurrency": 2,
+    "idleSeconds": 20,
+    "scope": "HTML requests only, not full browser resource workload"
+  },
+  "observation": {
+    "passed": true,
+    "seconds": 90,
+    "samples": [
+      {
+        "time": "2026-11-14T16:40:08.486427+00:00",
+        "workingMiB": 55.99,
+        "swapMiB": 0.0,
+        "health": "healthy",
+        "restarts": 0,
+        "oomKilled": false
+      },
+      {
+        "time": "2026-11-14T16:40:38.521898+00:00",
+        "workingMiB": 56.16,
+        "swapMiB": 0.0,
+        "health": "healthy",
+        "restarts": 0,
+        "oomKilled": false
+      },
+      {
+        "time": "2026-11-14T16:41:08.552260+00:00",
+        "workingMiB": 56.17,
+        "swapMiB": 0.0,
+        "health": "healthy",
+        "restarts": 0,
+        "oomKilled": false
+      },
+      {
+        "time": "2026-11-14T16:41:38.613823+00:00",
+        "workingMiB": 56.22,
+        "swapMiB": 0.0,
+        "health": "healthy",
+        "restarts": 0,
+        "oomKilled": false
+      }
+    ]
+  },
+  "productionBrowser": {
+    "passed": true,
+    "cases": 10,
+    "businessWritesBlocked": true
+  },
+  "localAcceptance": {
+    "passed": true,
+    "scope": "Actual final .output, real Workspace Paste/Identity/Asset with private PostgreSQL and Redis; 8 desktop/mobile cases: share confirmation, ownership, password protection, outsiders denied, edit, login claim, cookie clearing, library search/cancel/delete, batch retry. Existing business assertions preserved; temporary copies change obsolete Account Vue-internal readiness to Nuxt hydration completion. Screenshot font wait disabled to avoid irrelevant external font wait.",
+    "cases": 8,
+    "stats": {
+      "startTime": "2026-11-14T16:37:12.773Z",
+      "duration": 70175.828,
+      "expected": 8,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "reportSha256": "bd8c2f6ef1357ffdae6cc9fda77772d3e56ce855b2545b2fb454f61c1b38a0c5",
+    "productionWrites": false,
+    "adaptation": "local-test-adaptation.json"
+  },
+  "visual": {
+    "reviewed": true,
+    "imageId": "sha256:4631e05e3a3406e9b87fa19c18690cc55eaa3c4e69afa6e4f77acc7a9c3b5bb8",
+    "scope": "Actual candidate desktop editor and mobile protected-share dialog viewed, retained existing styles",
+    "screenshots": [
+      "browser-candidate/home-1440-light.png",
+      "browser-candidate/share-dialog-390-dark.png",
+      "browser-local/results/library-owner-library-and--7a93e-ncelling-and-deleting-links-desktop/library-dark.png",
+      "browser-local/results/library-owner-library-and--7a93e-ncelling-and-deleting-links-mobile/library-dark.png"
+    ],
+    "limitations": "No physical mobile device"
+  },
+  "recovery": {
+    "backupDirectory": "/projects/yuelili.com/backups/paste-spa-20261114-1",
+    "retainedOldWebImage": "yueli/paste-web:delete-dialog-20261024-2",
+    "noDatabaseRestore": true
+  },
+  "artifactDirectory": "D:\\coding\\yueli-official\\task-artifacts\\paste\\spa-20261114-1",
+  "remoteTask": "/projects/yuelili.com/.deploy/paste-spa-20261114-1",
+  "limitations": [
+    "No real production payment/order/content creation or administrator writes",
+    "No physical mobile device; desktop and mobile browser viewports",
+    "90-second post-release observation, no long-term/high-concurrency claim"
+  ],
+  "postReleaseDocumentation": true,
+  "localFixtureInputs": {
+    "archive": "D:/coding/yueli-official/task-artifacts/paste/spa-20261114-1/local-fixture-inputs.tgz",
+    "sha256": "4f07a7fc60123049d88c45f92dd0305b31362f8b7f26c89fcbdef8370b6ab62c",
+    "scope": "Private integration Go+environment fixtures; not deployed API sources"
+  },
+  "cleanup": {
+    "passed": true,
+    "commonAudit": "D:\\coding\\yueli-official\\task-artifacts\\paste\\spa-20261114-1\\cleanup-local.json",
+    "auditSha256": "3c0551685682bc59391cc4878d2a7972a2e3e07395405bff2d01ea2a091611bf",
+    "generatedDirectoriesAtThisArtifactRoot": 8,
+    "logicalBytesAtThisArtifactRoot": 3100061602,
+    "allTestServicesStopped": true,
+    "candidatesAndTestRedisRemoved": true,
+    "temporaryAcceptanceScriptsRemoved": true,
+    "sourceReleaseArchivesDownloadsAndRestoreEvidenceRetained": true,
+    "sharedCachesPruned": false
+  },
+  "localDependencyState": {
+    "manifestAndLockUnchanged": true,
+    "nuxtUI": "4.10.0",
+    "sharedUI": "0.10.0-preview.20261027.references.1",
+    "restoredFrozenInstall": true
+  }
+}

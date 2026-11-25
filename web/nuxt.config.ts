@@ -1,9 +1,16 @@
+import { fileURLToPath } from "node:url";
+
 const cookieSecure =
   process.env.NUXT_COOKIE_SECURE === undefined
     ? process.env.NODE_ENV === "production"
     : process.env.NUXT_COOKIE_SECURE === "true";
 
 export default defineNuxtConfig({
+  routeRules: {
+    "/api/v1/site/branding": { headers: { "access-control-allow-origin": "*" } },
+  },
+  ssr: false,
+  spaLoadingTemplate: fileURLToPath(new URL("./app/spa-loading-template.html", import.meta.url)),
   devtools: { enabled: process.env.NUXT_DEVTOOLS === "true" },
   extends: ["@yueli/identity-nuxt", "@yueli/content-nuxt"],
   colorMode: { preference: "dark", fallback: "dark" },
@@ -46,13 +53,6 @@ export default defineNuxtConfig({
   app: {
     head: {
       link: [
-        { rel: "icon", type: "image/x-icon", href: "/favicon.ico?v=20260929" },
-        {
-          rel: "icon",
-          type: "image/svg+xml",
-          sizes: "any",
-          href: "/favicon.svg?v=20260929",
-        },
         {
           rel: "apple-touch-icon",
           sizes: "180x180",

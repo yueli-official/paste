@@ -1,6 +1,10 @@
 package site
 
-import "time"
+import (
+	"time"
+
+	"github.com/yueli-official/foundation/go/siteprofile"
+)
 
 const (
 	DefaultName         = "代码片段"
@@ -10,6 +14,7 @@ const (
 )
 
 type Settings struct {
+	siteprofile.BrandImageURLs
 	Name        string
 	Description string
 	Revision    int64
@@ -18,6 +23,7 @@ type Settings struct {
 }
 
 type UpdateInput struct {
+	siteprofile.BrandImagePatch
 	Name             string
 	Description      string
 	ExpectedRevision int64

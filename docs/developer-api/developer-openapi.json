@@ -186,6 +186,19 @@
         },
         "type": "object"
       },
+      "github.com.yueli-official.paste.api.v1.GetSiteBrandingRes": {
+        "properties": {
+          "faviconUrl": {
+            "format": "string",
+            "type": "string"
+          },
+          "logoUrl": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "github.com.yueli-official.paste.api.v1.GetSiteSettingsRes": {
         "properties": {
           "settings": {
@@ -384,9 +397,43 @@
         },
         "type": "object"
       },
+      "github.com.yueli-official.paste.api.v1.PatchSiteBrandingReq": {
+        "properties": {
+          "faviconUrl": {
+            "format": "*string",
+            "type": "string"
+          },
+          "logoUrl": {
+            "format": "*string",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.paste.api.v1.PatchSiteBrandingRes": {
+        "properties": {
+          "faviconUrl": {
+            "format": "string",
+            "type": "string"
+          },
+          "logoUrl": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "github.com.yueli-official.paste.api.v1.SiteSettingsView": {
         "properties": {
           "description": {
+            "format": "string",
+            "type": "string"
+          },
+          "faviconUrl": {
+            "format": "string",
+            "type": "string"
+          },
+          "logoUrl": {
             "format": "string",
             "type": "string"
           },
@@ -433,6 +480,14 @@
             "format": "int64",
             "minimum": 1,
             "type": "integer"
+          },
+          "faviconUrl": {
+            "format": "*string",
+            "type": "string"
+          },
+          "logoUrl": {
+            "format": "*string",
+            "type": "string"
           },
           "name": {
             "format": "string",
@@ -1169,8 +1224,82 @@
           ]
         ]
       }
+    },
+    "/api/v1/site/branding": {
+      "get": {
+        "operationId": "get_api_v1_site_branding",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.GetSiteBrandingRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "DeveloperSite": [],
+            "DeveloperToken": []
+          }
+        ],
+        "summary": "Get public site branding",
+        "tags": [
+          "Public"
+        ],
+        "x-yueli-pat-scope-any-of": [
+          [
+            "paste.paste.read"
+          ]
+        ]
+      },
+      "patch": {
+        "operationId": "patch_api_v1_site_branding",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.PatchSiteBrandingReq",
+                "description": ""
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.paste.api.v1.PatchSiteBrandingRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "DeveloperSite": [],
+            "DeveloperToken": []
+          }
+        ],
+        "summary": "Update site branding",
+        "tags": [
+          "Administration"
+        ],
+        "x-yueli-pat-scope-any-of": [
+          [
+            "paste.settings.manage"
+          ]
+        ]
+      }
     }
   },
   "x-yueli-deployment-status": "unknown",
-  "x-yueli-source-digest": "4f0844f14f610c7bb2d5ecb536c93d1fff49580e331e64a75a3cf878ad302bb2"
+  "x-yueli-source-digest": "97685ec8f427ddaf0dd16edd0f64bbf935a3f1f9a9b6ee5e1ce940b2a25922dc"
 }

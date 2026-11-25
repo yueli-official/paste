@@ -108,6 +108,8 @@ export interface AdministrationUserPolicy {
 }
 
 export interface SiteSettings {
+  logoUrl?: string;
+  faviconUrl?: string;
   name: string;
   description: string;
   revision: number;
@@ -145,6 +147,8 @@ export interface PastePatchInput {
 }
 
 export interface SiteSettingsInput {
+  logoUrl?: string;
+  faviconUrl?: string;
   name: string;
   description: string;
   expectedRevision: number;

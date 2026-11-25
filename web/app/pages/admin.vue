@@ -73,6 +73,8 @@ const batchDeleting = ref(false);
 const operationMessage = ref("");
 const settingsName = ref(settings.value.name);
 const settingsDescription = ref(settings.value.description);
+const settingsLogoUrl = ref(settings.value.logoUrl ?? "");
+const settingsFaviconUrl = ref(settings.value.faviconUrl ?? "");
 const settingsSaving = ref(false);
 const saveFeedback = useActionFeedback({ resetMs: 1000 });
 const settingsError = ref("");
@@ -176,7 +178,9 @@ const currentPage = computed({
 });
 const settingsDirty = computed(() =>
   settingsName.value.trim() !== settings.value.name ||
-  settingsDescription.value.trim() !== settings.value.description,
+  settingsDescription.value.trim() !== settings.value.description ||
+  settingsLogoUrl.value.trim() !== (settings.value.logoUrl ?? "") ||
+  settingsFaviconUrl.value.trim() !== (settings.value.faviconUrl ?? ""),
 );
 const directory = usePublicUserDirectory(computed(() => section.value === "users" ? users.value.map(user => user.userKey) : []));
 const accountOrigin = String(useRuntimeConfig().public.accountUrl).replace(/\/$/, "");
@@ -490,16 +494,20 @@ async function saveSettings(): Promise<boolean> {
     const response = await api.updateSettings({
       name: settingsName.value,
       description: settingsDescription.value,
+      logoUrl: settingsLogoUrl.value,
+      faviconUrl: settingsFaviconUrl.value,
       expectedRevision: settings.value.revision,
     });
     adopt(response.settings);
     settingsName.value = response.settings.name;
     settingsDescription.value = response.settings.description;
+    settingsLogoUrl.value = response.settings.logoUrl ?? "";
+    settingsFaviconUrl.value = response.settings.faviconUrl ?? "";
     saveFeedback.success();
     return true;
   } catch (caught) {
     saveFeedback.reset();
-    settingsFailure.value = pasteFailureFeedback(caught,"公开展示未保存，请检查后重试。",{"/name":"name","/description":"description"});
+    settingsFailure.value = pasteFailureFeedback(caught,"公开展示未保存，请检查后重试。",{"/name":"name","/description":"description","/logoUrl":"logoUrl","/faviconUrl":"faviconUrl"});
     return false;
   } finally {
     settingsSaving.value = false;
@@ -510,6 +518,8 @@ function resetSettingsDraft() {
   settingsFailure.value = null;
   settingsName.value = settings.value.name;
   settingsDescription.value = settings.value.description;
+  settingsLogoUrl.value = settings.value.logoUrl ?? "";
+  settingsFaviconUrl.value = settings.value.faviconUrl ?? "";
   settingsError.value = "";
 }
 
@@ -671,6 +681,12 @@ onBeforeUnmount(() => {
               <UTextarea id="paste-site-description" v-model="settingsDescription" name="siteDescription" maxlength="160" :rows="3" aria-label="站点提示语" class="w-full" />
             </UFormField>
             <FailureNotice :feedback="settingsFailure" />
+            <UFormField label="网站 Logo" name="logoUrl" help="填写公开 HTTPS 图片地址，留空使用默认图标。" :error="settingsFailure?.fieldErrors.logoUrl?.join(' ')">
+              <UInput v-model="settingsLogoUrl" inputmode="url" maxlength="2048" class="w-full" />
+            </UFormField>
+            <UFormField label="浏览器标签页图标" name="faviconUrl" help="留空使用默认图标。" :error="settingsFailure?.fieldErrors.faviconUrl?.join(' ')">
+              <UInput v-model="settingsFaviconUrl" inputmode="url" maxlength="2048" class="w-full" />
+            </UFormField>
           </div>
         </SettingSection>
       </form>

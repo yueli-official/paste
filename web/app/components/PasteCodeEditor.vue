@@ -166,7 +166,7 @@ onMounted(() => {
       ],
     }),
   });
-  if (props.autofocus) editor.focus();
+  if (props.autofocus && window.matchMedia("(min-width: 768px)").matches) editor.focus();
 });
 
 watch(

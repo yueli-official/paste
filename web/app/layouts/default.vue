@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { AccountMenuAction } from "@yueli/ui/account-menu/pattern";
 
-const { siteName } = useSiteSettings();
+const { siteName, settings } = useSiteSettings();
 const { isAdmin } = usePasteAdministration();
 const accountActions = computed<readonly AccountMenuAction[]>(() => [
   { label: "内容库", icon: "i-tabler-folders", to: "/mine" },
@@ -30,7 +30,8 @@ const applicationShell = computed(() =>
           class="inline-flex items-center gap-[7px] text-[15px] font-[730] tracking-[-0.025em] text-[var(--paste-ink)] no-underline"
           :aria-label="`${siteName} 首页`"
         >
-          <span
+          <img v-if="settings.logoUrl" :src="settings.logoUrl" alt="" width="24" height="24" class="size-6 shrink-0 object-contain" />
+          <span v-else
             class="grid size-6 place-items-center rounded-md border border-[color-mix(in_srgb,var(--paste-blue)_28%,var(--paste-line))] bg-[var(--paste-blue-soft)] text-[var(--paste-blue)]"
             aria-hidden="true"
           >
@@ -49,15 +50,18 @@ const applicationShell = computed(() =>
           />
           <UTooltip text="切换颜色模式">
             <UColorModeButton
+              class="hidden md:inline-flex"
               color="neutral"
               variant="ghost"
               aria-label="切换颜色模式"
             />
           </UTooltip>
-          <ConsumerAccountControl :context-actions="accountActions" />
+          <YSiteLauncher />
+          <ConsumerAccountControl class="hidden md:block" :context-actions="accountActions" />
         </div>
       </nav>
     </header>
     <component :is="applicationShell ? 'div' : 'main'"><slot /></component>
+    <PasteMobileNavigation v-if="!applicationShell" />
   </div>
 </template>
