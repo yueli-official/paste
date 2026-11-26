@@ -19,7 +19,10 @@ export default defineNuxtConfig({
     resolve: { dedupe: ["prosemirror-tables"] },
     optimizeDeps: { include: ["@yueli/content-nuxt > @tiptap/pm/tables"] },
   },
-  modules: ["@nuxt/ui", "@yueli/ui", "@yueli/nuxt-runtime"],
+  modules: ["@nuxt/ui", "@yueli/ui", "@yueli/nuxt-runtime", ["@yueli/traffic-nuxt", {
+    origin: "https://paste.yuelili.com",
+    routes: [{ pattern: "^/$", resource: "/" }],
+  }]],
   yueliRuntime: {
     defaultTarget: "platform",
     targets: {
